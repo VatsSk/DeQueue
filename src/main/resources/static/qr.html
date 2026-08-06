@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand"><i data-lucide="qr-code"></i> DeQueue</div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="qr.html" class="nav-item active"><i data-lucide="qr-code"></i> QR Code</a>
+                <a href="profile.html" class="nav-item"><i data-lucide="store"></i> Shop Profile</a>
+                <a href="settings.html" class="nav-item"><i data-lucide="settings"></i> Settings</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="flex items-center gap-4">
+                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"><i data-lucide="menu"></i></button>
+                    <h2 class="text-xl">QR Code</h2>
+                </div>
+            </header>
+
+            <div class="page-content flex justify-center items-center" style="min-height: calc(100vh - var(--header-height));">
+                <div class="card text-center" style="max-width: 400px; width: 100%;">
+                    <h3 class="mb-2 font-bold text-xl">Grandma's Cafe</h3>
+                    <p class="text-muted mb-6">Scan to order</p>
+                    
+                    <div class="bg-white p-4 rounded-lg inline-block mb-6 shadow-md border border-border" id="qr-container">
+                        <img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="QR Code" width="250" height="250" style="object-fit: contain;">
+                    </div>
+                    
+                    <div class="flex flex-col gap-3">
+                        <button class="btn btn-primary w-full" onclick="showToast('QR Code Downloaded', 'success')"><i data-lucide="download"></i> Download PNG</button>
+                        <button class="btn btn-secondary w-full" onclick="showToast('Link Copied', 'info')"><i data-lucide="copy"></i> Copy Order Link</button>
+                        <button class="btn btn-secondary w-full" onclick="window.print()"><i data-lucide="printer"></i> Print</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/qr.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

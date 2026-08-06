@@ -1,0 +1,26 @@
+package com.dequeue.order.dto;
+
+import com.dequeue.order.entity.OrderStatus;
+import com.dequeue.order.entity.StatusChange;
+import lombok.Data;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+@Data
+public class OrderResponse {
+    private String id;
+    private String vendorCode;
+    private String queueNumber;
+    private List<OrderItemResponse> items;
+    private String customOrderText;
+    private BigDecimal totalAmount;
+    private OrderStatus status;
+    private String customerNote;
+    private List<StatusChange> statusHistory;
+    private Instant createdAt;
+    private Instant updatedAt;
+    private Instant completedAt;
+    private Instant estimatedReadyTime;
+}
+

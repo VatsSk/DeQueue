@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/orders.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <i data-lucide="qr-code"></i> DeQueue
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="orders.html" class="nav-item active"><i data-lucide="list-ordered"></i> Orders</a>
+                <a href="menu.html" class="nav-item"><i data-lucide="utensils"></i> Menu</a>
+                <a href="categories.html" class="nav-item"><i data-lucide="tags"></i> Categories</a>
+                <a href="customer.html" class="nav-item"><i data-lucide="smartphone"></i> Customer View</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="flex items-center gap-4">
+                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h2 class="text-xl">Orders</h2>
+                </div>
+            </header>
+
+            <div class="page-content orders-container">
+                <div class="orders-header">
+                    <div class="orders-filters">
+                        <button class="filter-tab active">All</button>
+                        <button class="filter-tab">Pending (2)</button>
+                        <button class="filter-tab">Preparing (5)</button>
+                        <button class="filter-tab">Ready (1)</button>
+                    </div>
+                    <div>
+                        <input type="text" class="form-control" placeholder="Search Order #..." style="max-width: 200px;">
+                    </div>
+                </div>
+
+                <div class="orders-grid">
+                    <!-- Populated by JS -->
+                </div>      </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/orders.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <i data-lucide="qr-code"></i> DeQueue
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item active"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="orders.html" class="nav-item"><i data-lucide="list-ordered"></i> Orders</a>
+                <a href="menu.html" class="nav-item"><i data-lucide="utensils"></i> Menu</a>
+                <a href="categories.html" class="nav-item"><i data-lucide="tags"></i> Categories</a>
+                <a href="customer.html" class="nav-item"><i data-lucide="smartphone"></i> Customer View</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="flex items-center gap-4">
+                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h2 class="text-xl" id="shopNameHeading">Grandma's Cafe</h2>
+                    <span class="badge badge-ready" id="shopStatusBadge">OPEN</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button class="btn btn-secondary" id="pauseOrdersBtn"><i data-lucide="pause-circle"></i> Pause Orders</button>
+                    <button class="btn btn-icon logout-btn" title="Logout"><i data-lucide="log-out"></i></button>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="dashboard-grid">
+                    <!-- Stats -->
+                    <div class="stats-card">
+                        <div class="stats-icon blue"><i data-lucide="shopping-bag"></i></div>
+                        <div class="stats-info"><h3>Total Orders</h3><p id="stat-total-orders">0</p></div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-icon orange"><i data-lucide="clock"></i></div>
+                        <div class="stats-info"><h3>Pending</h3><p id="stat-pending-orders">0</p></div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-icon red"><i data-lucide="chef-hat"></i></div>
+                        <div class="stats-info"><h3>Preparing</h3><p id="stat-preparing-orders">0</p></div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-icon green"><i data-lucide="check-circle-2"></i></div>
+                        <div class="stats-info"><h3>Ready</h3><p id="stat-ready-orders">0</p></div>
+                    </div>
+
+                    <!-- Live Queue -->
+                    <div class="live-queue">
+                        <div class="live-queue-header">
+                            <h3>Live Queue</h3>
+                            <button class="btn btn-secondary btn-icon" onclick="window.location.reload()"><i data-lucide="refresh-cw"></i></button>
+                        </div>
+                        <div class="queue-display">
+                            <!-- Populated by JS -->
+                        </div>
+                        
+                        <h4 class="mt-4 mb-4 text-muted">Recent Orders</h4>
+                        <div class="card p-4" id="recent-orders-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Sidebar Info -->
+                    <div class="dashboard-sidebar">
+                        <div class="wait-time-card">
+                            <h3 class="text-muted">Average Wait Time</h3>
+                            <div class="wait-time-value" id="avg-wait-time">0<span style="font-size: 1.5rem">m</span></div>
+                            <p class="text-success"><i data-lucide="trending-down"></i> Updated Live</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script>
+        lucide.createIcons();
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                document.getElementById('shopNameHeading').innerText = user.shopName || 'Dashboard';
+            }
+
+            try {
+                const res = await api.get('/vendors/me/status');
+                if (res.success) updateStatusUI(res.data);
+            } catch (e) { console.error(e); }
+
+            document.getElementById('pauseOrdersBtn').addEventListener('click', async () => {
+                const isPaused = document.getElementById('shopStatusBadge').innerText === 'PAUSED';
+                const newStatus = isPaused ? 'OPEN' : 'PAUSED';
+                try {
+                    const res = await api.patch('/vendors/me/status', { status: newStatus });
+                    if (res.success) {
+                        updateStatusUI(res.data);
+                        if (window.showToast) showToast(`Orders are now ${newStatus.toLowerCase()}`, 'success');
+                    }
+                } catch (err) {
+                    if (window.showToast) showToast('Failed to update status', 'error');
+                }
+            });
+        });
+
+        function updateStatusUI(status) {
+            const badge = document.getElementById('shopStatusBadge');
+            const btn = document.getElementById('pauseOrdersBtn');
+            badge.innerText = status;
+            if (status === 'OPEN') {
+                badge.className = 'badge badge-ready';
+                btn.innerHTML = '<i data-lucide="pause-circle"></i> Pause Orders';
+            } else {
+                badge.className = 'badge badge-preparing';
+                btn.innerHTML = '<i data-lucide="play-circle"></i> Resume Orders';
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>

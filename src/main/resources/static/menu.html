@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/menu.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <i data-lucide="qr-code"></i> DeQueue
+            </div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="orders.html" class="nav-item"><i data-lucide="list-ordered"></i> Orders</a>
+                <a href="menu.html" class="nav-item active"><i data-lucide="utensils"></i> Menu</a>
+                <a href="categories.html" class="nav-item"><i data-lucide="tags"></i> Categories</a>
+                <a href="customer.html" class="nav-item"><i data-lucide="smartphone"></i> Customer View</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="flex items-center gap-4">
+                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h2 class="text-xl">Menu Management</h2>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="menu-header">
+                    <div>
+                        <input type="text" class="form-control" placeholder="Search menu..." style="min-width: 250px;">
+                    </div>
+                    <button class="btn btn-primary" onclick="openModal('add-item-modal')"><i data-lucide="plus"></i> Add Item</button>
+                </div>
+
+                <div class="menu-layout">
+                    <!-- Categories -->
+                    <div class="category-sidebar">
+                        <h3 class="text-muted mb-4 px-2">Categories</h3>
+                        <div class="cat-list" id="categoryListContainer">
+                            <div class="cat-item active">Loading...</div>
+                        </div>
+                    </div>
+
+                    <!-- Items Grid -->
+                    <div class="menu-items-grid" id="menuItemsGrid">
+                        <!-- Items will be populated here by JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div class="modal-overlay" id="add-item-modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add Menu Item</h3>
+                <button class="btn-icon" onclick="closeModal('add-item-modal')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="image-upload-area mb-4">
+                    <i data-lucide="upload-cloud" style="width: 48px; height: 48px; color: var(--primary); margin: 0 auto 1rem;"></i>
+                    <p>Drag & drop image here or click to browse</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Item Name</label>
+                    <input type="text" id="addItemName" class="form-control" placeholder="e.g., Iced Latte">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">Price (₹)</label>
+                        <input type="number" id="addItemPrice" class="form-control" placeholder="150">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select id="addItemCategory" class="form-control">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="addItemDesc" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-item-modal')">Cancel</button>
+                <button class="btn btn-primary" id="saveItemBtn">Save Item</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/menu.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--bg-color), #0f172a);
+        }
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 2.5rem;
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .logo {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .tagline {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        .login-form {
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="card login-card animate-slide-up">
+        <div class="logo">
+            <i data-lucide="qr-code"></i> DeQueue
+        </div>
+        <p class="tagline">Bye Bye Queue</p>
+        
+        <form class="login-form" id="loginForm">
+            <div class="form-group">
+                <label class="form-label" for="email">Email</label>
+                <input type="email" id="email" class="form-control" required placeholder="admin@dequeue.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" id="password" class="form-control" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn btn-primary w-full mt-4">
+                Login <i data-lucide="arrow-right"></i>
+            </button>
+        </form>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Logging in...';
+            btn.disabled = true;
+            lucide.createIcons();
+
+            try {
+                const response = await api.post('/auth/login', {
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value
+                });
+                
+                if (response.success) {
+                    api.setToken(response.data.accessToken);
+                    localStorage.setItem('refreshToken', response.data.refreshToken);
+                    localStorage.setItem('user', JSON.stringify(response.data.user));
+                    window.location.href = 'dashboard.html';
+                } else {
+                    showToast(response.message || 'Login failed', 'error');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    lucide.createIcons();
+                }
+            } catch (err) {
+                showToast(err.message || 'Login failed. Please check your credentials.', 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        });
+    </script>
+</body>
+</html>

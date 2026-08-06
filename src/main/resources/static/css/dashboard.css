@@ -1,0 +1,119 @@
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.5rem;
+}
+
+/* Stats Cards */
+.stats-card {
+  grid-column: span 3;
+  display: flex;
+  align-items: center;
+  padding: 1.5rem;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  gap: 1.5rem;
+}
+
+.stats-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+.stats-icon.blue { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+.stats-icon.green { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+.stats-icon.orange { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+.stats-icon.red { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+.stats-info h3 {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+.stats-info p {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Live Queue Section */
+.live-queue {
+  grid-column: span 8;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  min-height: 400px;
+}
+.live-queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.queue-display {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+.queue-box {
+  background: var(--bg-color);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  text-align: center;
+}
+.queue-box.serving {
+  border-color: var(--primary);
+  background: rgba(20, 184, 166, 0.05);
+}
+.queue-box h4 {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.queue-box .number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* Sidebar Info (Avg Wait time) */
+.dashboard-sidebar {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.wait-time-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 2rem;
+  text-align: center;
+}
+.wait-time-value {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 1rem 0;
+}
+
+@media (max-width: 1024px) {
+  .stats-card { grid-column: span 6; }
+  .live-queue { grid-column: span 12; }
+  .dashboard-sidebar { grid-column: span 12; }
+}
+@media (max-width: 640px) {
+  .stats-card { grid-column: span 12; }
+  .queue-display { grid-template-columns: repeat(2, 1fr); }
+}

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customizations - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand"><i data-lucide="qr-code"></i> DeQueue</div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="orders.html" class="nav-item"><i data-lucide="list-ordered"></i> Orders</a>
+                <a href="menu.html" class="nav-item"><i data-lucide="utensils"></i> Menu</a>
+                <a href="categories.html" class="nav-item"><i data-lucide="tags"></i> Categories</a>
+                <a href="customizations.html" class="nav-item active"><i data-lucide="settings-2"></i> Customizations</a>
+                <a href="customer.html" class="nav-item"><i data-lucide="smartphone"></i> Customer View</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="flex items-center gap-4">
+                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"><i data-lucide="menu"></i></button>
+                    <h2 class="text-xl">Customizations</h2>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="flex justify-between items-center mb-6">
+                    <input type="text" class="form-control" placeholder="Search groups..." style="max-width: 300px;">
+                    <button class="btn btn-primary" onclick="openModal('add-group-modal')"><i data-lucide="plus"></i> Add Group</button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="add-group-modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Add Customization Group</h3>
+                <button class="btn-icon" onclick="closeModal('add-group-modal')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Group Name</label>
+                    <input type="text" class="form-control" placeholder="e.g., Milk Choice">
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Selection Type</label>
+                        <select class="form-control">
+                            <option>Single (Radio)</option>
+                            <option>Multiple (Checkbox)</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-0 flex items-center mt-6">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox"> <span class="font-medium text-muted">Required Field</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <hr class="border-border my-6">
+                
+                <h4 class="mb-4">Options</h4>
+                <div id="options-container" class="flex flex-col gap-2 mb-4">
+                    <div class="flex gap-2 items-center">
+                        <input type="text" class="form-control" placeholder="Option name (e.g., Oat Milk)">
+                        <input type="number" class="form-control" placeholder="Price (+₹)" style="width: 120px;">
+                        <button class="btn-icon text-danger"><i data-lucide="x"></i></button>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm w-full" onclick="customizationsApp.addOptionRow()"><i data-lucide="plus"></i> Add Option</button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-group-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="showToast('Group Saved', 'success'); closeModal('add-group-modal')">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/customizations.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

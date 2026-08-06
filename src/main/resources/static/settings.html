@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .settings-nav { border-bottom: 1px solid var(--border); display: flex; gap: 1rem; margin-bottom: 2rem; }
+        .settings-tab { padding: 1rem 0; color: var(--text-muted); font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; }
+        .settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+        
+        .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success); }
+        input:focus + .slider { box-shadow: 0 0 1px var(--success); }
+        input:checked + .slider:before { transform: translateX(20px); }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand"><i data-lucide="qr-code"></i> DeQueue</div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="reports.html" class="nav-item"><i data-lucide="bar-chart-3"></i> Reports</a>
+                <a href="settings.html" class="nav-item active"><i data-lucide="settings"></i> Settings</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="flex items-center gap-4">
+                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"><i data-lucide="menu"></i></button>
+                    <h2 class="text-xl">Settings</h2>
+                </div>
+                <button class="btn btn-primary" onclick="showToast('Settings Saved', 'success')"><i data-lucide="save"></i> Save</button>
+            </header>
+
+            <div class="page-content" id="settings-content">
+                <div class="text-center text-muted p-8">
+                    <i data-lucide="settings" style="width: 48px; height: 48px; margin: 0 auto 1rem; opacity: 0.5;"></i>
+                    <p>Loading settings data...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/settings.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

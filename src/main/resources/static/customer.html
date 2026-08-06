@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grandma's Cafe - Order</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/customer.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background-color: var(--bg-color); }
+    </style>
+</head>
+<body>
+    <div class="customer-app">
+        <!-- Header -->
+        <header class="customer-header">
+            <div class="shop-info">
+                <div class="shop-logo flex items-center justify-center text-primary">
+                    <i data-lucide="coffee"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold">Grandma's Cafe</h1>
+                    <div class="shop-status open">Accepting Orders</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Menu View -->
+        <div id="menu-view">
+            <div class="category-pills">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="menu-grid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Active Order View (Hidden by default) -->
+        <div id="order-view" class="hidden flex-1 flex flex-col justify-center animate-fade-in">
+            <div class="active-order">
+                <div class="inline-block p-4 rounded-full bg-surface mb-4">
+                    <i data-lucide="check-circle-2" class="text-success" style="width: 48px; height: 48px;"></i>
+                </div>
+                <h2>Order Placed!</h2>
+                <p class="text-muted mt-2">Your queue number is</p>
+                <div class="queue-number-display" id="queue-number">A17</div>
+                <div class="badge badge-pending text-lg px-4 py-2 mt-4">Preparing</div>
+                
+                <div class="mt-8 text-left card">
+                    <h3 class="mb-4 border-b border-border pb-2">Order Status</h3>
+                    <div class="flex items-center gap-4 mb-4 text-primary">
+                        <i data-lucide="check-circle-2"></i> <span>Order Received</span>
+                    </div>
+                    <div class="flex items-center gap-4 mb-4 text-muted">
+                        <i data-lucide="circle"></i> <span>Preparing</span>
+                    </div>
+                    <div class="flex items-center gap-4 text-muted">
+                        <i data-lucide="circle"></i> <span>Ready for Collection</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Cart -->
+        <div class="floating-cart" id="floating-cart" onclick="openModal('cart-modal')">
+            <div class="flex flex-col">
+                <span class="text-sm opacity-90" id="cart-count">1 Item</span>
+                <span class="font-bold" id="cart-total">₹150</span>
+            </div>
+            <div class="flex items-center gap-2 font-bold">
+                View Cart <i data-lucide="chevron-right"></i>
+            </div>
+        </div>
+
+        <!-- Cart Modal -->
+        <div class="modal-overlay" id="cart-modal-overlay">
+            <div class="modal" style="margin-top: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%);">
+                <div class="modal-header">
+                    <h3>Your Cart</h3>
+                    <button class="btn-icon" onclick="closeModal('cart-modal')"><i data-lucide="x"></i></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-4">Items will be prepared once you place the order.</p>
+                    <button class="btn btn-primary w-full" onclick="window.customerApp.placeOrder()">Place Order</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/customer.js"></script>
+    <script>
+        lucide.createIcons();
+        
+        // Modal slide up animation override for bottom sheet
+        const origOpen = window.openModal;
+        window.openModal = (id) => {
+            origOpen(id);
+            if (id === 'cart-modal') {
+                document.querySelector('#cart-modal-overlay .modal').style.transform = 'translateY(0)';
+            }
+        };
+        const origClose = window.closeModal;
+        window.closeModal = (id) => {
+            if (id === 'cart-modal') {
+                document.querySelector('#cart-modal-overlay .modal').style.transform = 'translateY(100%)';
+                setTimeout(() => origClose(id), 300);
+            } else {
+                origClose(id);
+            }
+        };
+    </script>
+</body>
+</html>

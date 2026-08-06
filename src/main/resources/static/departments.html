@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Departments - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand"><i data-lucide="qr-code"></i> DeQueue</div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="orders.html" class="nav-item"><i data-lucide="list-ordered"></i> Orders</a>
+                <a href="staff.html" class="nav-item"><i data-lucide="users"></i> Staff</a>
+                <a href="departments.html" class="nav-item active"><i data-lucide="briefcase"></i> Departments</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="flex items-center gap-4">
+                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"><i data-lucide="menu"></i></button>
+                    <h2 class="text-xl">Departments</h2>
+                </div>
+            </header>
+
+            <div class="page-content" id="departments-content">
+                <div class="flex justify-between items-center mb-6">
+                    <input type="text" class="form-control" placeholder="Search departments..." style="max-width: 300px;">
+                    <button class="btn btn-primary" onclick="openModal('add-dept-modal')"><i data-lucide="plus"></i> Add Department</button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4" id="departments-grid">
+                    <div class="text-center text-muted p-4 col-span-3">Loading departments...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="add-dept-modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add Department</h3>
+                <button class="btn-icon" onclick="closeModal('add-dept-modal')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Department Name</label>
+                    <input type="text" class="form-control" placeholder="e.g., Barista">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-dept-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="showToast('Department Saved', 'success'); closeModal('add-dept-modal')">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/departments.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
