@@ -6,6 +6,7 @@ import com.dequeue.vendor.entity.ShopStatus;
 
 @Data
 public class PublicVendorResponse {
+    private String id;
     private String vendorCode;
     private String shopName;
     private String logo;

@@ -92,10 +92,13 @@
         </main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/router.js"></script>
+    <script src="js/dashboard.js"></script>
     <script>
         lucide.createIcons();
         
@@ -112,7 +115,8 @@
             } catch (e) { console.error(e); }
 
             document.getElementById('pauseOrdersBtn').addEventListener('click', async () => {
-                const isPaused = document.getElementById('shopStatusBadge').innerText === 'PAUSED';
+                const badge = document.getElementById('shopStatusBadge');
+                const isPaused = badge.innerText === 'PAUSED' || badge.innerText === 'CLOSED';
                 const newStatus = isPaused ? 'OPEN' : 'PAUSED';
                 try {
                     const res = await api.patch('/vendors/me/status', { status: newStatus });
@@ -126,7 +130,8 @@
             });
         });
 
-        function updateStatusUI(status) {
+        function updateStatusUI(statusData) {
+            const status = typeof statusData === 'object' ? statusData.status : statusData;
             const badge = document.getElementById('shopStatusBadge');
             const btn = document.getElementById('pauseOrdersBtn');
             badge.innerText = status;

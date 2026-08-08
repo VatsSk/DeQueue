@@ -24,7 +24,21 @@ public class QueueNumberGenerator {
         
         try {
             counter = redisTemplate.opsForValue().increment(key);
+            
+            // Self-healing: if Redis thinks this is the very first order, check if we actually lost data
             if (counter != null && counter == 1L) {
+                Instant startOfDay = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant();
+                Query query = new Query();
+                query.addCriteria(Criteria.where("vendorId").is(vendorId).and("createdAt").gte(startOfDay));
+                long actualCount = mongoTemplate.count(query, "orders");
+                
+                if (actualCount > 0) {
+                    // Redis lost data! Sync the actual count back to Redis
+                    counter = actualCount + 1;
+                    redisTemplate.opsForValue().set(key, counter);
+                    System.out.println("Redis self-healed counter from MongoDB. New counter: " + counter);
+                }
+                
                 redisTemplate.expire(key, Duration.ofHours(26));
             }
         } catch (Exception e) {

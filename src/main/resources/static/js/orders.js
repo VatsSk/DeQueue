@@ -10,8 +10,32 @@ class Orders {
     this.setupSearch();
     await this.fetchOrders();
     
-    // Poll for new orders every 15 seconds
-    setInterval(() => this.fetchOrders(), 15000);
+    this.connectWebSocket();
+  }
+
+  connectWebSocket() {
+    if (this.stompClient && this.stompClient.connected) return;
+    const socket = new SockJS('/ws');
+    this.stompClient = Stomp.over(socket);
+    this.stompClient.debug = null;
+    
+    this.stompClient.connect({}, () => {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                if (user && user.vendorId) {
+                    this.stompClient.subscribe('/topic/vendor/' + user.vendorId, (msg) => {
+                        this.fetchOrders();
+                    });
+                }
+            } catch (e) {
+                console.error("WebSocket subscription error", e);
+            }
+        }
+    }, (error) => {
+        console.error("WebSocket disconnected", error);
+    });
   }
 
   setupFilters() {

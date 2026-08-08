@@ -6,6 +6,30 @@ class Dashboard {
   init() {
     this.refreshData();
     this.startAutoRefresh();
+    this.connectWebSocket();
+  }
+
+  connectWebSocket() {
+    if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') return;
+    
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    const user = JSON.parse(userStr);
+    if (!user || !user.id) return;
+    
+    const socket = new SockJS('/ws');
+    this.stompClient = Stomp.over(socket);
+    this.stompClient.debug = null;
+    
+    this.stompClient.connect({}, () => {
+      this.stompClient.subscribe('/topic/vendor/' + user.vendorId, (msg) => {
+        // Just refresh the dashboard data whenever there's a vendor update
+        this.refreshData();
+      });
+    }, (error) => {
+      console.error("WebSocket disconnected, retrying...", error);
+      setTimeout(() => this.connectWebSocket(), 5000);
+    });
   }
 
   startAutoRefresh() {

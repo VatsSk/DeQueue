@@ -20,6 +20,7 @@ class CustomerApp {
   }
 
   async init() {
+    this.connectWebSocket();
     if (!this.vendorCode) {
       this.showError('Invalid vendor link. Please scan the QR code again.');
       return;
@@ -441,14 +442,96 @@ class CustomerApp {
 
       this.updateStatusDisplay(this.activeOrder.status);
     }
+  }
 
-    // Start polling for status updates
-    this.startPolling();
+  connectWebSocket() {
+    if (this.stompClient && this.stompClient.connected) return;
+    
+    // We assume Stomp and SockJS are loaded via CDN
+    const socket = new SockJS('/ws');
+    this.stompClient = Stomp.over(socket);
+    this.stompClient.debug = null; // Disable debug logging
+    
+    this.stompClient.connect({}, (frame) => {
+      // Listen to vendor updates for running queue
+      if (this.vendor && this.vendor.id) {
+          this.subscribeToVendor(this.vendor.id);
+      }
+      
+      // Listen to my active order
+      if (this.activeOrder && this.activeOrder.queueNumber) {
+          this.subscribeToOrder(this.activeOrder.queueNumber);
+      }
+    }, (error) => {
+      console.error("WebSocket disconnected, retrying...", error);
+      setTimeout(() => this.connectWebSocket(), 5000);
+    });
+  }
+  
+  subscribeToVendor(vendorId) {
+      if (!this.stompClient || !this.stompClient.connected) return;
+      this.stompClient.subscribe('/topic/vendor/' + vendorId, (msg) => {
+          const event = JSON.parse(msg.body);
+          if (event.status === 'PREPARING' || event.status === 'READY') {
+              const banner = document.getElementById('running-queue-banner');
+              const display = document.getElementById('running-queue-display');
+              if (banner && display) {
+                  banner.classList.remove('hidden');
+                  display.textContent = event.queueNumber;
+              }
+          }
+      });
+  }
+
+  subscribeToOrder(queueNumber) {
+      if (!this.stompClient || !this.stompClient.connected) return;
+      this.stompClient.subscribe('/topic/orders/' + queueNumber, (msg) => {
+          const event = JSON.parse(msg.body);
+          this.handleOrderUpdate(event);
+      });
+  }
+  
+  handleOrderUpdate(event) {
+      if (!this.activeOrder) return;
+      
+      this.activeOrder.status = event.status;
+      localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
+      this.updateStatusDisplay(event.status);
+      
+      if (event.status === 'READY') {
+        if (typeof showToast === 'function') showToast('Your order is READY! Please collect it.', 'success');
+      }
+      
+      if (event.status === 'COLLECTED' || event.status === 'CANCELLED') {
+        localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
+        const orderView = document.getElementById('order-view');
+        const thankYouView = document.getElementById('thank-you-view');
+        
+        if (orderView) orderView.classList.add('hidden');
+        if (thankYouView) thankYouView.classList.remove('hidden');
+      }
+  }
+
+  submitFeedback() {
+      const text = document.getElementById('feedback-text')?.value;
+      if (text) {
+          if (typeof showToast === 'function') showToast('Thank you for your feedback!', 'success');
+          document.getElementById('feedback-text').value = '';
+      }
+      this.startNewOrder();
+  }
+  
+  startNewOrder() {
+      this.activeOrder = null;
+      const thankYouView = document.getElementById('thank-you-view');
+      const menuView = document.getElementById('menu-view');
+      if (thankYouView) thankYouView.classList.add('hidden');
+      if (menuView) menuView.classList.remove('hidden');
   }
 
   updateStatusDisplay(status) {
     const steps = ['PENDING', 'PREPARING', 'READY'];
-    const labels = { PENDING: 'Order Received', ACCEPTED: 'Order Accepted', PREPARING: 'Preparing', READY: 'Ready for Collection', COLLECTED: 'Collected' };
+    const labels = { PENDING: 'Order Received', ACCEPTED: 'Order Accepted', PREPARING: 'Preparing', READY: 'Ready for Collection', COLLECTED: 'Collected', CANCELLED: 'Cancelled' };
     
     const statusBadge = document.querySelector('#order-view .badge');
     if (statusBadge) {
@@ -472,43 +555,6 @@ class CustomerApp {
     });
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
-  }
-
-  startPolling() {
-    if (this.pollingInterval) clearInterval(this.pollingInterval);
-    
-    this.pollingInterval = setInterval(async () => {
-      if (!this.activeOrder || !this.activeOrder.queueNumber) return;
-      
-      try {
-        const res = await fetch(`/api/v1/public/orders/${this.vendorCode}/track/${this.activeOrder.queueNumber}`);
-        const data = await res.json();
-        
-        if (data.success) {
-          this.activeOrder = data.data;
-          localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
-          this.updateStatusDisplay(data.data.status);
-          
-          if (data.data.status === 'READY') {
-            if (typeof showToast === 'function') showToast('Your order is READY! Please collect it.', 'success');
-          }
-          
-          if (data.data.status === 'COLLECTED' || data.data.status === 'CANCELLED') {
-            clearInterval(this.pollingInterval);
-            localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
-            setTimeout(() => {
-              this.activeOrder = null;
-              const menuView = document.getElementById('menu-view');
-              const orderView = document.getElementById('order-view');
-              if (menuView) menuView.classList.remove('hidden');
-              if (orderView) orderView.classList.add('hidden');
-            }, 5000);
-          }
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }, 5000);
   }
 
   showClosed() {
@@ -549,7 +595,7 @@ class CustomerApp {
   }
 
   formatPrice(amount) {
-    return `₹${Number(amount).toFixed(0)}`;
+    return `₹${Math.round(Number(amount) * 100) / 100}`;
   }
 }
 

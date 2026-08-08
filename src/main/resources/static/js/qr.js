@@ -9,6 +9,7 @@ class QrCode {
       const response = await api.get('/qr');
       if (response.success && response.data) {
         const qrData = response.data;
+        this.qrData = qrData;
         const img = document.querySelector('img[alt="QR Code"]');
         if (img) {
           // If the backend gives us a direct image URL, use it. Otherwise use the link to generate one.
@@ -26,6 +27,47 @@ class QrCode {
     } catch (err) {
       console.error('Failed to load QR code:', err);
       if (window.showToast) showToast('Failed to load your QR Code', 'error');
+    }
+  }
+
+  copyLink() {
+    if (!this.qrData || !this.qrData.qrUrl) {
+      if (window.showToast) showToast('Link not available', 'error');
+      return;
+    }
+    navigator.clipboard.writeText(this.qrData.qrUrl).then(() => {
+      if (window.showToast) showToast('Link Copied', 'success');
+    }).catch(err => {
+      console.error('Failed to copy', err);
+      if (window.showToast) showToast('Failed to copy link', 'error');
+    });
+  }
+
+  async downloadPng() {
+    const img = document.querySelector('img[alt="QR Code"]');
+    if (!img || !img.src) return;
+    
+    try {
+        const response = await fetch(img.src);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'DeQueue-QRCode.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        if (window.showToast) showToast('QR Code Downloaded', 'success');
+    } catch(err) {
+        // Fallback for CORS issues
+        const a = document.createElement('a');
+        a.href = img.src;
+        a.download = 'DeQueue-QRCode.png';
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
   }
 }
