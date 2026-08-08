@@ -146,16 +146,45 @@ class Menu {
         return;
     }
 
+    const rows = document.querySelectorAll('.custom-option-row');
+    const options = [];
+    rows.forEach(row => {
+        const optName = row.querySelector('.custom-opt-name').value;
+        const optPrice = row.querySelector('.custom-opt-price').value;
+        if (optName) {
+            options.push({
+                name: optName,
+                additionalPrice: parseFloat(optPrice || 0)
+            });
+        }
+    });
+
     const btn = document.getElementById('saveItemBtn');
     btn.disabled = true;
     btn.innerText = 'Saving...';
 
     try {
+      let customizationGroupIds = [];
+      if (options.length > 0) {
+          const groupRes = await api.post('/menu/customizations', {
+              name: 'Options for ' + name,
+              selectionType: 'MULTIPLE',
+              required: false,
+              minSelection: 0,
+              maxSelection: options.length,
+              options: options
+          });
+          if (groupRes.success) {
+              customizationGroupIds.push(groupRes.data.id);
+          }
+      }
+
       const res = await api.post('/menu/items', {
         name: name,
         price: parseFloat(price),
         categoryId: categoryId,
-        description: desc
+        description: desc,
+        customizationGroupIds: customizationGroupIds
       });
       
       if (res.success) {
@@ -165,6 +194,7 @@ class Menu {
         document.getElementById('addItemName').value = '';
         document.getElementById('addItemPrice').value = '';
         document.getElementById('addItemDesc').value = '';
+        document.getElementById('customizationsList').innerHTML = '';
         
         await this.loadItems();
       }
@@ -187,6 +217,19 @@ class Menu {
     }
   }
 
+  addCustomizationField() {
+    const list = document.getElementById('customizationsList');
+    if (!list) return;
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-2 custom-option-row';
+    div.innerHTML = `
+        <input type="text" class="form-control flex-1 custom-opt-name" placeholder="Option name (e.g. Extra Cheese)">
+        <input type="number" class="form-control custom-opt-price" placeholder="+ Price" style="width: 100px;">
+        <button type="button" class="btn-icon text-danger" onclick="this.parentElement.remove()"><i data-lucide="trash-2"></i></button>
+    `;
+    list.appendChild(div);
+    if (window.lucide) lucide.createIcons();
+  }
   async deleteItem(id) {
     if (!confirm('Are you sure you want to delete this item?')) return;
     try {

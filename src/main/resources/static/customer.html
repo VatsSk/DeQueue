@@ -89,6 +89,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Customization Modal -->
+        <div class="modal-overlay" id="cust-modal-overlay">
+            <div class="modal" style="margin-top: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%);">
+                <div class="modal-header">
+                    <h3 id="cust-modal-title">Customize Item</h3>
+                    <button class="btn-icon" onclick="closeModal('cust-modal')"><i data-lucide="x"></i></button>
+                </div>
+                <div class="modal-body" id="cust-modal-body" style="max-height: 60vh; overflow-y: auto;">
+                    <!-- populated by js -->
+                </div>
+                <div class="p-4 border-t border-border bg-surface">
+                    <button class="btn btn-primary w-full" id="cust-modal-add-btn">Add to Cart</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="js/utils.js"></script>
@@ -100,14 +116,14 @@
         const origOpen = window.openModal;
         window.openModal = (id) => {
             origOpen(id);
-            if (id === 'cart-modal') {
-                document.querySelector('#cart-modal-overlay .modal').style.transform = 'translateY(0)';
+            if (id === 'cart-modal' || id === 'cust-modal') {
+                document.querySelector(`#${id}-overlay .modal`).style.transform = 'translateY(0)';
             }
         };
         const origClose = window.closeModal;
         window.closeModal = (id) => {
-            if (id === 'cart-modal') {
-                document.querySelector('#cart-modal-overlay .modal').style.transform = 'translateY(100%)';
+            if (id === 'cart-modal' || id === 'cust-modal') {
+                document.querySelector(`#${id}-overlay .modal`).style.transform = 'translateY(100%)';
                 setTimeout(() => origClose(id), 300);
             } else {
                 origClose(id);

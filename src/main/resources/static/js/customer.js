@@ -194,17 +194,78 @@ class CustomerApp {
   }
 
   showCustomizationModal(item) {
-    // Simple customization selection - can be enhanced later
-    this.addToCart(item, []);
+    const title = document.getElementById('cust-modal-title');
+    const body = document.getElementById('cust-modal-body');
+    const addBtn = document.getElementById('cust-modal-add-btn');
+    if (!title || !body || !addBtn) return;
+
+    title.innerText = `Customize ${item.name}`;
+    
+    let html = '';
+    item.customizationGroups.forEach((group, gIdx) => {
+        html += `<div class="mb-4">
+            <h4 class="font-bold mb-2">${group.name} ${group.required ? '<span class="text-danger">*</span>' : ''}</h4>
+            <div class="flex flex-col gap-2">`;
+        
+        group.options.forEach((opt, oIdx) => {
+            const inputType = group.selectionType === 'SINGLE' || group.maxSelection === 1 ? 'radio' : 'checkbox';
+            const inputName = `cust_${group.id}`;
+            const inputId = `cust_${group.id}_${oIdx}`;
+            
+            html += `<label class="flex items-center justify-between p-2 border border-border rounded-md" for="${inputId}">
+                <div class="flex items-center gap-2">
+                    <input type="${inputType}" name="${inputName}" id="${inputId}" value="${opt.name}" data-price="${opt.additionalPrice}" data-group-name="${group.name}">
+                    <span>${opt.name}</span>
+                </div>
+                ${opt.additionalPrice > 0 ? `<span class="text-muted text-sm">+₹${opt.additionalPrice}</span>` : ''}
+            </label>`;
+        });
+        
+        html += `</div></div>`;
+    });
+    
+    body.innerHTML = html;
+    
+    addBtn.onclick = () => {
+        const customizations = [];
+        let missingRequired = false;
+        
+        item.customizationGroups.forEach(group => {
+            const inputs = body.querySelectorAll(`input[name="cust_${group.id}"]:checked`);
+            if (group.required && inputs.length === 0) {
+                missingRequired = true;
+            }
+            inputs.forEach(input => {
+                customizations.push({
+                    optionName: input.value,
+                    additionalPrice: parseFloat(input.dataset.price || 0),
+                    groupName: input.dataset.groupName
+                });
+            });
+        });
+        
+        if (missingRequired) {
+            if (window.showToast) showToast('Please select all required options', 'error');
+            return;
+        }
+        
+        this.addToCart(item, customizations);
+        if (window.closeModal) closeModal('cust-modal');
+    };
+    
+    if (window.openModal) openModal('cust-modal');
   }
 
   addToCart(item, customizations = []) {
+    const extraPrice = customizations.reduce((sum, c) => sum + (c.additionalPrice || 0), 0);
+    const unitPrice = item.price + extraPrice;
+
     const cartItem = {
       menuItemId: item.id,
       menuItemName: item.name,
       quantity: 1,
-      unitPrice: item.price,
-      totalPrice: item.price,
+      unitPrice: unitPrice,
+      totalPrice: unitPrice,
       customizations: customizations,
       cartId: Date.now()
     };
@@ -219,7 +280,23 @@ class CustomerApp {
     }
 
     this.updateCartUI();
+    this.renderCartModal();
     if (typeof showToast === 'function') showToast(`Added ${item.name} to cart`, 'success');
+  }
+
+  updateQuantity(cartId, delta) {
+    const item = this.cart.find(c => c.cartId === cartId);
+    if (!item) return;
+    
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+      this.removeFromCart(cartId);
+      return;
+    }
+    
+    item.totalPrice = item.unitPrice * item.quantity;
+    this.updateCartUI();
+    this.renderCartModal();
   }
 
   removeFromCart(cartId) {
@@ -259,13 +336,15 @@ class CustomerApp {
           <div class="flex items-center justify-between py-3 border-b border-border">
             <div class="flex-1">
               <div class="font-medium">${item.menuItemName}</div>
-              <div class="text-sm text-muted">${this.formatPrice(item.unitPrice)} × ${item.quantity}</div>
+              <div class="text-sm text-muted">${this.formatPrice(item.unitPrice)}</div>
             </div>
             <div class="flex items-center gap-3">
-              <span class="font-bold">${this.formatPrice(item.unitPrice * item.quantity)}</span>
-              <button class="btn-icon text-danger" onclick="customerApp.removeFromCart(${item.cartId})" style="padding:4px;">
-                <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
-              </button>
+              <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.25rem;">
+                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, -1)" style="padding: 2px;"><i data-lucide="minus" style="width:14px;height:14px;"></i></button>
+                <span style="font-weight: 500; min-width: 1.5rem; text-align: center;">${item.quantity}</span>
+                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, 1)" style="padding: 2px;"><i data-lucide="plus" style="width:14px;height:14px;"></i></button>
+              </div>
+              <span class="font-bold" style="min-width: 60px; text-align: right;">${this.formatPrice(item.unitPrice * item.quantity)}</span>
             </div>
           </div>
         `).join('')}

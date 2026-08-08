@@ -102,7 +102,7 @@ class Orders {
       if (order.status === 'PENDING') {
         badgeClass = 'badge-pending';
         actionsHtml = `
-            <button class="btn btn-danger" onclick="ordersApp.updateStatus('${order.id}', 'REJECTED')">Reject</button>
+            <button class="btn btn-danger" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')">Reject</button>
             <button class="btn btn-primary" onclick="ordersApp.updateStatus('${order.id}', 'PREPARING')">Accept</button>
         `;
       } else if (order.status === 'PREPARING') {
@@ -112,7 +112,7 @@ class Orders {
       } else if (order.status === 'READY') {
         borderColor = 'var(--success)';
         badgeClass = 'badge-ready';
-        actionsHtml = `<button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">Mark Completed</button>`;
+        actionsHtml = `<button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COLLECTED')">Mark Completed</button>`;
       } else {
          actionsHtml = `<button class="btn btn-secondary w-full" disabled>${order.status}</button>`;
       }
@@ -129,7 +129,7 @@ class Orders {
                 <div class="order-item">
                     <div class="item-main">
                         <span>${item.quantity}x ${item.menuItemName}</span>
-                        <span>₹${item.priceAtTime * item.quantity}</span>
+                        <span>₹${item.unitPrice * item.quantity}</span>
                     </div>
                     ${customHtml}
                 </div>
