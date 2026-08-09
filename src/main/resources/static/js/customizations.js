@@ -56,6 +56,7 @@ class Customizations {
                     </span>
                 </div>
                 <div class="flex gap-2">
+                    <button class="btn-icon text-primary" onclick="customizationsApp.editGroup('${group.id}')"><i data-lucide="edit-2"></i></button>
                     <button class="btn-icon text-danger" onclick="customizationsApp.deleteGroup('${group.id}')"><i data-lucide="trash-2"></i></button>
                 </div>
             </div>
@@ -92,17 +93,40 @@ class Customizations {
     }
   }
 
-  addOptionRow() {
+  addOptionRow(name = '', price = 0) {
     const container = document.getElementById('options-container');
     const row = document.createElement('div');
     row.className = 'flex gap-2 items-center option-row mt-2';
     row.innerHTML = `
-        <input type="text" class="form-control opt-name" placeholder="Option name (e.g., Oat Milk)">
-        <input type="number" class="form-control opt-price" placeholder="Price (+₹)" style="width: 120px;" value="0">
+        <input type="text" class="form-control opt-name" placeholder="Option name (e.g., Oat Milk)" value="${name}">
+        <input type="number" class="form-control opt-price" placeholder="Price (+₹)" style="width: 120px;" value="${price}">
         <button class="btn-icon text-danger" onclick="this.parentElement.remove()"><i data-lucide="x"></i></button>
     `;
     container.appendChild(row);
     if (window.lucide) lucide.createIcons({root: row});
+  }
+
+  editGroup(id) {
+      const group = this.groups.find(g => g.id === id);
+      if (!group) return;
+      
+      document.getElementById('editGroupId').value = group.id;
+      document.querySelector('#add-group-modal-overlay .modal-header h3').innerText = 'Edit Customization Group';
+      document.querySelector('#add-group-modal-overlay input[placeholder="e.g., Milk Choice"]').value = group.name;
+      document.querySelector('#add-group-modal-overlay select').value = group.selectionType === 'SINGLE' ? 'Single (Radio)' : 'Multiple (Checkbox)';
+      document.querySelector('#add-group-modal-overlay input[type="checkbox"]').checked = group.required;
+      
+      const container = document.getElementById('options-container');
+      container.innerHTML = '';
+      if (group.options && group.options.length > 0) {
+          group.options.forEach(opt => {
+              this.addOptionRow(opt.name, opt.additionalPrice);
+          });
+      } else {
+          this.addOptionRow();
+      }
+      
+      if (window.openModal) openModal('add-group-modal');
   }
 
   async saveGroup() {
@@ -138,29 +162,35 @@ class Customizations {
     btn.disabled = true;
     btn.innerText = 'Saving...';
 
+    const editId = document.getElementById('editGroupId').value;
+
     try {
-      const res = await api.post('/customizations', {
+      const payload = {
           name: name,
           selectionType: selectionType,
           required: isRequired,
           options: options
-      });
+      };
+      
+      let res;
+      if (editId) {
+          res = await api.put('/customizations/' + editId, payload);
+      } else {
+          res = await api.post('/customizations', payload);
+      }
       
       if (res.success) {
         if (window.showToast) showToast('Customization Group Saved', 'success');
         if (window.closeModal) closeModal('add-group-modal');
         
         // Reset form
+        document.getElementById('editGroupId').value = '';
+        document.querySelector('#add-group-modal-overlay .modal-header h3').innerText = 'Add Customization Group';
         nameInput.value = '';
         requiredCheck.checked = false;
         selectType.selectedIndex = 0;
-        document.getElementById('options-container').innerHTML = `
-            <div class="flex gap-2 items-center option-row mt-2">
-                <input type="text" class="form-control opt-name" placeholder="Option name (e.g., Oat Milk)">
-                <input type="number" class="form-control opt-price" placeholder="Price (+₹)" style="width: 120px;" value="0">
-                <button class="btn-icon text-danger" onclick="this.parentElement.remove()"><i data-lucide="x"></i></button>
-            </div>
-        `;
+        document.getElementById('options-container').innerHTML = '';
+        this.addOptionRow();
 
         await this.loadGroups();
       }

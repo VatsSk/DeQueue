@@ -20,4 +20,5 @@ public class CreateMenuItemRequest {
     private Integer sortOrder;
     private List<String> customizationGroupIds;
     private List<String> tags;
+    private String image;
 }

@@ -52,6 +52,21 @@ class CustomerApp {
       }
 
       this.vendor = data.data;
+      
+      // Fetch currently serving
+      try {
+          const currRes = await fetch(`/api/v1/public/orders/${this.vendorCode}/currently-serving`);
+          const currData = await currRes.json();
+          if (currData.success && currData.data) {
+              const banner = document.getElementById('running-queue-banner');
+              const display = document.getElementById('running-queue-display');
+              if (banner && display) {
+                  banner.classList.remove('hidden');
+                  display.textContent = currData.data;
+              }
+          }
+      } catch(e) {}
+      
       document.title = `${this.vendor.shopName} - Order | DeQueue`;
 
       // Update header
@@ -203,6 +218,13 @@ class CustomerApp {
     title.innerText = `Customize ${item.name}`;
     
     let html = '';
+    
+    // Add image if requested
+    if (item.image) {
+        html += `<div style="margin-bottom: 1rem;"><img src="${item.image}" alt="${item.name}" style="width: 100%; height: 160px; object-fit: cover; border-radius: var(--radius-md);"></div>`;
+    } else {
+        html += `<div style="width: 100%; height: 160px; background: var(--surface); display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); margin-bottom: 1rem;"><i data-lucide="utensils" style="opacity: 0.3; width: 48px; height: 48px;"></i></div>`;
+    }
     item.customizationGroups.forEach((group, gIdx) => {
         html += `<div class="mb-4">
             <h4 class="font-bold mb-2">${group.name} ${group.required ? '<span class="text-danger">*</span>' : ''}</h4>
@@ -441,6 +463,7 @@ class CustomerApp {
       if (qnEl) qnEl.textContent = this.activeOrder.queueNumber || 'N/A';
 
       this.updateStatusDisplay(this.activeOrder.status);
+      this.subscribeToOrder(this.activeOrder.queueNumber);
     }
   }
 
@@ -506,6 +529,19 @@ class CustomerApp {
         localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
         const orderView = document.getElementById('order-view');
         const thankYouView = document.getElementById('thank-you-view');
+        
+        if (event.status === 'CANCELLED') {
+            document.getElementById('thank-you-title').textContent = 'Order Cancelled';
+            document.getElementById('thank-you-message').textContent = 'Unfortunately, your order was cancelled. Please try ordering again.';
+            document.getElementById('thank-you-icon').setAttribute('data-lucide', 'x-circle');
+            document.getElementById('thank-you-icon').className = 'text-warning';
+        } else {
+            document.getElementById('thank-you-title').textContent = 'Thank You!';
+            document.getElementById('thank-you-message').textContent = 'Your order has been successfully collected. Please visit us again!';
+            document.getElementById('thank-you-icon').setAttribute('data-lucide', 'heart');
+            document.getElementById('thank-you-icon').className = 'text-danger';
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
         
         if (orderView) orderView.classList.add('hidden');
         if (thankYouView) thankYouView.classList.remove('hidden');

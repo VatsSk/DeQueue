@@ -17,13 +17,15 @@
         }
         .login-card {
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
             padding: 2.5rem;
             text-align: center;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             background: rgba(30, 41, 59, 0.8);
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
         }
         .logo {
             font-size: 2rem;
@@ -40,8 +42,29 @@
             margin-bottom: 2rem;
             font-size: 0.9rem;
         }
-        .login-form {
+        .form-container {
             text-align: left;
+            transition: all 0.3s ease;
+        }
+        .hidden {
+            display: none;
+        }
+        .toggle-link {
+            color: var(--primary);
+            cursor: pointer;
+            margin-top: 1rem;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+        .toggle-link:hover {
+            text-decoration: underline;
+        }
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        .form-row > .form-group {
+            flex: 1;
         }
     </style>
 </head>
@@ -52,25 +75,83 @@
         </div>
         <p class="tagline">Bye Bye Queue</p>
         
-        <form class="login-form" id="loginForm">
-            <div class="form-group">
-                <label class="form-label" for="email">Email</label>
-                <input type="email" id="email" class="form-control" required placeholder="admin@dequeue.com">
+        <!-- LOGIN FORM -->
+        <div id="loginSection" class="form-container">
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" class="form-control" required placeholder="admin@dequeue.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" class="form-control" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary w-full mt-4">
+                    Login <i data-lucide="arrow-right"></i>
+                </button>
+            </form>
+            <div style="text-align: center;">
+                <span class="toggle-link" onclick="toggleForms('register')">Don't have an account? Register your shop</span>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="password">Password</label>
-                <input type="password" id="password" class="form-control" required placeholder="••••••••">
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="registerSection" class="form-container hidden">
+            <form id="registerForm">
+                <div class="form-group">
+                    <label class="form-label" for="shopName">Shop Name</label>
+                    <input type="text" id="shopName" class="form-control" required placeholder="My Awesome Cafe">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="ownerName">Owner Name</label>
+                        <input type="text" id="ownerName" class="form-control" required placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="phone">Phone</label>
+                        <input type="tel" id="phone" class="form-control" required placeholder="+1234567890">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regEmail">Email</label>
+                    <input type="email" id="regEmail" class="form-control" required placeholder="admin@mycafe.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regPassword">Password</label>
+                    <input type="password" id="regPassword" class="form-control" required placeholder="••••••••">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="address">Shop Address</label>
+                    <input type="text" id="address" class="form-control" required placeholder="123 Main St, City">
+                </div>
+                <button type="submit" class="btn btn-primary w-full mt-4">
+                    Register Shop <i data-lucide="user-plus"></i>
+                </button>
+            </form>
+            <div style="text-align: center;">
+                <span class="toggle-link" onclick="toggleForms('login')">Already have an account? Login here</span>
             </div>
-            <button type="submit" class="btn btn-primary w-full mt-4">
-                Login <i data-lucide="arrow-right"></i>
-            </button>
-        </form>
+        </div>
     </div>
 
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/utils.js"></script>
     <script>
+        lucide.createIcons();
+
+        function toggleForms(target) {
+            const loginSection = document.getElementById('loginSection');
+            const registerSection = document.getElementById('registerSection');
+            if (target === 'register') {
+                loginSection.classList.add('hidden');
+                registerSection.classList.remove('hidden');
+            } else {
+                registerSection.classList.add('hidden');
+                loginSection.classList.remove('hidden');
+            }
+        }
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button');
@@ -81,8 +162,8 @@
 
             try {
                 const response = await api.post('/auth/login', {
-                    email: document.getElementById('email').value,
-                    password: document.getElementById('password').value
+                    email: document.getElementById('loginEmail').value,
+                    password: document.getElementById('loginPassword').value
                 });
                 
                 if (response.success) {
@@ -98,6 +179,46 @@
                 }
             } catch (err) {
                 showToast(err.message || 'Login failed. Please check your credentials.', 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Registering...';
+            btn.disabled = true;
+            lucide.createIcons();
+
+            try {
+                const response = await api.post('/auth/register', {
+                    shopName: document.getElementById('shopName').value,
+                    ownerName: document.getElementById('ownerName').value,
+                    email: document.getElementById('regEmail').value,
+                    password: document.getElementById('regPassword').value,
+                    phone: document.getElementById('phone').value,
+                    address: document.getElementById('address').value
+                });
+                
+                if (response.success) {
+                    showToast('Registration successful! Logging you in...', 'success');
+                    api.setToken(response.data.accessToken);
+                    localStorage.setItem('refreshToken', response.data.refreshToken);
+                    localStorage.setItem('user', JSON.stringify(response.data.user));
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } else {
+                    showToast(response.message || 'Registration failed', 'error');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    lucide.createIcons();
+                }
+            } catch (err) {
+                showToast(err.message || 'Registration failed.', 'error');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 lucide.createIcons();

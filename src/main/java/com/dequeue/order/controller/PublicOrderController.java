@@ -46,4 +46,9 @@ public class PublicOrderController {
             @Valid @RequestBody CustomOrderRequest request) {
         return ApiResponse.success(orderService.placeCustomOrder(vendorCode, request));
     }
+
+    @GetMapping("/{vendorCode}/currently-serving")
+    public ApiResponse<String> getCurrentlyServing(@PathVariable String vendorCode) {
+        return ApiResponse.success(orderService.getCurrentlyServing(vendorCode));
+    }
 }

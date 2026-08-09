@@ -145,17 +145,31 @@ class Orders {
       if (order.items && order.items.length > 0) {
         order.items.forEach(item => {
             let customHtml = '';
-            if (item.customizations && item.customizations.length > 0) {
-                const customStr = item.customizations.map(c => `- ${c.optionName} (+₹${c.additionalPrice})`).join('<br>');
-                customHtml = `<div class="item-customizations">${customStr}</div>`;
+            if (item.selectedCustomizations && item.selectedCustomizations.length > 0) {
+                let optionsArr = [];
+                item.selectedCustomizations.forEach(c => {
+                    if (c.selectedOptions) {
+                        c.selectedOptions.forEach(opt => {
+                            optionsArr.push(`- ${opt.name} (+₹${opt.additionalPrice})`);
+                        });
+                    }
+                });
+                if (optionsArr.length > 0) {
+                    customHtml = `<div class="item-customizations" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">${optionsArr.join('<br>')}</div>`;
+                }
+            }
+            let instructionsHtml = '';
+            if (item.specialInstructions) {
+                instructionsHtml = `<div class="item-instructions" style="font-size: 0.85rem; color: var(--warning); margin-top: 2px; font-style: italic;">Note: ${item.specialInstructions}</div>`;
             }
             itemsHtml += `
-                <div class="order-item">
-                    <div class="item-main">
+                <div class="order-item" style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px dashed var(--border);">
+                    <div class="item-main" style="display: flex; justify-content: space-between; font-weight: 500;">
                         <span>${item.quantity}x ${item.menuItemName}</span>
-                        <span>₹${item.unitPrice * item.quantity}</span>
+                        <span>₹${item.totalPrice}</span>
                     </div>
                     ${customHtml}
+                    ${instructionsHtml}
                 </div>
             `;
         });

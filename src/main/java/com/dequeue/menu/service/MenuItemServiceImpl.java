@@ -113,8 +113,8 @@ public class MenuItemServiceImpl implements MenuItemService {
 
     private MenuItemResponse mapToResponseWithGroups(MenuItem item) {
         MenuItemResponse resp = menuItemMapper.toResponse(item);
-        if (item.getCustomizationGroups() != null && !item.getCustomizationGroups().isEmpty()) {
-            List<CustomizationGroupResponse> groups = customizationGroupRepository.findByIdIn(item.getCustomizationGroups())
+        if (item.getCustomizationGroupIds() != null && !item.getCustomizationGroupIds().isEmpty()) {
+            List<CustomizationGroupResponse> groups = customizationGroupRepository.findByIdIn(item.getCustomizationGroupIds())
                     .stream().map(customizationGroupMapper::toResponse).collect(Collectors.toList());
             resp.setCustomizationGroups(groups);
         }

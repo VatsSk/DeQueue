@@ -13,4 +13,5 @@ public class UpdateMenuItemRequest {
     private Integer sortOrder;
     private List<String> customizationGroupIds;
     private List<String> tags;
+    private String image;
 }

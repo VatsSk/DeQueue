@@ -7,6 +7,52 @@ class Dashboard {
     this.refreshData();
     this.startAutoRefresh();
     this.connectWebSocket();
+    this.setupShopStatusToggle();
+  }
+
+  setupShopStatusToggle() {
+    const toggleBtn = document.getElementById('shop-status-toggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', async () => {
+            const isPaused = toggleBtn.innerText.includes('Resume');
+            const newStatus = isPaused ? 'OPEN' : 'PAUSED';
+            try {
+                // Add loading state
+                const originalText = toggleBtn.innerHTML;
+                toggleBtn.disabled = true;
+                toggleBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> Updating...';
+                if (window.lucide) lucide.createIcons({root: toggleBtn});
+
+                const res = await api.put('/vendors/status', { status: newStatus });
+                if (res.success) {
+                    if (window.showToast) showToast(`Orders ${newStatus === 'OPEN' ? 'Resumed' : 'Paused'}`, 'success');
+                    this.updateStatusUI(newStatus);
+                } else {
+                    toggleBtn.innerHTML = originalText;
+                    if (window.lucide) lucide.createIcons({root: toggleBtn});
+                }
+            } catch (e) {
+                console.error(e);
+                if (window.showToast) showToast('Failed to update shop status', 'error');
+            } finally {
+                toggleBtn.disabled = false;
+            }
+        });
+    }
+  }
+
+  updateStatusUI(status) {
+      const toggleBtn = document.getElementById('shop-status-toggle');
+      if (toggleBtn) {
+          if (status === 'PAUSED' || status === 'CLOSED') {
+              toggleBtn.innerHTML = '<i data-lucide="play-circle"></i> Resume Orders';
+              toggleBtn.className = 'btn btn-primary btn-sm';
+          } else {
+              toggleBtn.innerHTML = '<i data-lucide="pause-circle"></i> Pause Orders';
+              toggleBtn.className = 'btn btn-secondary btn-sm';
+          }
+          if (window.lucide) lucide.createIcons({root: toggleBtn});
+      }
   }
 
   connectWebSocket() {
@@ -46,6 +92,7 @@ class Dashboard {
         this.renderStats(res.data.todayStats);
         this.renderLiveQueue(res.data.recentOrders);
         this.renderWaitTime(res.data.averageWaitTime);
+        this.updateStatusUI(res.data.shopStatus);
       }
     } catch (e) {
       console.error('Failed to load dashboard data', e);

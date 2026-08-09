@@ -18,4 +18,5 @@ public interface OrderService {
     TrackOrderResponse trackOrder(String vendorCode, String queueNumber);
     List<OrderSummary> getActiveSessionOrders(String vendorCode, String sessionId);
     OrderResponse placeCustomOrder(String vendorCode, CustomOrderRequest request);
+    String getCurrentlyServing(String vendorCode);
 }

@@ -11,6 +11,12 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         body { background-color: var(--bg-color); }
+        /* Make checkboxes and radios larger for easier tapping */
+        input[type="checkbox"], input[type="radio"] {
+            width: 1.5rem;
+            height: 1.5rem;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -71,10 +77,10 @@
         <!-- Thank You View (Hidden by default) -->
         <div id="thank-you-view" class="hidden flex-1 flex flex-col justify-center animate-fade-in text-center p-6 mt-8">
             <div class="inline-block p-4 rounded-full bg-surface mb-4 mx-auto">
-                <i data-lucide="heart" class="text-danger" style="width: 64px; height: 64px;"></i>
+                <i id="thank-you-icon" data-lucide="heart" class="text-danger" style="width: 64px; height: 64px;"></i>
             </div>
-            <h2 class="text-2xl font-bold mb-2">Thank You!</h2>
-            <p class="text-muted mb-6">Your order has been successfully collected. Please visit us again!</p>
+            <h2 id="thank-you-title" class="text-2xl font-bold mb-2">Thank You!</h2>
+            <p id="thank-you-message" class="text-muted mb-6">Your order has been successfully collected. Please visit us again!</p>
             
             <div class="card text-left">
                 <h3 class="font-bold mb-3">Feedback (Optional)</h3>
