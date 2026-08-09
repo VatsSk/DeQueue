@@ -22,5 +22,7 @@ public class OrderResponse {
     private Instant updatedAt;
     private Instant completedAt;
     private Instant estimatedReadyTime;
+    private String sessionId;
+    private String customerSessionToken;
 }
 

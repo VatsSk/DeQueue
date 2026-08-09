@@ -15,6 +15,8 @@ import com.dequeue.vendor.entity.ShopStatus;
 import com.dequeue.vendor.repository.VendorRepository;
 import com.dequeue.menu.repository.MenuItemRepository;
 import com.dequeue.menu.entity.MenuItem;
+import com.dequeue.notification.service.NotificationServiceImpl;
+import com.dequeue.notification.service.CustomerSessionTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -40,6 +42,8 @@ public class OrderServiceImpl implements OrderService {
     private final EventPublisher eventPublisher;
     private final QueueNumberGenerator queueNumberGenerator;
     private final MenuItemRepository menuItemRepository;
+    private final NotificationServiceImpl notificationServiceImpl;
+    private final CustomerSessionTokenService customerSessionTokenService;
 
     @Override
     public PageResponse<OrderSummary> listOrders(String vendorId, OrderStatus status, LocalDate startDate, LocalDate endDate, String queueNumber, int page, int size) {
@@ -86,6 +90,7 @@ public class OrderServiceImpl implements OrderService {
         }
         order = orderRepository.save(order);
         eventPublisher.publishOrderEvent(new OrderEvent(vendorId, order.getId(), order.getStatus().name(), order.getQueueNumber(), Instant.now(), OrderEvent.EventType.STATUS_CHANGED));
+        notificationServiceImpl.publishCustomerOrderStatusEvent(order);
         
         return orderMapper.toResponse(order);
     }
@@ -162,8 +167,12 @@ public class OrderServiceImpl implements OrderService {
         
         order = orderRepository.save(order);
         eventPublisher.publishOrderEvent(new OrderEvent(vendor.getId(), order.getId(), order.getStatus().name(), order.getQueueNumber(), Instant.now(), OrderEvent.EventType.ORDER_PLACED));
+        notificationServiceImpl.publishCustomerOrderStatusEvent(order);
         
-        return orderMapper.toResponse(order);
+        OrderResponse response = orderMapper.toResponse(order);
+        response.setSessionId(order.getSessionId());
+        response.setCustomerSessionToken(customerSessionTokenService.generateToken(order.getId(), order.getSessionId()));
+        return response;
     }
 
     @Override
