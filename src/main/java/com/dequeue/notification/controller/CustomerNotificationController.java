@@ -35,7 +35,7 @@ public class CustomerNotificationController {
     }
 
     @PostMapping("/subscribe")
-    public ApiResponse<String> subscribe(@RequestBody PushSubscriptionRequest request) {
+    public ApiResponse<String> subscribe(@Valid @RequestBody PushSubscriptionRequest request) {
         log.info("Received push subscription request: {}", request);
         
         // Validate the customer token

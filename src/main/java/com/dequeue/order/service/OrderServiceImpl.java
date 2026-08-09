@@ -227,9 +227,9 @@ public class OrderServiceImpl implements OrderService {
             List.of(OrderStatus.READY, OrderStatus.PREPARING)
         );
         
-        if (!servingOrders.isEmpty()) {
-            return servingOrders.get(0).getQueueNumber();
-        }
-        return null;
+        return servingOrders.stream()
+            .max(java.util.Comparator.comparing(Order::getCreatedAt))
+            .map(Order::getQueueNumber)
+            .orElse(null);
     }
 }

@@ -17,8 +17,6 @@ self.addEventListener('push', (event) => {
     const title = data.title || '🔔 Order Update';
     const options = {
       body: data.body || 'Your order status has changed.',
-      icon: '/images/icon-192.png',
-      badge: '/images/badge-72.png',
       tag: 'order-' + (data.orderId || 'unknown'),
       renotify: true,
       data: {
@@ -26,11 +24,7 @@ self.addEventListener('push', (event) => {
         status: data.status,
         timestamp: data.timestamp,
         url: self.location.origin
-      },
-      actions: [
-        { action: 'view', title: 'View Order' }
-      ],
-      vibrate: [200, 100, 200]
+      }
     };
 
     event.waitUntil(
