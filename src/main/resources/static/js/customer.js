@@ -697,12 +697,24 @@ class CustomerApp {
       if (!notification) return;
     
       try {
-        new Notification(notification.title, {
+        const options = {
           body: notification.body,
           icon: notification.icon,
           tag: `dequeue-order-${this.activeOrder?.id || this.activeOrder?.queueNumber}`,
           renotify: true
-        });
+        };
+
+        // Android Chrome requires ServiceWorker for notifications. 
+        // Fallback to 'new Notification' for desktop Safari/Firefox if SW is not ready.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(notification.title, options);
+            }).catch(err => {
+                new Notification(notification.title, options);
+            });
+        } else {
+            new Notification(notification.title, options);
+        }
       } catch (err) {
         console.error('Failed to create browser notification:', err);
       }
