@@ -10,36 +10,11 @@ self.addEventListener('activate', (event) => {
 
 // Handle push events from Web Push API
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
-  try {
-    const data = event.data.json();
-    const title = data.title || '🔔 Order Update';
-    const options = {
-      body: data.body || 'Your order status has changed.',
-      tag: 'order-' + (data.orderId || 'unknown'),
-      renotify: true,
-      data: {
-        orderId: data.orderId,
-        status: data.status,
-        timestamp: data.timestamp,
-        url: self.location.origin
-      }
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(title, options)
-    );
-  } catch (e) {
-    console.error('Push event error:', e);
-    // Fallback if JSON parsing fails
-    event.waitUntil(
-      self.registration.showNotification('🔔 Order Update', {
-        body: event.data.text(),
-        tag: 'order-fallback'
-      })
-    );
-  }
+  const promiseChain = self.registration.showNotification('Order Update!', {
+    body: event.data ? event.data.text() : 'Your order status was updated.',
+    tag: 'order-update'
+  });
+  event.waitUntil(promiseChain);
 });
 
 // Handle notification click

@@ -616,10 +616,7 @@ class CustomerApp {
       this.activeOrder.status = status;
       localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
       this.updateStatusDisplay(status);
-      
-      if (status === 'READY') {
-        if (typeof showToast === 'function') showToast('Your order is READY! Please collect it.', 'success');
-      }
+      this.showBrowserNotification(status);
       
       if (status === 'COLLECTED' || status === 'CANCELLED') {
         localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
@@ -646,6 +643,68 @@ class CustomerApp {
         
         if (orderView) orderView.classList.add('hidden');
         if (thankYouView) thankYouView.classList.remove('hidden');
+      }
+  }
+
+  async showBrowserNotification(status) {
+      if (!('Notification' in window)) {
+        console.warn('Browser notifications are not supported.');
+        return;
+      }
+    
+      console.log('Notification permission:', Notification.permission);
+    
+      if (Notification.permission === 'default') {
+        try {
+          const permission = await Notification.requestPermission();
+          console.log('Notification permission result:', permission);
+        } catch (err) {
+          console.error('Notification permission failed:', err);
+          return;
+        }
+      }
+    
+      if (Notification.permission !== 'granted') {
+        console.warn('Browser notification permission is not granted.');
+        return;
+      }
+    
+      const notifications = {
+        READY: {
+          title: 'Order Ready! 🍔',
+          body: `Your order #${this.activeOrder?.queueNumber || ''} is ready for collection.`,
+          icon: '/images/icon-192.png'
+        },
+        PREPARING: {
+          title: 'Order Preparing 👨‍🍳',
+          body: `Your order #${this.activeOrder?.queueNumber || ''} is now being prepared.`,
+          icon: '/images/icon-192.png'
+        },
+        CANCELLED: {
+          title: 'Order Cancelled',
+          body: `Your order #${this.activeOrder?.queueNumber || ''} has been cancelled.`,
+          icon: '/images/icon-192.png'
+        },
+        COLLECTED: {
+          title: 'Order Collected',
+          body: 'Thank you! Your order has been collected.',
+          icon: '/images/icon-192.png'
+        }
+      };
+    
+      const notification = notifications[status];
+    
+      if (!notification) return;
+    
+      try {
+        new Notification(notification.title, {
+          body: notification.body,
+          icon: notification.icon,
+          tag: `dequeue-order-${this.activeOrder?.id || this.activeOrder?.queueNumber}`,
+          renotify: true
+        });
+      } catch (err) {
+        console.error('Failed to create browser notification:', err);
       }
   }
 
