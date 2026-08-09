@@ -31,7 +31,7 @@ spring:
     default-property-inclusion: non_null
 
 jwt:
-  secret: ${JWT_SECRET:supersecretkeythatisverylongandsecureenoughforhs256algorithm2024dequeue}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
@@ -42,8 +42,8 @@ cloudinary:
 
 dequeue:
   vapid:
-    public-key: ${VAPID_PUBLIC_KEY:BN5roTuSxgF9FeyiURZrFkTpD5jCk3GA8RI8J5ZOj2hCte7m8KRDpqwLF8C43SbpN9uPwHlW5pmsmMmC5SHs1fE}
-    private-key: ${VAPID_PRIVATE_KEY:hDk5jqifplgXZN8dBUdeAOuiZii_Vrkbz240_7DCmU8}
+    public-key: ${VAPID_PUBLIC_KEY}
+    private-key: ${VAPID_PRIVATE_KEY}
     subject: ${VAPID_SUBJECT:mailto:admin@dequeue.com}
   notification:
     channel: dequeue:order-status
