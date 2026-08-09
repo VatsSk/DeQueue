@@ -7,6 +7,7 @@ class CustomerApp {
     this.menu = null;
     this.activeOrder = null;
     this.pollingInterval = null;
+    this.notificationManager = null;
     this.init();
   }
 
@@ -20,7 +21,6 @@ class CustomerApp {
   }
 
   async init() {
-    this.connectWebSocket();
     if (!this.vendorCode) {
       this.showError('Invalid vendor link. Please scan the QR code again.');
       return;
@@ -412,6 +412,28 @@ class CustomerApp {
       }
 
       this.activeOrder = data.data;
+
+      // (WebSocket will be connected inside showOrderTracking)
+
+      // Initialize notification manager for real-time updates
+      if (typeof CustomerNotificationManager !== 'undefined') {
+        this.notificationManager = new CustomerNotificationManager(this);
+        const orderData = data.data;
+        this.notificationManager.init(
+          orderData.id,
+          orderData.sessionId,
+          orderData.customerSessionToken,
+          orderData.queueNumber
+        );
+
+        // Save token data for reconnection
+        localStorage.setItem(`dequeue_token_${this.vendorCode}`, JSON.stringify({
+          orderId: orderData.id,
+          sessionId: orderData.sessionId,
+          customerToken: orderData.customerSessionToken
+        }));
+      }
+
       localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
       this.cart = [];
 
@@ -441,6 +463,21 @@ class CustomerApp {
         } else {
           await this.loadVendor();
           this.showOrderTracking();
+          
+          // Restore notification manager if we have stored token
+          const storedToken = localStorage.getItem(`dequeue_token_${this.vendorCode}`);
+          if (storedToken && typeof CustomerNotificationManager !== 'undefined' && !this.notificationManager) {
+            try {
+              const tokenData = JSON.parse(storedToken);
+              this.notificationManager = new CustomerNotificationManager(this);
+              this.notificationManager.init(
+                tokenData.orderId,
+                tokenData.sessionId,
+                tokenData.customerToken,
+                this.activeOrder.queueNumber
+              );
+            } catch(e) { console.error('Failed to restore notifications:', e); }
+          }
         }
       } else {
         localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
@@ -453,6 +490,7 @@ class CustomerApp {
   }
 
   showOrderTracking() {
+    this.connectWebSocket();
     const menuView = document.getElementById('menu-view');
     const orderView = document.getElementById('order-view');
     if (menuView) menuView.classList.add('hidden');
@@ -469,25 +507,37 @@ class CustomerApp {
 
   connectWebSocket() {
     if (this.stompClient && this.stompClient.connected) return;
-    
-    // We assume Stomp and SockJS are loaded via CDN
+
     const socket = new SockJS('/ws');
     this.stompClient = Stomp.over(socket);
-    this.stompClient.debug = null; // Disable debug logging
-    
+    this.stompClient.debug = null;
+
     this.stompClient.connect({}, (frame) => {
-      // Listen to vendor updates for running queue
+      console.log('WebSocket connected');
+      this.wsReconnectAttempts = 0;
+
+      // Subscribe to vendor updates
       if (this.vendor && this.vendor.id) {
-          this.subscribeToVendor(this.vendor.id);
+        this.subscribeToVendor(this.vendor.id);
       }
-      
-      // Listen to my active order
+
+      // Subscribe to active order
       if (this.activeOrder && this.activeOrder.queueNumber) {
-          this.subscribeToOrder(this.activeOrder.queueNumber);
+        this.subscribeToOrder(this.activeOrder.queueNumber);
+      }
+
+      // Notify notification manager of reconnection
+      if (this.notificationManager) {
+        this.notificationManager.onReconnected();
       }
     }, (error) => {
-      console.error("WebSocket disconnected, retrying...", error);
-      setTimeout(() => this.connectWebSocket(), 5000);
+      console.error('WebSocket disconnected:', error);
+      // Exponential backoff reconnect
+      const attempts = this.wsReconnectAttempts || 0;
+      const delay = Math.min(1000 * Math.pow(2, attempts), 30000);
+      this.wsReconnectAttempts = attempts + 1;
+      console.log(`Reconnecting in ${delay}ms (attempt ${this.wsReconnectAttempts})...`);
+      setTimeout(() => this.connectWebSocket(), delay);
     });
   }
   
@@ -517,16 +567,24 @@ class CustomerApp {
   handleOrderUpdate(event) {
       if (!this.activeOrder) return;
       
-      this.activeOrder.status = event.status;
-      localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
-      this.updateStatusDisplay(event.status);
+      const status = event.status || event.orderStatus;
+      if (!status) return;
       
-      if (event.status === 'READY') {
+      this.activeOrder.status = status;
+      localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
+      this.updateStatusDisplay(status);
+      
+      if (status === 'READY') {
         if (typeof showToast === 'function') showToast('Your order is READY! Please collect it.', 'success');
       }
       
-      if (event.status === 'COLLECTED' || event.status === 'CANCELLED') {
+      if (status === 'COLLECTED' || status === 'CANCELLED') {
         localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
+        localStorage.removeItem(`dequeue_token_${this.vendorCode}`);
+        if (this.notificationManager) {
+          this.notificationManager.destroy();
+          this.notificationManager = null;
+        }
         const orderView = document.getElementById('order-view');
         const thankYouView = document.getElementById('thank-you-view');
         
@@ -534,12 +592,12 @@ class CustomerApp {
             document.getElementById('thank-you-title').textContent = 'Order Cancelled';
             document.getElementById('thank-you-message').textContent = 'Unfortunately, your order was cancelled. Please try ordering again.';
             document.getElementById('thank-you-icon').setAttribute('data-lucide', 'x-circle');
-            document.getElementById('thank-you-icon').className = 'text-warning';
+            document.getElementById('thank-you-icon').setAttribute('class', 'text-warning');
         } else {
             document.getElementById('thank-you-title').textContent = 'Thank You!';
             document.getElementById('thank-you-message').textContent = 'Your order has been successfully collected. Please visit us again!';
             document.getElementById('thank-you-icon').setAttribute('data-lucide', 'heart');
-            document.getElementById('thank-you-icon').className = 'text-danger';
+            document.getElementById('thank-you-icon').setAttribute('class', 'text-danger');
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
         

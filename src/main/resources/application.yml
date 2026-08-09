@@ -41,6 +41,12 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:secret}
 
 dequeue:
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY:BN5roTuSxgF9FeyiURZrFkTpD5jCk3GA8RI8J5ZOj2hCte7m8KRDpqwLF8C43SbpN9uPwHlW5pmsmMmC5SHs1fE}
+    private-key: ${VAPID_PRIVATE_KEY:hDk5jqifplgXZN8dBUdeAOuiZii_Vrkbz240_7DCmU8}
+    subject: ${VAPID_SUBJECT:mailto:admin@dequeue.com}
+  notification:
+    channel: dequeue:order-status
   qr:
     base-url: ${QR_BASE_URL:http://localhost:8080}
   queue:
