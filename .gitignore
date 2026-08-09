@@ -38,3 +38,6 @@ build/
 ### Others ###
 *.log
 .env
+
+# Gradle
+.gradle/
