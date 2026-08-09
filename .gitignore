@@ -1,40 +1,68 @@
-HELP.md
+# =========================
+# Spring Boot / Java
+# =========================
 target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+*.class
+*.log
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# =========================
+# Gradle
+# =========================
+.gradle/
+build/
 
-### IntelliJ IDEA ###
-.idea
+# Keep Gradle Wrapper
+!gradle/wrapper/gradle-wrapper.jar
+
+# =========================
+# IntelliJ IDEA
+# =========================
+.idea/
 *.iws
 *.iml
 *.ipr
+out/
 
-### NetBeans ###
+# =========================
+# Eclipse / STS
+# =========================
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+.apt_generated/
+
+# =========================
+# NetBeans
+# =========================
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
-### VS Code ###
+# =========================
+# VS Code
+# =========================
 .vscode/
 
-### Mac OS ###
+# =========================
+# macOS / Windows
+# =========================
 .DS_Store
+Thumbs.db
 
-### Others ###
-*.log
+# =========================
+# Environment / Secrets
+# =========================
 .env
+.env.*
+!.env.example
+
+# =========================
+# Temporary files
+# =========================
+*.tmp
+*.swp
