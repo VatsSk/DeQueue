@@ -7,7 +7,7 @@ COPY build.gradle settings.gradle ./
 # Copy source code
 COPY src src
 # Build the application
-RUN ./gradlew build -x test
+RUN chmod +x ./gradlew && ./gradlew build -x test
 
 # Stage 2: Run with JRE
 FROM eclipse-temurin:21-jre-alpine

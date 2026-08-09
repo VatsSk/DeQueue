@@ -104,6 +104,7 @@ class Menu {
                   <span class="slider"></span>
               </label>
               <div class="flex gap-2">
+                  <button class="btn-icon" onclick="menuApp.editItem('${item.id}')"><i data-lucide="edit-2"></i></button>
                   <button class="btn-icon text-danger" onclick="menuApp.deleteItem('${item.id}')"><i data-lucide="trash-2"></i></button>
               </div>
           </div>
@@ -133,44 +134,216 @@ class Menu {
     if (btn) {
       btn.addEventListener('click', () => this.saveItem());
     }
+    
+    // Setup Image Upload
+    const fileInput = document.getElementById('itemImageFile');
+    if (fileInput) {
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                
+                // Show preview immediately
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('imagePreview').src = e.target.result;
+                    document.getElementById('imagePreview').style.display = 'block';
+                    document.getElementById('imagePreviewContainer').style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+                
+                // Upload to server
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('folder', 'menu');
+                
+                try {
+                    const uploadRes = await fetch('/api/v1/images/upload', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + api.token
+                        },
+                        body: formData
+                    });
+                    const resJson = await uploadRes.json();
+                    if (resJson.success) {
+                        document.getElementById('uploadedImageUrl').value = resJson.data.url;
+                        if (window.showToast) showToast('Image uploaded successfully', 'success');
+                    }
+                } catch(e) {
+                    console.error('Image upload failed', e);
+                    if (window.showToast) showToast('Failed to upload image', 'error');
+                }
+            }
+        });
+    }
+    
+    // Override openModal specifically for add-item-modal to load customizations
+    const origOpen = window.openModal;
+    if (!window.customModalPatched) {
+        window.openModal = (id) => {
+            if (id === 'add-item-modal') {
+                document.getElementById('modalTitle').innerText = 'Add Menu Item';
+                document.getElementById('editItemId').value = '';
+                this.resetForm();
+                this.loadCustomizationGroups();
+            }
+            origOpen(id);
+        };
+        window.customModalPatched = true;
+    }
+  }
+
+  resetForm() {
+      document.getElementById('addItemName').value = '';
+      document.getElementById('addItemPrice').value = '';
+      document.getElementById('addItemDesc').value = '';
+      document.getElementById('uploadedImageUrl').value = '';
+      document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('imagePreviewContainer').style.display = 'block';
+      document.getElementById('customizationsList').innerHTML = '';
+      const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
+      checkboxes.forEach(c => c.checked = false);
+  }
+
+  editItem(id) {
+      const item = this.items.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('modalTitle').innerText = 'Edit Menu Item';
+      document.getElementById('editItemId').value = item.id;
+      document.getElementById('addItemName').value = item.name;
+      document.getElementById('addItemPrice').value = item.price;
+      document.getElementById('addItemDesc').value = item.description || '';
+      document.getElementById('addItemCategory').value = item.categoryId;
+      document.getElementById('customizationsList').innerHTML = '';
+
+      if (item.image) {
+          document.getElementById('uploadedImageUrl').value = item.image;
+          document.getElementById('imagePreview').src = item.image;
+          document.getElementById('imagePreview').style.display = 'block';
+          document.getElementById('imagePreviewContainer').style.display = 'none';
+      } else {
+          document.getElementById('uploadedImageUrl').value = '';
+          document.getElementById('imagePreview').style.display = 'none';
+          document.getElementById('imagePreviewContainer').style.display = 'block';
+      }
+
+      this.loadCustomizationGroups().then(() => {
+          if (item.customizationGroups) {
+              const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
+              checkboxes.forEach(c => {
+                  if (item.customizationGroups.includes(c.value)) {
+                      c.checked = true;
+                  }
+              });
+          }
+      });
+
+      window.openModal('add-item-modal');
+        // Handled in setupAddModal
+  }
+
+  async loadCustomizationGroups() {
+    try {
+        const res = await api.get('/customizations');
+        const list = document.getElementById('savedCustomizationsList');
+        if (list) {
+            if (res.success && res.data.length > 0) {
+                let html = '';
+                res.data.forEach(g => {
+                    html += `<label class="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-surface">
+                        <input type="checkbox" name="saved_customizations" value="${g.id}">
+                        <span>${g.name} <small class="text-muted">(${g.options ? g.options.length : 0} options)</small></span>
+                    </label>`;
+                });
+                list.innerHTML = html;
+            } else {
+                list.innerHTML = '<span class="text-muted text-sm italic">No saved customizations found. Add them in the Customizations tab.</span>';
+            }
+        }
+    } catch(e) {
+        console.error('Failed to load customizations', e);
+    }
   }
 
   async saveItem() {
+    const editId = document.getElementById('editItemId').value;
     const name = document.getElementById('addItemName').value;
     const price = document.getElementById('addItemPrice').value;
     const categoryId = document.getElementById('addItemCategory').value;
     const desc = document.getElementById('addItemDesc').value;
+    const imageUrl = document.getElementById('uploadedImageUrl').value;
 
     if (!name || !price || !categoryId) {
         if (window.showToast) showToast('Please fill all required fields', 'error');
         return;
     }
 
+    const rows = document.querySelectorAll('.custom-option-row');
+    const options = [];
+    rows.forEach(row => {
+        const optName = row.querySelector('.custom-opt-name').value;
+        const optPrice = row.querySelector('.custom-opt-price').value;
+        if (optName) {
+            options.push({
+                name: optName,
+                additionalPrice: parseFloat(optPrice || 0)
+            });
+        }
+    });
+
     const btn = document.getElementById('saveItemBtn');
     btn.disabled = true;
     btn.innerText = 'Saving...';
 
     try {
-      const res = await api.post('/menu/items', {
+      let customizationGroupIds = [];
+      
+      const savedChecks = document.querySelectorAll('input[name="saved_customizations"]:checked');
+      savedChecks.forEach(c => customizationGroupIds.push(c.value));
+
+      if (options.length > 0) {
+          const groupRes = await api.post('/customizations', {
+              name: 'Options for ' + name,
+              selectionType: 'MULTIPLE',
+              required: false,
+              minSelection: 0,
+              maxSelection: options.length,
+              options: options
+          });
+          if (groupRes.success) {
+              customizationGroupIds.push(groupRes.data.id);
+          }
+      }
+
+      const payload = {
         name: name,
         price: parseFloat(price),
         categoryId: categoryId,
-        description: desc
-      });
+        description: desc,
+        customizationGroupIds: customizationGroupIds
+      };
+      
+      if (imageUrl) {
+          payload.image = imageUrl;
+      }
+
+      let res;
+      if (editId) {
+          res = await api.put(`/menu/items/${editId}`, payload);
+      } else {
+          res = await api.post('/menu/items', payload);
+      }
       
       if (res.success) {
-        if (window.showToast) showToast('Item Added Successfully', 'success');
+        if (window.showToast) showToast(editId ? 'Item Updated Successfully' : 'Item Added Successfully', 'success');
         if (window.closeModal) closeModal('add-item-modal');
-        // Clear form
-        document.getElementById('addItemName').value = '';
-        document.getElementById('addItemPrice').value = '';
-        document.getElementById('addItemDesc').value = '';
-        
+        this.resetForm();
         await this.loadItems();
       }
     } catch (e) {
       console.error(e);
-      if (window.showToast) showToast('Failed to add item', 'error');
+      if (window.showToast) showToast('Failed to save item', 'error');
     } finally {
       btn.disabled = false;
       btn.innerText = 'Save Item';
@@ -187,6 +360,19 @@ class Menu {
     }
   }
 
+  addCustomizationField() {
+    const list = document.getElementById('customizationsList');
+    if (!list) return;
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-2 custom-option-row';
+    div.innerHTML = `
+        <input type="text" class="form-control flex-1 custom-opt-name" placeholder="Option name (e.g. Extra Cheese)">
+        <input type="number" class="form-control custom-opt-price" placeholder="+ Price" style="width: 100px;">
+        <button type="button" class="btn-icon text-danger" onclick="this.parentElement.remove()"><i data-lucide="trash-2"></i></button>
+    `;
+    list.appendChild(div);
+    if (window.lucide) lucide.createIcons();
+  }
   async deleteItem(id) {
     if (!confirm('Are you sure you want to delete this item?')) return;
     try {

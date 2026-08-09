@@ -20,6 +20,7 @@ class CustomerApp {
   }
 
   async init() {
+    this.connectWebSocket();
     if (!this.vendorCode) {
       this.showError('Invalid vendor link. Please scan the QR code again.');
       return;
@@ -51,6 +52,21 @@ class CustomerApp {
       }
 
       this.vendor = data.data;
+      
+      // Fetch currently serving
+      try {
+          const currRes = await fetch(`/api/v1/public/orders/${this.vendorCode}/currently-serving`);
+          const currData = await currRes.json();
+          if (currData.success && currData.data) {
+              const banner = document.getElementById('running-queue-banner');
+              const display = document.getElementById('running-queue-display');
+              if (banner && display) {
+                  banner.classList.remove('hidden');
+                  display.textContent = currData.data;
+              }
+          }
+      } catch(e) {}
+      
       document.title = `${this.vendor.shopName} - Order | DeQueue`;
 
       // Update header
@@ -194,17 +210,85 @@ class CustomerApp {
   }
 
   showCustomizationModal(item) {
-    // Simple customization selection - can be enhanced later
-    this.addToCart(item, []);
+    const title = document.getElementById('cust-modal-title');
+    const body = document.getElementById('cust-modal-body');
+    const addBtn = document.getElementById('cust-modal-add-btn');
+    if (!title || !body || !addBtn) return;
+
+    title.innerText = `Customize ${item.name}`;
+    
+    let html = '';
+    
+    // Add image if requested
+    if (item.image) {
+        html += `<div style="margin-bottom: 1rem;"><img src="${item.image}" alt="${item.name}" style="width: 100%; height: 160px; object-fit: cover; border-radius: var(--radius-md);"></div>`;
+    } else {
+        html += `<div style="width: 100%; height: 160px; background: var(--surface); display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); margin-bottom: 1rem;"><i data-lucide="utensils" style="opacity: 0.3; width: 48px; height: 48px;"></i></div>`;
+    }
+    item.customizationGroups.forEach((group, gIdx) => {
+        html += `<div class="mb-4">
+            <h4 class="font-bold mb-2">${group.name} ${group.required ? '<span class="text-danger">*</span>' : ''}</h4>
+            <div class="flex flex-col gap-2">`;
+        
+        group.options.forEach((opt, oIdx) => {
+            const inputType = group.selectionType === 'SINGLE' || group.maxSelection === 1 ? 'radio' : 'checkbox';
+            const inputName = `cust_${group.id}`;
+            const inputId = `cust_${group.id}_${oIdx}`;
+            
+            html += `<label class="flex items-center justify-between p-2 border border-border rounded-md" for="${inputId}">
+                <div class="flex items-center gap-2">
+                    <input type="${inputType}" name="${inputName}" id="${inputId}" value="${opt.name}" data-price="${opt.additionalPrice}" data-group-name="${group.name}">
+                    <span>${opt.name}</span>
+                </div>
+                ${opt.additionalPrice > 0 ? `<span class="text-muted text-sm">+₹${opt.additionalPrice}</span>` : ''}
+            </label>`;
+        });
+        
+        html += `</div></div>`;
+    });
+    
+    body.innerHTML = html;
+    
+    addBtn.onclick = () => {
+        const customizations = [];
+        let missingRequired = false;
+        
+        item.customizationGroups.forEach(group => {
+            const inputs = body.querySelectorAll(`input[name="cust_${group.id}"]:checked`);
+            if (group.required && inputs.length === 0) {
+                missingRequired = true;
+            }
+            inputs.forEach(input => {
+                customizations.push({
+                    optionName: input.value,
+                    additionalPrice: parseFloat(input.dataset.price || 0),
+                    groupName: input.dataset.groupName
+                });
+            });
+        });
+        
+        if (missingRequired) {
+            if (window.showToast) showToast('Please select all required options', 'error');
+            return;
+        }
+        
+        this.addToCart(item, customizations);
+        if (window.closeModal) closeModal('cust-modal');
+    };
+    
+    if (window.openModal) openModal('cust-modal');
   }
 
   addToCart(item, customizations = []) {
+    const extraPrice = customizations.reduce((sum, c) => sum + (c.additionalPrice || 0), 0);
+    const unitPrice = item.price + extraPrice;
+
     const cartItem = {
       menuItemId: item.id,
       menuItemName: item.name,
       quantity: 1,
-      unitPrice: item.price,
-      totalPrice: item.price,
+      unitPrice: unitPrice,
+      totalPrice: unitPrice,
       customizations: customizations,
       cartId: Date.now()
     };
@@ -219,7 +303,23 @@ class CustomerApp {
     }
 
     this.updateCartUI();
+    this.renderCartModal();
     if (typeof showToast === 'function') showToast(`Added ${item.name} to cart`, 'success');
+  }
+
+  updateQuantity(cartId, delta) {
+    const item = this.cart.find(c => c.cartId === cartId);
+    if (!item) return;
+    
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+      this.removeFromCart(cartId);
+      return;
+    }
+    
+    item.totalPrice = item.unitPrice * item.quantity;
+    this.updateCartUI();
+    this.renderCartModal();
   }
 
   removeFromCart(cartId) {
@@ -259,13 +359,15 @@ class CustomerApp {
           <div class="flex items-center justify-between py-3 border-b border-border">
             <div class="flex-1">
               <div class="font-medium">${item.menuItemName}</div>
-              <div class="text-sm text-muted">${this.formatPrice(item.unitPrice)} × ${item.quantity}</div>
+              <div class="text-sm text-muted">${this.formatPrice(item.unitPrice)}</div>
             </div>
             <div class="flex items-center gap-3">
-              <span class="font-bold">${this.formatPrice(item.unitPrice * item.quantity)}</span>
-              <button class="btn-icon text-danger" onclick="customerApp.removeFromCart(${item.cartId})" style="padding:4px;">
-                <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
-              </button>
+              <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.25rem;">
+                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, -1)" style="padding: 2px;"><i data-lucide="minus" style="width:14px;height:14px;"></i></button>
+                <span style="font-weight: 500; min-width: 1.5rem; text-align: center;">${item.quantity}</span>
+                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, 1)" style="padding: 2px;"><i data-lucide="plus" style="width:14px;height:14px;"></i></button>
+              </div>
+              <span class="font-bold" style="min-width: 60px; text-align: right;">${this.formatPrice(item.unitPrice * item.quantity)}</span>
             </div>
           </div>
         `).join('')}
@@ -361,15 +463,111 @@ class CustomerApp {
       if (qnEl) qnEl.textContent = this.activeOrder.queueNumber || 'N/A';
 
       this.updateStatusDisplay(this.activeOrder.status);
+      this.subscribeToOrder(this.activeOrder.queueNumber);
     }
+  }
 
-    // Start polling for status updates
-    this.startPolling();
+  connectWebSocket() {
+    if (this.stompClient && this.stompClient.connected) return;
+    
+    // We assume Stomp and SockJS are loaded via CDN
+    const socket = new SockJS('/ws');
+    this.stompClient = Stomp.over(socket);
+    this.stompClient.debug = null; // Disable debug logging
+    
+    this.stompClient.connect({}, (frame) => {
+      // Listen to vendor updates for running queue
+      if (this.vendor && this.vendor.id) {
+          this.subscribeToVendor(this.vendor.id);
+      }
+      
+      // Listen to my active order
+      if (this.activeOrder && this.activeOrder.queueNumber) {
+          this.subscribeToOrder(this.activeOrder.queueNumber);
+      }
+    }, (error) => {
+      console.error("WebSocket disconnected, retrying...", error);
+      setTimeout(() => this.connectWebSocket(), 5000);
+    });
+  }
+  
+  subscribeToVendor(vendorId) {
+      if (!this.stompClient || !this.stompClient.connected) return;
+      this.stompClient.subscribe('/topic/vendor/' + vendorId, (msg) => {
+          const event = JSON.parse(msg.body);
+          if (event.status === 'PREPARING' || event.status === 'READY') {
+              const banner = document.getElementById('running-queue-banner');
+              const display = document.getElementById('running-queue-display');
+              if (banner && display) {
+                  banner.classList.remove('hidden');
+                  display.textContent = event.queueNumber;
+              }
+          }
+      });
+  }
+
+  subscribeToOrder(queueNumber) {
+      if (!this.stompClient || !this.stompClient.connected) return;
+      this.stompClient.subscribe('/topic/orders/' + queueNumber, (msg) => {
+          const event = JSON.parse(msg.body);
+          this.handleOrderUpdate(event);
+      });
+  }
+  
+  handleOrderUpdate(event) {
+      if (!this.activeOrder) return;
+      
+      this.activeOrder.status = event.status;
+      localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
+      this.updateStatusDisplay(event.status);
+      
+      if (event.status === 'READY') {
+        if (typeof showToast === 'function') showToast('Your order is READY! Please collect it.', 'success');
+      }
+      
+      if (event.status === 'COLLECTED' || event.status === 'CANCELLED') {
+        localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
+        const orderView = document.getElementById('order-view');
+        const thankYouView = document.getElementById('thank-you-view');
+        
+        if (event.status === 'CANCELLED') {
+            document.getElementById('thank-you-title').textContent = 'Order Cancelled';
+            document.getElementById('thank-you-message').textContent = 'Unfortunately, your order was cancelled. Please try ordering again.';
+            document.getElementById('thank-you-icon').setAttribute('data-lucide', 'x-circle');
+            document.getElementById('thank-you-icon').className = 'text-warning';
+        } else {
+            document.getElementById('thank-you-title').textContent = 'Thank You!';
+            document.getElementById('thank-you-message').textContent = 'Your order has been successfully collected. Please visit us again!';
+            document.getElementById('thank-you-icon').setAttribute('data-lucide', 'heart');
+            document.getElementById('thank-you-icon').className = 'text-danger';
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        
+        if (orderView) orderView.classList.add('hidden');
+        if (thankYouView) thankYouView.classList.remove('hidden');
+      }
+  }
+
+  submitFeedback() {
+      const text = document.getElementById('feedback-text')?.value;
+      if (text) {
+          if (typeof showToast === 'function') showToast('Thank you for your feedback!', 'success');
+          document.getElementById('feedback-text').value = '';
+      }
+      this.startNewOrder();
+  }
+  
+  startNewOrder() {
+      this.activeOrder = null;
+      const thankYouView = document.getElementById('thank-you-view');
+      const menuView = document.getElementById('menu-view');
+      if (thankYouView) thankYouView.classList.add('hidden');
+      if (menuView) menuView.classList.remove('hidden');
   }
 
   updateStatusDisplay(status) {
     const steps = ['PENDING', 'PREPARING', 'READY'];
-    const labels = { PENDING: 'Order Received', ACCEPTED: 'Order Accepted', PREPARING: 'Preparing', READY: 'Ready for Collection', COLLECTED: 'Collected' };
+    const labels = { PENDING: 'Order Received', ACCEPTED: 'Order Accepted', PREPARING: 'Preparing', READY: 'Ready for Collection', COLLECTED: 'Collected', CANCELLED: 'Cancelled' };
     
     const statusBadge = document.querySelector('#order-view .badge');
     if (statusBadge) {
@@ -393,43 +591,6 @@ class CustomerApp {
     });
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
-  }
-
-  startPolling() {
-    if (this.pollingInterval) clearInterval(this.pollingInterval);
-    
-    this.pollingInterval = setInterval(async () => {
-      if (!this.activeOrder || !this.activeOrder.queueNumber) return;
-      
-      try {
-        const res = await fetch(`/api/v1/public/orders/${this.vendorCode}/track/${this.activeOrder.queueNumber}`);
-        const data = await res.json();
-        
-        if (data.success) {
-          this.activeOrder = data.data;
-          localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
-          this.updateStatusDisplay(data.data.status);
-          
-          if (data.data.status === 'READY') {
-            if (typeof showToast === 'function') showToast('Your order is READY! Please collect it.', 'success');
-          }
-          
-          if (data.data.status === 'COLLECTED' || data.data.status === 'CANCELLED') {
-            clearInterval(this.pollingInterval);
-            localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
-            setTimeout(() => {
-              this.activeOrder = null;
-              const menuView = document.getElementById('menu-view');
-              const orderView = document.getElementById('order-view');
-              if (menuView) menuView.classList.remove('hidden');
-              if (orderView) orderView.classList.add('hidden');
-            }, 5000);
-          }
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }, 5000);
   }
 
   showClosed() {
@@ -470,7 +631,7 @@ class CustomerApp {
   }
 
   formatPrice(amount) {
-    return `₹${Number(amount).toFixed(0)}`;
+    return `₹${Math.round(Number(amount) * 100) / 100}`;
   }
 }
 

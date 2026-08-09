@@ -108,14 +108,29 @@ public class DataSeeder implements CommandLineRunner {
         String extrasGroupId = UUID.randomUUID().toString();
 
         List<Document> customizationGroups = Arrays.asList(
-            new Document("_id", sizeGroupId).append("vendorId", vendorId).append("name", "Size")
-                .append("options", Arrays.asList("Small", "Medium", "Large")),
-            new Document("_id", sugarGroupId).append("vendorId", vendorId).append("name", "Sugar")
-                .append("options", Arrays.asList("Less", "Normal", "Extra")),
-            new Document("_id", typeGroupId).append("vendorId", vendorId).append("name", "Type")
-                .append("options", Arrays.asList("Hot", "Cold", "Iced", "Sweet", "Salt", "Mixed")),
-            new Document("_id", extrasGroupId).append("vendorId", vendorId).append("name", "Extras")
-                .append("options", Arrays.asList("Extra Chutney", "Cheese"))
+            new Document("_id", sizeGroupId).append("vendorId", vendorId).append("name", "Size").append("selectionType", "SINGLE")
+                .append("options", Arrays.asList(
+                    new Document("name", "Small").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 0),
+                    new Document("name", "Medium").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 1),
+                    new Document("name", "Large").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 2)
+                )),
+            new Document("_id", sugarGroupId).append("vendorId", vendorId).append("name", "Sugar").append("selectionType", "SINGLE")
+                .append("options", Arrays.asList(
+                    new Document("name", "Less").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 0),
+                    new Document("name", "Normal").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 1),
+                    new Document("name", "Extra").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 2)
+                )),
+            new Document("_id", typeGroupId).append("vendorId", vendorId).append("name", "Type").append("selectionType", "SINGLE")
+                .append("options", Arrays.asList(
+                    new Document("name", "Hot").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 0),
+                    new Document("name", "Cold").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 1),
+                    new Document("name", "Iced").append("additionalPrice", 0.0).append("available", true).append("sortOrder", 2)
+                )),
+            new Document("_id", extrasGroupId).append("vendorId", vendorId).append("name", "Extras").append("selectionType", "MULTIPLE")
+                .append("options", Arrays.asList(
+                    new Document("name", "Extra Chutney").append("additionalPrice", 5.0).append("available", true).append("sortOrder", 0),
+                    new Document("name", "Cheese").append("additionalPrice", 10.0).append("available", true).append("sortOrder", 1)
+                ))
         );
         mongoTemplate.getCollection("customization_groups").insertMany(customizationGroups);
 

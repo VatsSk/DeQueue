@@ -39,7 +39,7 @@ public class MenuItem {
     @Builder.Default
     private boolean visible = true;
     
-    private List<String> customizationGroups;
+    private List<String> customizationGroupIds;
     private List<String> tags;
     
     @CreatedDate

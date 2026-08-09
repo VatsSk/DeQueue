@@ -27,6 +27,8 @@ public class PublicMenuController {
     private final MenuItemRepository menuItemRepository;
     private final CategoryMapper categoryMapper;
     private final MenuItemMapper menuItemMapper;
+    private final com.dequeue.menu.repository.CustomizationGroupRepository customizationGroupRepository;
+    private final com.dequeue.menu.mapper.CustomizationGroupMapper customizationGroupMapper;
 
     @GetMapping("/{vendorCode}/categories")
     public ApiResponse<PublicMenuResponse> getMenu(@PathVariable String vendorCode) {
@@ -42,7 +44,15 @@ public class PublicMenuController {
             CategoryWithItemsResponse resp = categoryMapper.toWithItemsResponse(cat);
             List<MenuItemResponse> catItems = items.stream()
                     .filter(item -> cat.getId().equals(item.getCategoryId()))
-                    .map(menuItemMapper::toResponse)
+                    .map(item -> {
+                        MenuItemResponse itemResp = menuItemMapper.toResponse(item);
+                        if (item.getCustomizationGroupIds() != null && !item.getCustomizationGroupIds().isEmpty()) {
+                            List<com.dequeue.menu.dto.CustomizationGroupResponse> groups = customizationGroupRepository.findByIdIn(item.getCustomizationGroupIds())
+                                    .stream().map(customizationGroupMapper::toResponse).collect(Collectors.toList());
+                            itemResp.setCustomizationGroups(groups);
+                        }
+                        return itemResp;
+                    })
                     .collect(Collectors.toList());
             resp.setItems(catItems);
             return resp;
@@ -62,6 +72,14 @@ public class PublicMenuController {
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
         MenuItem item = menuItemRepository.findByIdAndVendorId(itemId, vendor.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found"));
-        return ApiResponse.success(menuItemMapper.toResponse(item));
+        
+        MenuItemResponse itemResp = menuItemMapper.toResponse(item);
+        if (item.getCustomizationGroupIds() != null && !item.getCustomizationGroupIds().isEmpty()) {
+            List<com.dequeue.menu.dto.CustomizationGroupResponse> groups = customizationGroupRepository.findByIdIn(item.getCustomizationGroupIds())
+                    .stream().map(customizationGroupMapper::toResponse).collect(Collectors.toList());
+            itemResp.setCustomizationGroups(groups);
+        }
+        
+        return ApiResponse.success(itemResp);
     }
 }

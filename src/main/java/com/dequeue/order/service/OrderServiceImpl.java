@@ -207,4 +207,20 @@ public class OrderServiceImpl implements OrderService {
         
         return orderMapper.toResponse(order);
     }
+
+    @Override
+    public String getCurrentlyServing(String vendorCode) {
+        Vendor vendor = vendorRepository.findByVendorCode(vendorCode)
+            .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+            
+        List<Order> servingOrders = orderRepository.findByVendorIdAndStatusIn(
+            vendor.getId(), 
+            List.of(OrderStatus.READY, OrderStatus.PREPARING)
+        );
+        
+        if (!servingOrders.isEmpty()) {
+            return servingOrders.get(0).getQueueNumber();
+        }
+        return null;
+    }
 }

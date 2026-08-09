@@ -63,18 +63,26 @@
         </main>
     </div>
 
-    <!-- Add Item Modal -->
+    <!-- Add/Edit Item Modal -->
     <div class="modal-overlay" id="add-item-modal-overlay">
         <div class="modal">
             <div class="modal-header">
-                <h3>Add Menu Item</h3>
+                <h3 id="modalTitle">Add Menu Item</h3>
                 <button class="btn-icon" onclick="closeModal('add-item-modal')"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
-                <div class="image-upload-area mb-4">
-                    <i data-lucide="upload-cloud" style="width: 48px; height: 48px; color: var(--primary); margin: 0 auto 1rem;"></i>
-                    <p>Drag & drop image here or click to browse</p>
+                <input type="hidden" id="editItemId">
+                <input type="hidden" id="uploadedImageUrl">
+                
+                <div class="image-upload-area mb-4" id="imageUploadArea" style="cursor: pointer; position: relative;">
+                    <input type="file" id="itemImageFile" accept="image/*" style="opacity: 0; position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer;">
+                    <div id="imagePreviewContainer">
+                        <i data-lucide="upload-cloud" style="width: 48px; height: 48px; color: var(--primary); margin: 0 auto 1rem;"></i>
+                        <p id="imageUploadText">Drag & drop image here or click to browse</p>
+                    </div>
+                    <img id="imagePreview" src="" style="display: none; max-width: 100%; max-height: 200px; margin: 0 auto; border-radius: 8px;">
                 </div>
+                
                 <div class="form-group">
                     <label class="form-label">Item Name</label>
                     <input type="text" id="addItemName" class="form-control" placeholder="e.g., Iced Latte">
@@ -94,6 +102,20 @@
                 <div class="form-group">
                     <label class="form-label">Description</label>
                     <textarea id="addItemDesc" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group border-t border-border pt-4 mt-4">
+                    <label class="form-label font-bold mb-2">Saved Customizations</label>
+                    <p class="text-sm text-muted mb-2">Select saved customization groups for this item.</p>
+                    <div id="savedCustomizationsList" class="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto">
+                        <span class="text-muted text-sm italic">Loading...</span>
+                    </div>
+
+                    <label class="form-label font-bold mb-2">Or Add New Options</label>
+                    <p class="text-sm text-muted mb-3">Add one-off options like "Extra Cheese".</p>
+                    <div id="customizationsList" class="flex flex-col gap-3 mb-3"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="menuApp.addCustomizationField()">
+                        <i data-lucide="plus" style="width:14px;height:14px;display:inline;"></i> Add Option
+                    </button>
                 </div>
             </div>
             <div class="modal-footer">

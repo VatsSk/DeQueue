@@ -39,8 +39,8 @@
                     </div>
                     
                     <div class="flex flex-col gap-3">
-                        <button class="btn btn-primary w-full" onclick="showToast('QR Code Downloaded', 'success')"><i data-lucide="download"></i> Download PNG</button>
-                        <button class="btn btn-secondary w-full" onclick="showToast('Link Copied', 'info')"><i data-lucide="copy"></i> Copy Order Link</button>
+                        <button class="btn btn-primary w-full" onclick="window.qrApp.downloadPng()"><i data-lucide="download"></i> Download PNG</button>
+                        <button class="btn btn-secondary w-full" onclick="window.qrApp.copyLink()"><i data-lucide="copy"></i> Copy Order Link</button>
                         <button class="btn btn-secondary w-full" onclick="window.print()"><i data-lucide="printer"></i> Print</button>
                     </div>
                 </div>

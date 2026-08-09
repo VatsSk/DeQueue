@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Grandma's Cafe - Order</title>
+    <title>DeQueue - Order</title>
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/customer.css">
@@ -11,6 +11,12 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         body { background-color: var(--bg-color); }
+        /* Make checkboxes and radios larger for easier tapping */
+        input[type="checkbox"], input[type="radio"] {
+            width: 1.5rem;
+            height: 1.5rem;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -22,9 +28,12 @@
                     <i data-lucide="coffee"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold">Grandma's Cafe</h1>
-                    <div class="shop-status open">Accepting Orders</div>
+                    <h1 class="text-lg font-bold">Loading...</h1>
+                    <div class="shop-status">Loading...</div>
                 </div>
+            </div>
+            <div id="running-queue-banner" class="bg-primary text-white text-center py-1 px-3 rounded-md font-bold text-sm hidden mt-2">
+                Currently Serving: <span id="running-queue-display">--</span>
             </div>
         </header>
 
@@ -47,8 +56,8 @@
                 </div>
                 <h2>Order Placed!</h2>
                 <p class="text-muted mt-2">Your queue number is</p>
-                <div class="queue-number-display" id="queue-number">A17</div>
-                <div class="badge badge-pending text-lg px-4 py-2 mt-4">Preparing</div>
+                <div class="queue-number-display" id="queue-number">--</div>
+                <div class="badge badge-pending text-lg px-4 py-2 mt-4">--</div>
                 
                 <div class="mt-8 text-left card">
                     <h3 class="mb-4 border-b border-border pb-2">Order Status</h3>
@@ -65,11 +74,27 @@
             </div>
         </div>
 
+        <!-- Thank You View (Hidden by default) -->
+        <div id="thank-you-view" class="hidden flex-1 flex flex-col justify-center animate-fade-in text-center p-6 mt-8">
+            <div class="inline-block p-4 rounded-full bg-surface mb-4 mx-auto">
+                <i id="thank-you-icon" data-lucide="heart" class="text-danger" style="width: 64px; height: 64px;"></i>
+            </div>
+            <h2 id="thank-you-title" class="text-2xl font-bold mb-2">Thank You!</h2>
+            <p id="thank-you-message" class="text-muted mb-6">Your order has been successfully collected. Please visit us again!</p>
+            
+            <div class="card text-left">
+                <h3 class="font-bold mb-3">Feedback (Optional)</h3>
+                <textarea id="feedback-text" class="form-control mb-3" rows="3" placeholder="How was your experience?"></textarea>
+                <button class="btn btn-primary w-full" onclick="customerApp.submitFeedback()">Submit Feedback</button>
+            </div>
+            <button class="btn btn-secondary mt-4" onclick="customerApp.startNewOrder()">Start New Order</button>
+        </div>
+
         <!-- Floating Cart -->
         <div class="floating-cart" id="floating-cart" onclick="openModal('cart-modal')">
             <div class="flex flex-col">
-                <span class="text-sm opacity-90" id="cart-count">1 Item</span>
-                <span class="font-bold" id="cart-total">₹150</span>
+                <span class="text-sm opacity-90" id="cart-count">0 Items</span>
+                <span class="font-bold" id="cart-total">₹0</span>
             </div>
             <div class="flex items-center gap-2 font-bold">
                 View Cart <i data-lucide="chevron-right"></i>
@@ -89,8 +114,26 @@
                 </div>
             </div>
         </div>
+
+        <!-- Customization Modal -->
+        <div class="modal-overlay" id="cust-modal-overlay">
+            <div class="modal" style="margin-top: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%);">
+                <div class="modal-header">
+                    <h3 id="cust-modal-title">Customize Item</h3>
+                    <button class="btn-icon" onclick="closeModal('cust-modal')"><i data-lucide="x"></i></button>
+                </div>
+                <div class="modal-body" id="cust-modal-body" style="max-height: 60vh; overflow-y: auto;">
+                    <!-- populated by js -->
+                </div>
+                <div class="p-4 border-t border-border bg-surface">
+                    <button class="btn btn-primary w-full" id="cust-modal-add-btn">Add to Cart</button>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/customer.js"></script>
     <script>
@@ -100,14 +143,14 @@
         const origOpen = window.openModal;
         window.openModal = (id) => {
             origOpen(id);
-            if (id === 'cart-modal') {
-                document.querySelector('#cart-modal-overlay .modal').style.transform = 'translateY(0)';
+            if (id === 'cart-modal' || id === 'cust-modal') {
+                document.querySelector(`#${id}-overlay .modal`).style.transform = 'translateY(0)';
             }
         };
         const origClose = window.closeModal;
         window.closeModal = (id) => {
-            if (id === 'cart-modal') {
-                document.querySelector('#cart-modal-overlay .modal').style.transform = 'translateY(100%)';
+            if (id === 'cart-modal' || id === 'cust-modal') {
+                document.querySelector(`#${id}-overlay .modal`).style.transform = 'translateY(100%)';
                 setTimeout(() => origClose(id), 300);
             } else {
                 origClose(id);

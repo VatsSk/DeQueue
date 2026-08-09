@@ -10,8 +10,32 @@ class Orders {
     this.setupSearch();
     await this.fetchOrders();
     
-    // Poll for new orders every 15 seconds
-    setInterval(() => this.fetchOrders(), 15000);
+    this.connectWebSocket();
+  }
+
+  connectWebSocket() {
+    if (this.stompClient && this.stompClient.connected) return;
+    const socket = new SockJS('/ws');
+    this.stompClient = Stomp.over(socket);
+    this.stompClient.debug = null;
+    
+    this.stompClient.connect({}, () => {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                if (user && user.vendorId) {
+                    this.stompClient.subscribe('/topic/vendor/' + user.vendorId, (msg) => {
+                        this.fetchOrders();
+                    });
+                }
+            } catch (e) {
+                console.error("WebSocket subscription error", e);
+            }
+        }
+    }, (error) => {
+        console.error("WebSocket disconnected", error);
+    });
   }
 
   setupFilters() {
@@ -102,7 +126,7 @@ class Orders {
       if (order.status === 'PENDING') {
         badgeClass = 'badge-pending';
         actionsHtml = `
-            <button class="btn btn-danger" onclick="ordersApp.updateStatus('${order.id}', 'REJECTED')">Reject</button>
+            <button class="btn btn-danger" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')">Reject</button>
             <button class="btn btn-primary" onclick="ordersApp.updateStatus('${order.id}', 'PREPARING')">Accept</button>
         `;
       } else if (order.status === 'PREPARING') {
@@ -112,7 +136,7 @@ class Orders {
       } else if (order.status === 'READY') {
         borderColor = 'var(--success)';
         badgeClass = 'badge-ready';
-        actionsHtml = `<button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">Mark Completed</button>`;
+        actionsHtml = `<button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COLLECTED')">Mark Completed</button>`;
       } else {
          actionsHtml = `<button class="btn btn-secondary w-full" disabled>${order.status}</button>`;
       }
@@ -121,17 +145,31 @@ class Orders {
       if (order.items && order.items.length > 0) {
         order.items.forEach(item => {
             let customHtml = '';
-            if (item.customizations && item.customizations.length > 0) {
-                const customStr = item.customizations.map(c => `- ${c.optionName} (+₹${c.additionalPrice})`).join('<br>');
-                customHtml = `<div class="item-customizations">${customStr}</div>`;
+            if (item.selectedCustomizations && item.selectedCustomizations.length > 0) {
+                let optionsArr = [];
+                item.selectedCustomizations.forEach(c => {
+                    if (c.selectedOptions) {
+                        c.selectedOptions.forEach(opt => {
+                            optionsArr.push(`- ${opt.name} (+₹${opt.additionalPrice})`);
+                        });
+                    }
+                });
+                if (optionsArr.length > 0) {
+                    customHtml = `<div class="item-customizations" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">${optionsArr.join('<br>')}</div>`;
+                }
+            }
+            let instructionsHtml = '';
+            if (item.specialInstructions) {
+                instructionsHtml = `<div class="item-instructions" style="font-size: 0.85rem; color: var(--warning); margin-top: 2px; font-style: italic;">Note: ${item.specialInstructions}</div>`;
             }
             itemsHtml += `
-                <div class="order-item">
-                    <div class="item-main">
+                <div class="order-item" style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px dashed var(--border);">
+                    <div class="item-main" style="display: flex; justify-content: space-between; font-weight: 500;">
                         <span>${item.quantity}x ${item.menuItemName}</span>
-                        <span>₹${item.priceAtTime * item.quantity}</span>
+                        <span>₹${item.totalPrice}</span>
                     </div>
                     ${customHtml}
+                    ${instructionsHtml}
                 </div>
             `;
         });
