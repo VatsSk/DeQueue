@@ -109,8 +109,10 @@ public class WebPushService {
                 if (statusCode == 410 || statusCode == 404) {
                     log.info("Push subscription expired/invalid for order: {}, removing", orderId);
                     subscriptionRepository.delete(sub);
+                } else if (statusCode == 201) {
+                    log.info("Successfully pushed Web Push notification to endpoint for order: {}", orderId);
                 } else if (statusCode >= 400) {
-                    log.warn("Push notification failed for order: {}, status: {}", orderId, statusCode);
+                    log.warn("Failed to send push notification: HTTP {}", statusCode);
                 } else {
                     log.debug("Push notification sent for order: {}", orderId);
                 }

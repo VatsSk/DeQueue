@@ -118,36 +118,45 @@ class CustomerNotificationManager {
     if (existing) existing.remove();
 
     const icons = {
-      ACCEPTED: '🟢',
-      PREPARING: '🟡',
-      READY: '✅',
-      COLLECTED: '🎉',
-      CANCELLED: '❌'
+      ACCEPTED: { name: 'check-circle', class: 'icon-accepted' },
+      PREPARING: { name: 'chef-hat', class: 'icon-preparing' },
+      READY: { name: 'shopping-bag', class: 'icon-ready' },
+      COLLECTED: { name: 'party-popper', class: 'icon-collected' },
+      CANCELLED: { name: 'x-circle', class: 'icon-cancelled' }
     };
-    const icon = icons[status] || '🔔';
+    const iconObj = icons[status] || { name: 'bell', class: 'icon-default' };
 
     const banner = document.createElement('div');
-    banner.className = 'order-notification-banner';
+    banner.className = `order-notification-banner ${iconObj.class}`;
     banner.innerHTML = `
-      <div class="notification-icon">${icon}</div>
+      <div class="notification-icon-wrapper">
+        <i data-lucide="${iconObj.name}"></i>
+      </div>
       <div class="notification-content">
         <div class="notification-title">${this.getNotificationTitle(status)}</div>
         <div class="notification-body">${message || ''}</div>
       </div>
+      <button class="notification-close" onclick="this.parentElement.classList.remove('show'); setTimeout(() => this.parentElement.remove(), 400);">
+        <i data-lucide="x"></i>
+      </button>
+      <div class="notification-progress"></div>
     `;
 
     document.body.appendChild(banner);
+    if (typeof lucide !== 'undefined') lucide.createIcons({ root: banner });
 
     // Animate in
     requestAnimationFrame(() => {
       banner.classList.add('show');
     });
 
-    // Auto-remove after 5 seconds
+    // Auto-remove after 6 seconds
     setTimeout(() => {
-      banner.classList.remove('show');
-      setTimeout(() => banner.remove(), 400);
-    }, 5000);
+      if (banner.parentElement) {
+          banner.classList.remove('show');
+          setTimeout(() => banner.remove(), 400);
+      }
+    }, 6000);
   }
 
   getNotificationTitle(status) {

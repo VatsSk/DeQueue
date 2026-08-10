@@ -9,11 +9,16 @@ class QrCode {
       const response = await api.get('/qr');
       if (response.success && response.data) {
         const qrData = response.data;
+        
+        // Dynamically set the URL to point to the actual hosted domain
+        const dynamicUrl = `${window.location.origin}/customer.html?vendor=${qrData.vendorCode}`;
+        qrData.qrUrl = dynamicUrl;
+        qrData.qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(dynamicUrl)}`;
+        
         this.qrData = qrData;
         const img = document.querySelector('img[alt="QR Code"]');
         if (img) {
-          // If the backend gives us a direct image URL, use it. Otherwise use the link to generate one.
-          img.src = qrData.qrImageUrl || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData.qrUrl)}`;
+          img.src = qrData.qrImageUrl;
         }
         
         // Update the shop name from the logged-in user session
@@ -57,7 +62,7 @@ class QrCode {
         const user = userStr ? JSON.parse(userStr) : { shopName: 'Your Shop' };
         
         // 1. Fetch QR Image as Blob to avoid Canvas CORS taint
-        const qrUrl = this.qrData.qrImageUrl || `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(this.qrData.qrUrl)}`;
+        const qrUrl = this.qrData.qrImageUrl;
         const response = await fetch(qrUrl);
         const blob = await response.blob();
         

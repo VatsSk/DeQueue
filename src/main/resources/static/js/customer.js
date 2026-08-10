@@ -8,7 +8,17 @@ class CustomerApp {
     this.activeOrder = null;
     this.pollingInterval = null;
     this.notificationManager = null;
+    this.sessionId = this.getOrCreateSessionId();
     this.init();
+  }
+
+  getOrCreateSessionId() {
+    let sid = localStorage.getItem('dequeue_customer_session');
+    if (!sid) {
+      sid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('dequeue_customer_session', sid);
+    }
+    return sid;
   }
 
   getVendorCodeFromUrl() {
@@ -53,20 +63,12 @@ class CustomerApp {
 
       this.vendor = data.data;
       
-      // Fetch currently serving
-      try {
-          const currRes = await fetch(`/api/v1/public/orders/${this.vendorCode}/currently-serving`);
-          const currData = await currRes.json();
-          if (currData.success && currData.data) {
-              const banner = document.getElementById('running-queue-banner');
-              const display = document.getElementById('running-queue-display');
-              if (banner && display) {
-                  banner.classList.remove('hidden');
-                  display.textContent = currData.data;
-              }
-          }
-      } catch(e) {}
-      
+      // Fetch currently serving initially and start polling
+      await this.updateCurrentlyServing();
+      if (!this.pollingInterval) {
+          this.pollingInterval = setInterval(() => this.updateCurrentlyServing(), 10000);
+      }
+
       document.title = `${this.vendor.shopName} - Order | DeQueue`;
 
       // Update header
@@ -94,6 +96,26 @@ class CustomerApp {
       this.showError('Unable to load shop information. Please try again.');
       console.error(err);
     }
+  }
+
+  async updateCurrentlyServing() {
+      try {
+          const currRes = await fetch(`/api/v1/public/orders/${this.vendorCode}/currently-serving`);
+          const currData = await currRes.json();
+          const b = document.getElementById('running-queue-banner');
+          const d = document.getElementById('running-queue-display');
+          
+          if (b && d) {
+              if (currData.success && currData.data) {
+                  d.textContent = currData.data;
+                  b.classList.remove('hidden');
+              } else {
+                  b.classList.add('hidden');
+              }
+          }
+      } catch (e) {
+          // Silent fail for polling
+      }
   }
 
   async loadMenu() {
@@ -390,6 +412,7 @@ class CustomerApp {
     const note = document.getElementById('customer-note')?.value || '';
     
     const orderData = {
+      sessionId: this.sessionId,
       items: this.cart.map(item => ({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
@@ -458,8 +481,28 @@ class CustomerApp {
         this.activeOrder = data.data;
         if (data.data.status === 'COLLECTED' || data.data.status === 'CANCELLED') {
           localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
-          this.activeOrder = null;
           await this.loadVendor();
+          
+          const menuView = document.getElementById('menu-view');
+          const thankYouView = document.getElementById('thank-you-view');
+          
+          if (data.data.status === 'CANCELLED') {
+              document.getElementById('thank-you-title').textContent = 'Order Cancelled';
+              document.getElementById('thank-you-message').textContent = 'Unfortunately, your order was cancelled. Please try ordering again.';
+              document.getElementById('thank-you-icon').setAttribute('data-lucide', 'x-circle');
+              document.getElementById('thank-you-icon').setAttribute('class', 'text-warning');
+          } else {
+              document.getElementById('thank-you-title').textContent = 'Thank You!';
+              document.getElementById('thank-you-message').textContent = 'Your order has been successfully collected. Please visit us again!';
+              document.getElementById('thank-you-icon').setAttribute('data-lucide', 'heart');
+              document.getElementById('thank-you-icon').setAttribute('class', 'text-danger');
+          }
+          if (typeof lucide !== 'undefined') lucide.createIcons();
+          
+          if (menuView) menuView.classList.add('hidden');
+          if (thankYouView) thankYouView.classList.remove('hidden');
+          
+          this.activeOrder = null;
         } else {
           await this.loadVendor();
           this.showOrderTracking();
@@ -573,10 +616,7 @@ class CustomerApp {
       this.activeOrder.status = status;
       localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
       this.updateStatusDisplay(status);
-      
-      if (status === 'READY') {
-        if (typeof showToast === 'function') showToast('Your order is READY! Please collect it.', 'success');
-      }
+      this.showBrowserNotification(status);
       
       if (status === 'COLLECTED' || status === 'CANCELLED') {
         localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
@@ -588,7 +628,7 @@ class CustomerApp {
         const orderView = document.getElementById('order-view');
         const thankYouView = document.getElementById('thank-you-view');
         
-        if (event.status === 'CANCELLED') {
+        if (status === 'CANCELLED') {
             document.getElementById('thank-you-title').textContent = 'Order Cancelled';
             document.getElementById('thank-you-message').textContent = 'Unfortunately, your order was cancelled. Please try ordering again.';
             document.getElementById('thank-you-icon').setAttribute('data-lucide', 'x-circle');
@@ -603,6 +643,80 @@ class CustomerApp {
         
         if (orderView) orderView.classList.add('hidden');
         if (thankYouView) thankYouView.classList.remove('hidden');
+      }
+  }
+
+  async showBrowserNotification(status) {
+      if (!('Notification' in window)) {
+        console.warn('Browser notifications are not supported.');
+        return;
+      }
+    
+      console.log('Notification permission:', Notification.permission);
+    
+      if (Notification.permission === 'default') {
+        try {
+          const permission = await Notification.requestPermission();
+          console.log('Notification permission result:', permission);
+        } catch (err) {
+          console.error('Notification permission failed:', err);
+          return;
+        }
+      }
+    
+      if (Notification.permission !== 'granted') {
+        console.warn('Browser notification permission is not granted.');
+        return;
+      }
+    
+      const notifications = {
+        READY: {
+          title: 'Order Ready! 🍔',
+          body: `Your order #${this.activeOrder?.queueNumber || ''} is ready for collection.`,
+          icon: '/images/icon-192.png'
+        },
+        PREPARING: {
+          title: 'Order Preparing 👨‍🍳',
+          body: `Your order #${this.activeOrder?.queueNumber || ''} is now being prepared.`,
+          icon: '/images/icon-192.png'
+        },
+        CANCELLED: {
+          title: 'Order Cancelled',
+          body: `Your order #${this.activeOrder?.queueNumber || ''} has been cancelled.`,
+          icon: '/images/icon-192.png'
+        },
+        COLLECTED: {
+          title: 'Order Collected',
+          body: 'Thank you! Your order has been collected.',
+          icon: '/images/icon-192.png'
+        }
+      };
+    
+      const notification = notifications[status];
+    
+      if (!notification) return;
+    
+      try {
+        const options = {
+          body: notification.body,
+          icon: notification.icon,
+          tag: `dequeue-order-${this.activeOrder?.id || this.activeOrder?.queueNumber}`,
+          renotify: true
+        };
+
+        // Android Chrome requires ServiceWorker for notifications. 
+        // Fallback to 'new Notification' for desktop Safari/Firefox if SW is not ready.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(notification.title, options);
+            }).catch(err => {
+                new Notification(notification.title, options);
+            });
+        } else {
+            new Notification(notification.title, options);
+        }
+      } catch (err) {
+        console.error('Failed to create browser notification:', err);
       }
   }
 
