@@ -42,7 +42,14 @@
                     <div>
                         <input type="text" class="form-control" placeholder="Search menu..." style="min-width: 250px;">
                     </div>
-                    <button class="btn btn-primary" onclick="openModal('add-item-modal')"><i data-lucide="plus"></i> Add Item</button>
+                    <div class="flex gap-2">
+                        <button class="btn btn-ai-import" id="aiImportBtn" onclick="openModal('ai-extract-modal')">
+                            <i data-lucide="scan-text"></i> Import from Image
+                        </button>
+                        <button class="btn btn-primary" onclick="openModal('add-item-modal')">
+                            <i data-lucide="plus"></i> Add Item
+                        </button>
+                    </div>
                 </div>
 
                 <div class="menu-layout">
@@ -61,6 +68,114 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- AI EXTRACT MODAL — Step 1: Upload Image                     -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="ai-extract-modal-overlay">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <div class="flex items-center gap-3">
+                    <div class="ai-modal-icon">
+                        <i data-lucide="sparkles"></i>
+                    </div>
+                    <div>
+                        <h3>Import Menu from Image</h3>
+                        <p class="text-sm text-muted" style="margin:0">Powered by Gemini Flash AI</p>
+                    </div>
+                </div>
+                <button class="btn-icon" onclick="closeModal('ai-extract-modal')"><i data-lucide="x"></i></button>
+            </div>
+
+            <!-- Step indicator -->
+            <div class="ai-steps">
+                <div class="ai-step active" id="step-indicator-1">
+                    <div class="ai-step-num">1</div>
+                    <span>Upload Photo</span>
+                </div>
+                <div class="ai-step-line"></div>
+                <div class="ai-step" id="step-indicator-2">
+                    <div class="ai-step-num">2</div>
+                    <span>Review & Save</span>
+                </div>
+            </div>
+
+            <!-- STEP 1: Upload -->
+            <div id="ai-step-1" class="modal-body">
+                <div class="ai-upload-zone" id="aiDropZone">
+                    <input type="file" id="aiMenuImageFile" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;">
+                    <div id="aiUploadPrompt">
+                        <div class="ai-upload-icon">
+                            <i data-lucide="image-up"></i>
+                        </div>
+                        <h4>Drop your menu photo here</h4>
+                        <p class="text-muted">JPEG, PNG, or WEBP · Max 10 MB</p>
+                        <button type="button" class="btn btn-secondary mt-3" onclick="document.getElementById('aiMenuImageFile').click()">
+                            <i data-lucide="folder-open"></i> Browse File
+                        </button>
+                    </div>
+                    <div id="aiImagePreviewWrap" style="display:none; text-align:center;">
+                        <img id="aiImagePreview" src="" alt="Menu preview" style="max-width:100%; max-height:280px; border-radius:12px; object-fit:contain;">
+                        <div class="mt-3 flex justify-center gap-3">
+                            <span id="aiFileName" class="text-sm text-muted"></span>
+                            <button type="button" class="btn-link text-danger text-sm" onclick="menuApp.resetAiUpload()">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ai-tips">
+                    <i data-lucide="lightbulb" style="color:var(--warning);flex-shrink:0;"></i>
+                    <p class="text-sm text-muted">For best results, use a clear, well-lit photo of the entire menu. Gemini will extract all visible items, prices, and categories automatically.</p>
+                </div>
+            </div>
+            <div class="modal-footer" id="ai-step-1-footer">
+                <button class="btn btn-secondary" onclick="closeModal('ai-extract-modal')">Cancel</button>
+                <button class="btn btn-ai-import" id="aiExtractBtn" disabled onclick="menuApp.extractMenuFromImage()">
+                    <i data-lucide="sparkles"></i> Extract with AI
+                </button>
+            </div>
+
+            <!-- STEP 2: Review -->
+            <div id="ai-step-2" style="display:none;">
+                <div class="modal-body">
+                    <div id="aiSummaryBanner" class="ai-summary-banner">
+                        <i data-lucide="check-circle-2" style="color:var(--success);flex-shrink:0;"></i>
+                        <div>
+                            <strong id="aiSummaryText">Extraction complete</strong>
+                            <p id="aiSummarySubtext" class="text-sm text-muted" style="margin:0"></p>
+                        </div>
+                    </div>
+
+                    <div class="ai-review-filters">
+                        <label class="text-sm font-medium">Filter by category:</label>
+                        <select id="aiCategoryFilter" class="form-control" style="max-width:220px;" onchange="menuApp.filterPreviewItems()">
+                            <option value="">All categories</option>
+                        </select>
+                    </div>
+
+                    <div id="aiPreviewTable" class="ai-preview-table-wrap">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="menuApp.goBackToUpload()">
+                        <i data-lucide="arrow-left"></i> Re-upload
+                    </button>
+                    <button class="btn btn-primary" id="aiConfirmBtn" onclick="menuApp.confirmExtraction()">
+                        <i data-lucide="save"></i> Save to Menu
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading overlay inside modal -->
+            <div id="aiLoadingOverlay" class="ai-loading-overlay" style="display:none;">
+                <div class="ai-loading-content">
+                    <div class="ai-spinner"></div>
+                    <p id="aiLoadingText" class="text-muted mt-3">Analyzing your menu with AI...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Add/Edit Item Modal -->

@@ -1,6 +1,7 @@
 package com.dequeue.common.exception;
 
 import com.dequeue.common.dto.ErrorResponse;
+import com.dequeue.menu.service.GeminiMenuExtractionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -106,6 +107,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMaxSizeException(MaxUploadSizeExceededException exc, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(buildErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE, "File size exceeds limit!", request, null));
+    }
+
+    @ExceptionHandler(GeminiMenuExtractionService.MenuExtractionException.class)
+    public ResponseEntity<ErrorResponse> handleMenuExtractionException(
+            GeminiMenuExtractionService.MenuExtractionException ex, HttpServletRequest request) {
+        log.warn("Menu extraction failed: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(buildErrorResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request, null));
     }
 
     @ExceptionHandler(Exception.class)

@@ -40,6 +40,9 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY:key}
   api-secret: ${CLOUDINARY_API_SECRET:secret}
 
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+
 dequeue:
   vapid:
     public-key: ${VAPID_PUBLIC_KEY}

@@ -2,15 +2,21 @@ class Menu {
   constructor() {
     this.categories = [];
     this.items = [];
+    // AI Extraction state
+    this._aiFile = null;
+    this._aiPreviewData = null;
     this.init();
   }
 
   async init() {
     this.setupSearch();
     this.setupAddModal();
+    this.setupAiExtraction();
     await this.loadCategories();
     await this.loadItems();
   }
+
+  // ─── Data Loading ──────────────────────────────────────────────
 
   async loadCategories() {
     try {
@@ -31,7 +37,6 @@ class Menu {
       const url = categoryId ? `/menu/items?categoryId=${categoryId}` : `/menu/items`;
       const res = await api.get(url);
       if (res.success) {
-        // Handle both paginated response and list response
         this.items = res.data.content ? res.data.content : res.data;
         this.renderItems();
       }
@@ -41,16 +46,16 @@ class Menu {
     }
   }
 
+  // ─── Rendering ────────────────────────────────────────────────
+
   renderCategorySidebar() {
     const container = document.getElementById('categoryListContainer');
     if (!container) return;
-
     let html = `<div class="cat-item active" data-id="">All Items</div>`;
     this.categories.forEach(cat => {
       html += `<div class="cat-item" data-id="${cat.id}">${cat.name}</div>`;
     });
     container.innerHTML = html;
-
     const catItems = document.querySelectorAll('.cat-item');
     catItems.forEach(item => {
       item.addEventListener('click', (e) => {
@@ -65,7 +70,6 @@ class Menu {
   renderCategorySelect() {
     const select = document.getElementById('addItemCategory');
     if (!select) return;
-    
     let html = '';
     this.categories.forEach(cat => {
       html += `<option value="${cat.id}">${cat.name}</option>`;
@@ -76,12 +80,10 @@ class Menu {
   renderItems() {
     const grid = document.getElementById('menuItemsGrid');
     if (!grid) return;
-
     if (!this.items || this.items.length === 0) {
       grid.innerHTML = '<div class="text-muted p-4">No menu items found. Add some items to get started!</div>';
       return;
     }
-
     let html = '';
     this.items.forEach(item => {
       const img = item.image || 'https://images.unsplash.com/photo-1544148103-0773bf10d330?w=500&q=80';
@@ -115,6 +117,8 @@ class Menu {
     if (window.lucide) lucide.createIcons();
   }
 
+  // ─── Search ───────────────────────────────────────────────────
+
   setupSearch() {
     const searchInput = document.querySelector('input[placeholder="Search menu..."]');
     if (searchInput) {
@@ -129,140 +133,124 @@ class Menu {
     }
   }
 
+  // ─── Add / Edit Modal ─────────────────────────────────────────
+
   setupAddModal() {
     const btn = document.getElementById('saveItemBtn');
-    if (btn) {
-      btn.addEventListener('click', () => this.saveItem());
-    }
-    
-    // Setup Image Upload
+    if (btn) btn.addEventListener('click', () => this.saveItem());
+
     const fileInput = document.getElementById('itemImageFile');
     if (fileInput) {
-        fileInput.addEventListener('change', async (e) => {
-            if (e.target.files && e.target.files[0]) {
-                const file = e.target.files[0];
-                
-                // Show preview immediately
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    document.getElementById('imagePreview').src = e.target.result;
-                    document.getElementById('imagePreview').style.display = 'block';
-                    document.getElementById('imagePreviewContainer').style.display = 'none';
-                };
-                reader.readAsDataURL(file);
-                
-                // Upload to server
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('folder', 'menu');
-                
-                try {
-                    const uploadRes = await fetch('/api/v1/images/upload', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer ' + api.token
-                        },
-                        body: formData
-                    });
-                    const resJson = await uploadRes.json();
-                    if (resJson.success) {
-                        document.getElementById('uploadedImageUrl').value = resJson.data.url;
-                        if (window.showToast) showToast('Image uploaded successfully', 'success');
-                    }
-                } catch(e) {
-                    console.error('Image upload failed', e);
-                    if (window.showToast) showToast('Failed to upload image', 'error');
-                }
+      fileInput.addEventListener('change', async (e) => {
+        if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            document.getElementById('imagePreview').src = ev.target.result;
+            document.getElementById('imagePreview').style.display = 'block';
+            document.getElementById('imagePreviewContainer').style.display = 'none';
+          };
+          reader.readAsDataURL(file);
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('folder', 'menu');
+          try {
+            const uploadRes = await fetch('/api/v1/images/upload', {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + api.token },
+              body: formData
+            });
+            const resJson = await uploadRes.json();
+            if (resJson.success) {
+              document.getElementById('uploadedImageUrl').value = resJson.data.url;
+              if (window.showToast) showToast('Image uploaded successfully', 'success');
             }
-        });
+          } catch (e) {
+            console.error('Image upload failed', e);
+            if (window.showToast) showToast('Failed to upload image', 'error');
+          }
+        }
+      });
     }
-    
-    // Override openModal specifically for add-item-modal to load customizations
+
     const origOpen = window.openModal;
     if (!window.customModalPatched) {
-        window.openModal = (id) => {
-            if (id === 'add-item-modal') {
-                document.getElementById('modalTitle').innerText = 'Add Menu Item';
-                document.getElementById('editItemId').value = '';
-                this.resetForm();
-                this.loadCustomizationGroups();
-            }
-            origOpen(id);
-        };
-        window.customModalPatched = true;
+      window.openModal = (id) => {
+        if (id === 'add-item-modal') {
+          document.getElementById('modalTitle').innerText = 'Add Menu Item';
+          document.getElementById('editItemId').value = '';
+          this.resetForm();
+          this.loadCustomizationGroups();
+        }
+        origOpen(id);
+      };
+      window.customModalPatched = true;
     }
   }
 
   resetForm() {
-      document.getElementById('addItemName').value = '';
-      document.getElementById('addItemPrice').value = '';
-      document.getElementById('addItemDesc').value = '';
-      document.getElementById('uploadedImageUrl').value = '';
-      document.getElementById('imagePreview').style.display = 'none';
-      document.getElementById('imagePreviewContainer').style.display = 'block';
-      document.getElementById('customizationsList').innerHTML = '';
-      const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
-      checkboxes.forEach(c => c.checked = false);
+    document.getElementById('addItemName').value = '';
+    document.getElementById('addItemPrice').value = '';
+    document.getElementById('addItemDesc').value = '';
+    document.getElementById('uploadedImageUrl').value = '';
+    document.getElementById('imagePreview').style.display = 'none';
+    document.getElementById('imagePreviewContainer').style.display = 'block';
+    document.getElementById('customizationsList').innerHTML = '';
+    const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
+    checkboxes.forEach(c => c.checked = false);
   }
 
   editItem(id) {
-      const item = this.items.find(i => i.id === id);
-      if (!item) return;
-
-      document.getElementById('modalTitle').innerText = 'Edit Menu Item';
-      document.getElementById('editItemId').value = item.id;
-      document.getElementById('addItemName').value = item.name;
-      document.getElementById('addItemPrice').value = item.price;
-      document.getElementById('addItemDesc').value = item.description || '';
-      document.getElementById('addItemCategory').value = item.categoryId;
-      document.getElementById('customizationsList').innerHTML = '';
-
-      if (item.image) {
-          document.getElementById('uploadedImageUrl').value = item.image;
-          document.getElementById('imagePreview').src = item.image;
-          document.getElementById('imagePreview').style.display = 'block';
-          document.getElementById('imagePreviewContainer').style.display = 'none';
-      } else {
-          document.getElementById('uploadedImageUrl').value = '';
-          document.getElementById('imagePreview').style.display = 'none';
-          document.getElementById('imagePreviewContainer').style.display = 'block';
+    const item = this.items.find(i => i.id === id);
+    if (!item) return;
+    document.getElementById('modalTitle').innerText = 'Edit Menu Item';
+    document.getElementById('editItemId').value = item.id;
+    document.getElementById('addItemName').value = item.name;
+    document.getElementById('addItemPrice').value = item.price;
+    document.getElementById('addItemDesc').value = item.description || '';
+    document.getElementById('addItemCategory').value = item.categoryId;
+    document.getElementById('customizationsList').innerHTML = '';
+    if (item.image) {
+      document.getElementById('uploadedImageUrl').value = item.image;
+      document.getElementById('imagePreview').src = item.image;
+      document.getElementById('imagePreview').style.display = 'block';
+      document.getElementById('imagePreviewContainer').style.display = 'none';
+    } else {
+      document.getElementById('uploadedImageUrl').value = '';
+      document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('imagePreviewContainer').style.display = 'block';
+    }
+    this.loadCustomizationGroups().then(() => {
+      if (item.customizationGroups) {
+        const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
+        checkboxes.forEach(c => {
+          if (item.customizationGroups.includes(c.value)) c.checked = true;
+        });
       }
-
-      this.loadCustomizationGroups().then(() => {
-          if (item.customizationGroups) {
-              const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
-              checkboxes.forEach(c => {
-                  if (item.customizationGroups.includes(c.value)) {
-                      c.checked = true;
-                  }
-              });
-          }
-      });
-
-      window.openModal('add-item-modal');
-        // Handled in setupAddModal
+    });
+    window.openModal('add-item-modal');
   }
 
   async loadCustomizationGroups() {
     try {
-        const res = await api.get('/customizations');
-        const list = document.getElementById('savedCustomizationsList');
-        if (list) {
-            if (res.success && res.data.length > 0) {
-                let html = '';
-                res.data.forEach(g => {
-                    html += `<label class="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-surface">
-                        <input type="checkbox" name="saved_customizations" value="${g.id}">
-                        <span>${g.name} <small class="text-muted">(${g.options ? g.options.length : 0} options)</small></span>
-                    </label>`;
-                });
-                list.innerHTML = html;
-            } else {
-                list.innerHTML = '<span class="text-muted text-sm italic">No saved customizations found. Add them in the Customizations tab.</span>';
-            }
+      const res = await api.get('/customizations');
+      const list = document.getElementById('savedCustomizationsList');
+      if (list) {
+        if (res.success && res.data.length > 0) {
+          let html = '';
+          res.data.forEach(g => {
+            html += `<label class="flex items-center gap-2 cursor-pointer p-2 border border-border rounded-md hover:bg-surface">
+              <input type="checkbox" name="saved_customizations" value="${g.id}">
+              <span>${g.name} <small class="text-muted">(${g.options ? g.options.length : 0} options)</small></span>
+            </label>`;
+          });
+          list.innerHTML = html;
+        } else {
+          list.innerHTML = '<span class="text-muted text-sm italic">No saved customizations found.</span>';
         }
-    } catch(e) {
-        console.error('Failed to load customizations', e);
+      }
+    } catch (e) {
+      console.error('Failed to load customizations', e);
     }
   }
 
@@ -275,21 +263,16 @@ class Menu {
     const imageUrl = document.getElementById('uploadedImageUrl').value;
 
     if (!name || !price || !categoryId) {
-        if (window.showToast) showToast('Please fill all required fields', 'error');
-        return;
+      if (window.showToast) showToast('Please fill all required fields', 'error');
+      return;
     }
 
     const rows = document.querySelectorAll('.custom-option-row');
     const options = [];
     rows.forEach(row => {
-        const optName = row.querySelector('.custom-opt-name').value;
-        const optPrice = row.querySelector('.custom-opt-price').value;
-        if (optName) {
-            options.push({
-                name: optName,
-                additionalPrice: parseFloat(optPrice || 0)
-            });
-        }
+      const optName = row.querySelector('.custom-opt-name').value;
+      const optPrice = row.querySelector('.custom-opt-price').value;
+      if (optName) options.push({ name: optName, additionalPrice: parseFloat(optPrice || 0) });
     });
 
     const btn = document.getElementById('saveItemBtn');
@@ -298,43 +281,31 @@ class Menu {
 
     try {
       let customizationGroupIds = [];
-      
       const savedChecks = document.querySelectorAll('input[name="saved_customizations"]:checked');
       savedChecks.forEach(c => customizationGroupIds.push(c.value));
 
       if (options.length > 0) {
-          const groupRes = await api.post('/customizations', {
-              name: 'Options for ' + name,
-              selectionType: 'MULTIPLE',
-              required: false,
-              minSelection: 0,
-              maxSelection: options.length,
-              options: options
-          });
-          if (groupRes.success) {
-              customizationGroupIds.push(groupRes.data.id);
-          }
+        const groupRes = await api.post('/customizations', {
+          name: 'Options for ' + name,
+          selectionType: 'MULTIPLE',
+          required: false,
+          minSelection: 0,
+          maxSelection: options.length,
+          options: options
+        });
+        if (groupRes.success) customizationGroupIds.push(groupRes.data.id);
       }
 
-      const payload = {
-        name: name,
-        price: parseFloat(price),
-        categoryId: categoryId,
-        description: desc,
-        customizationGroupIds: customizationGroupIds
-      };
-      
-      if (imageUrl) {
-          payload.image = imageUrl;
-      }
+      const payload = { name, price: parseFloat(price), categoryId, description: desc, customizationGroupIds };
+      if (imageUrl) payload.image = imageUrl;
 
       let res;
       if (editId) {
-          res = await api.put(`/menu/items/${editId}`, payload);
+        res = await api.put(`/menu/items/${editId}`, payload);
       } else {
-          res = await api.post('/menu/items', payload);
+        res = await api.post('/menu/items', payload);
       }
-      
+
       if (res.success) {
         if (window.showToast) showToast(editId ? 'Item Updated Successfully' : 'Item Added Successfully', 'success');
         if (window.closeModal) closeModal('add-item-modal');
@@ -356,7 +327,7 @@ class Menu {
       if (window.showToast) showToast('Availability updated', 'success');
     } catch (e) {
       if (window.showToast) showToast('Failed to update availability', 'error');
-      await this.loadItems(); // rollback visually
+      await this.loadItems();
     }
   }
 
@@ -366,13 +337,14 @@ class Menu {
     const div = document.createElement('div');
     div.className = 'flex items-center gap-2 custom-option-row';
     div.innerHTML = `
-        <input type="text" class="form-control flex-1 custom-opt-name" placeholder="Option name (e.g. Extra Cheese)">
-        <input type="number" class="form-control custom-opt-price" placeholder="+ Price" style="width: 100px;">
-        <button type="button" class="btn-icon text-danger" onclick="this.parentElement.remove()"><i data-lucide="trash-2"></i></button>
+      <input type="text" class="form-control flex-1 custom-opt-name" placeholder="Option name (e.g. Extra Cheese)">
+      <input type="number" class="form-control custom-opt-price" placeholder="+ Price" style="width: 100px;">
+      <button type="button" class="btn-icon text-danger" onclick="this.parentElement.remove()"><i data-lucide="trash-2"></i></button>
     `;
     list.appendChild(div);
     if (window.lucide) lucide.createIcons();
   }
+
   async deleteItem(id) {
     if (!confirm('Are you sure you want to delete this item?')) return;
     try {
@@ -382,6 +354,253 @@ class Menu {
     } catch (e) {
       if (window.showToast) showToast('Failed to delete item', 'error');
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // AI MENU EXTRACTION — Two-step flow
+  // ═══════════════════════════════════════════════════════════════
+
+  setupAiExtraction() {
+    const fileInput = document.getElementById('aiMenuImageFile');
+    const dropZone  = document.getElementById('aiDropZone');
+    if (!fileInput || !dropZone) return;
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) this._setAiFile(e.target.files[0]);
+    });
+
+    // Click on drop zone to trigger file picker (only when no file yet)
+    dropZone.addEventListener('click', (e) => {
+      if (dropZone.classList.contains('has-file')) return;
+      if (e.target.closest('button')) return;
+      fileInput.click();
+    });
+
+    // Drag-and-drop
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        this._setAiFile(file);
+      } else {
+        if (window.showToast) showToast('Please drop an image file', 'error');
+      }
+    });
+  }
+
+  _setAiFile(file) {
+    if (file.size > 10 * 1024 * 1024) {
+      if (window.showToast) showToast('Image must be under 10 MB', 'error');
+      return;
+    }
+    this._aiFile = file;
+
+    const reader = new FileReader();
+    reader.onload = (e) => { document.getElementById('aiImagePreview').src = e.target.result; };
+    reader.readAsDataURL(file);
+
+    document.getElementById('aiFileName').textContent = `${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+    document.getElementById('aiUploadPrompt').style.display = 'none';
+    document.getElementById('aiImagePreviewWrap').style.display = 'block';
+    document.getElementById('aiDropZone').classList.add('has-file');
+    document.getElementById('aiExtractBtn').disabled = false;
+  }
+
+  resetAiUpload() {
+    this._aiFile = null;
+    this._aiPreviewData = null;
+    document.getElementById('aiMenuImageFile').value = '';
+    document.getElementById('aiUploadPrompt').style.display = 'block';
+    document.getElementById('aiImagePreviewWrap').style.display = 'none';
+    document.getElementById('aiDropZone').classList.remove('has-file');
+    document.getElementById('aiExtractBtn').disabled = true;
+  }
+
+  _showAiLoading(text) {
+    document.getElementById('aiLoadingText').textContent = text || 'Analyzing your menu with AI...';
+    document.getElementById('aiLoadingOverlay').style.display = 'flex';
+  }
+
+  _hideAiLoading() {
+    document.getElementById('aiLoadingOverlay').style.display = 'none';
+  }
+
+  _goToStep(stepNum) {
+    const s1       = document.getElementById('ai-step-1');
+    const s1footer = document.getElementById('ai-step-1-footer');
+    const s2       = document.getElementById('ai-step-2');
+    const ind1     = document.getElementById('step-indicator-1');
+    const ind2     = document.getElementById('step-indicator-2');
+    const line     = document.querySelector('.ai-step-line');
+
+    if (stepNum === 1) {
+      s1.style.display = 'block';
+      s1footer.style.display = 'flex';
+      s2.style.display = 'none';
+      ind1.className = 'ai-step active';
+      ind2.className = 'ai-step';
+      if (line) line.className = 'ai-step-line';
+    } else {
+      s1.style.display = 'none';
+      s1footer.style.display = 'none';
+      s2.style.display = 'block';
+      ind1.className = 'ai-step done';
+      ind2.className = 'ai-step active';
+      if (line) line.className = 'ai-step-line done';
+    }
+    if (window.lucide) lucide.createIcons();
+  }
+
+  /** Step 1: send image to backend → Gemini → get preview */
+  async extractMenuFromImage() {
+    if (!this._aiFile) return;
+
+    this._showAiLoading('Analyzing your menu with Gemini AI...');
+
+    const formData = new FormData();
+    formData.append('image', this._aiFile);
+
+    try {
+      const response = await fetch('/api/v1/menu/extract-from-image', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + api.token },
+        body: formData
+      });
+      const result = await response.json();
+      this._hideAiLoading();
+
+      if (!result.success) {
+        if (window.showToast) showToast(result.message || 'Extraction failed', 'error');
+        return;
+      }
+
+      this._aiPreviewData = result.data;
+      this._renderPreviewStep(result.data);
+      this._goToStep(2);
+
+    } catch (e) {
+      this._hideAiLoading();
+      console.error('AI extraction error', e);
+      if (window.showToast) showToast('Network error during AI extraction', 'error');
+    }
+  }
+
+  /** Populates Step 2: summary banner, category filter, preview table */
+  _renderPreviewStep(data) {
+    document.getElementById('aiSummaryText').textContent =
+      `${data.totalItems} item${data.totalItems !== 1 ? 's' : ''} detected`;
+    document.getElementById('aiSummarySubtext').textContent =
+      data.summary || `Across ${(data.detectedCategories || []).length} categories`;
+
+    const catFilter = document.getElementById('aiCategoryFilter');
+    catFilter.innerHTML = '<option value="">All categories</option>';
+    (data.detectedCategories || []).forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      catFilter.appendChild(opt);
+    });
+
+    this._renderPreviewTable(data.items, '');
+  }
+
+  _renderPreviewTable(items, filterCat) {
+    const wrap = document.getElementById('aiPreviewTable');
+    if (!items || items.length === 0) {
+      wrap.innerHTML = '<p class="text-muted p-4 text-center">No items to show.</p>';
+      return;
+    }
+    const filtered = filterCat ? items.filter(i => i.categoryName === filterCat) : items;
+    let rows = '';
+    filtered.forEach(item => {
+      const price = (item.price === 0 || item.price === '0' || item.price === null)
+        ? '<span class="ai-price-zero">Not set</span>'
+        : `₹${parseFloat(item.price).toFixed(2)}`;
+      const descSnip = item.description
+        ? `<br><small class="text-muted">${this._esc(item.description.substring(0, 65))}${item.description.length > 65 ? '…' : ''}</small>`
+        : '';
+      rows += `
+        <tr>
+          <td><strong>${this._esc(item.name)}</strong>${descSnip}</td>
+          <td>${price}</td>
+          <td><span class="ai-preview-badge">${this._esc(item.categoryName || 'General')}</span></td>
+        </tr>`;
+    });
+    wrap.innerHTML = `
+      <table class="ai-preview-table">
+        <thead><tr><th>Item</th><th>Price</th><th>Category</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  filterPreviewItems() {
+    if (!this._aiPreviewData) return;
+    const cat = document.getElementById('aiCategoryFilter').value;
+    this._renderPreviewTable(this._aiPreviewData.items, cat);
+  }
+
+  goBackToUpload() {
+    this._goToStep(1);
+  }
+
+  /** Step 2: confirm session → persist to DB */
+  async confirmExtraction() {
+    if (!this._aiPreviewData || !this._aiPreviewData.extractionSessionId) return;
+
+    const btn = document.getElementById('aiConfirmBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2"></i> Saving...';
+    if (window.lucide) lucide.createIcons();
+
+    this._showAiLoading('Saving menu items to database...');
+
+    try {
+      const res = await api.post('/menu/extract-from-image/confirm', {
+        extractionSessionId: this._aiPreviewData.extractionSessionId
+      });
+      this._hideAiLoading();
+
+      if (res.success) {
+        const d = res.data;
+        if (window.showToast) showToast(
+          `✓ ${d.itemsCreated} items saved · ${d.categoriesCreated} new categories · ${d.categoriesReused} reused`,
+          'success'
+        );
+        closeModal('ai-extract-modal');
+        this.resetAiUpload();
+        this._aiPreviewData = null;
+        this._goToStep(1);
+        await this.loadCategories();
+        await this.loadItems();
+      } else {
+        if (window.showToast) showToast(res.message || 'Failed to save', 'error');
+      }
+    } catch (e) {
+      this._hideAiLoading();
+      console.error('Confirm extraction error', e);
+      if (window.showToast) showToast('Network error while saving', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="save"></i> Save to Menu';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  /** Escape HTML to prevent XSS in dynamically rendered strings */
+  _esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 }
 
