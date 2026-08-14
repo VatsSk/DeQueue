@@ -20,5 +20,6 @@ public class PublicVendorResponse {
         private boolean allowCustomOrder;
         private boolean showPreparationTime;
         private String currency;
+        private boolean enableGeofence;
     }
 }

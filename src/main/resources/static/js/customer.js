@@ -9,6 +9,10 @@ class CustomerApp {
     this.pollingInterval = null;
     this.notificationManager = null;
     this.sessionId = this.getOrCreateSessionId();
+    // Geofence
+    this.customerLat = null;
+    this.customerLng = null;
+    this.geofenceValidated = false;
     this.init();
   }
 
@@ -92,6 +96,12 @@ class CustomerApp {
       }
 
       await this.loadMenu();
+
+      // If vendor has geofence enabled, prompt user for location
+      if (this.vendor.settings && this.vendor.settings.enableGeofence) {
+        this.promptGeofenceLocation();
+      }
+
     } catch (err) {
       this.showError('Unable to load shop information. Please try again.');
       console.error(err);
@@ -409,6 +419,12 @@ class CustomerApp {
   async placeOrder() {
     if (this.cart.length === 0) return;
 
+    // Geofence check: if vendor requires it, validate user location first
+    if (this.vendor && this.vendor.settings && this.vendor.settings.enableGeofence) {
+      const allowed = await this.validateGeofence();
+      if (!allowed) return; // blocked — message already shown
+    }
+
     const note = document.getElementById('customer-note')?.value || '';
     
     const orderData = {
@@ -420,6 +436,7 @@ class CustomerApp {
       })),
       customerNote: note
     };
+
 
     try {
       const res = await fetch(`/api/v1/public/orders/${this.vendorCode}`, {
@@ -731,10 +748,154 @@ class CustomerApp {
   
   startNewOrder() {
       this.activeOrder = null;
+      this.geofenceValidated = false; // reset for next order attempt
       const thankYouView = document.getElementById('thank-you-view');
       const menuView = document.getElementById('menu-view');
       if (thankYouView) thankYouView.classList.add('hidden');
       if (menuView) menuView.classList.remove('hidden');
+  }
+
+  // ─── Geofence helpers ────────────────────────────────────────────────────
+
+  /**
+   * Shows a soft location banner below the category pills asking the customer
+   * to allow location. Does NOT block — ordering will re-validate when they try.
+   */
+  promptGeofenceLocation() {
+    // Inject a location notice if not already present
+    const existing = document.getElementById('gf-location-notice');
+    if (existing) return;
+
+    const notice = document.createElement('div');
+    notice.id = 'gf-location-notice';
+    notice.style.cssText = [
+      'display:flex', 'align-items:center', 'gap:.75rem',
+      'background:rgba(99,102,241,.08)', 'border:1px solid rgba(99,102,241,.25)',
+      'border-radius:10px', 'padding:.75rem 1rem', 'margin:.75rem 0',
+      'font-size:.85rem', 'color:var(--text-color,#111)', 'cursor:pointer',
+      'transition:background .2s'
+    ].join(';');
+    notice.innerHTML = `
+      <i data-lucide="map-pin" style="width:18px;height:18px;color:#6366f1;flex-shrink:0;"></i>
+      <span><strong>Location required.</strong> This shop requires you to be nearby to order.
+        <span id="gf-share-btn" style="color:#6366f1;font-weight:600;text-decoration:underline;cursor:pointer;margin-left:.25rem;">Share my location</span>
+      </span>
+      <i id="gf-location-icon" data-lucide="circle" style="width:14px;height:14px;margin-left:auto;color:#9ca3af;flex-shrink:0;"></i>
+    `;
+
+    const categoryPills = document.querySelector('.category-pills');
+    if (categoryPills && categoryPills.parentNode) {
+      categoryPills.parentNode.insertBefore(notice, categoryPills);
+    } else {
+      const menuView = document.getElementById('menu-view');
+      if (menuView) menuView.prepend(notice);
+    }
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    document.getElementById('gf-share-btn').addEventListener('click', () => {
+      this._requestLocationForGeofence((ok) => {
+        this._updateGeofenceNotice(ok);
+      });
+    });
+
+    // Proactively try to get location silently
+    this._requestLocationForGeofence((ok) => {
+      this._updateGeofenceNotice(ok);
+    });
+  }
+
+  _requestLocationForGeofence(callback) {
+    if (!navigator.geolocation) { callback(false); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.customerLat = pos.coords.latitude;
+        this.customerLng = pos.coords.longitude;
+        callback(true);
+      },
+      () => { callback(false); },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+    );
+  }
+
+  _updateGeofenceNotice(locationObtained) {
+    const notice = document.getElementById('gf-location-notice');
+    const icon   = document.getElementById('gf-location-icon');
+    const shareBtn = document.getElementById('gf-share-btn');
+    if (!notice) return;
+
+    if (locationObtained) {
+      notice.style.background = 'rgba(34,197,94,.08)';
+      notice.style.borderColor = 'rgba(34,197,94,.25)';
+      notice.innerHTML = `
+        <i data-lucide="check-circle-2" style="width:18px;height:18px;color:#22c55e;flex-shrink:0;"></i>
+        <span style="color:var(--text-color,#111)"><strong style="color:#16a34a">Location shared.</strong> You&rsquo;ll be verified when you place your order.</span>
+      `;
+    } else {
+      if (shareBtn) shareBtn.textContent = 'Try again';
+      if (icon) {
+        icon.setAttribute('data-lucide', 'alert-circle');
+        icon.style.color = '#f59e0b';
+      }
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  /**
+   * Called from placeOrder when geofence is enabled.
+   * Returns true if customer is within range, false if blocked.
+   */
+  async validateGeofence() {
+    // If we already have coordinates, skip re-requesting
+    if (this.customerLat === null || this.customerLng === null) {
+      // Try to get location now (blocking)
+      const obtained = await new Promise((resolve) => {
+        if (!navigator.geolocation) { resolve(false); return; }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { this.customerLat = pos.coords.latitude; this.customerLng = pos.coords.longitude; resolve(true); },
+          () => resolve(false),
+          { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+        );
+      });
+
+      if (!obtained) {
+        if (typeof showToast === 'function') {
+          showToast('Location required. Please allow location access to order from this shop.', 'error');
+        }
+        return false;
+      }
+    }
+
+    try {
+      const res = await fetch('/api/v1/geofence/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendorCode: this.vendorCode,
+          customerLatitude: this.customerLat,
+          customerLongitude: this.customerLng
+        })
+      });
+      const data = await res.json();
+
+      if (data.success && data.data) {
+        if (data.data.withinRange) {
+          return true;
+        } else {
+          const dist = Math.round(data.data.distance);
+          const max  = Math.round(data.data.maxRadius);
+          if (typeof showToast === 'function') {
+            showToast(`You are ${dist}m away. This shop only accepts orders within ${max}m.`, 'error');
+          }
+          return false;
+        }
+      }
+    } catch (e) {
+      console.error('Geofence validation error:', e);
+      // On network error, allow ordering (fail-open)
+    }
+
+    return true;
   }
 
   updateStatusDisplay(status) {

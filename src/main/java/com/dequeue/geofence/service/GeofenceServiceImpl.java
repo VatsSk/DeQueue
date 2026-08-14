@@ -27,7 +27,8 @@ public class GeofenceServiceImpl implements GeofenceService {
             response.setLongitude(vendor.getGeoLocation().getLongitude());
         }
         response.setRadius(vendor.getGeoRadius() != null ? vendor.getGeoRadius() : 500.0);
-        response.setEnabled(true); // Default or based on vendor setting
+        boolean enabled = vendor.getSettings() != null && vendor.getSettings().isEnableGeofence();
+        response.setEnabled(enabled);
         
         return response;
     }
@@ -42,6 +43,14 @@ public class GeofenceServiceImpl implements GeofenceService {
         location.setLongitude(request.getLongitude());
         vendor.setGeoLocation(location);
         vendor.setGeoRadius(request.getRadius());
+
+        // Persist the enabled flag in VendorSettings
+        com.dequeue.vendor.entity.VendorSettings settings = vendor.getSettings();
+        if (settings == null) {
+            settings = new com.dequeue.vendor.entity.VendorSettings();
+        }
+        settings.setEnableGeofence(request.isEnabled());
+        vendor.setSettings(settings);
         
         vendorRepository.save(vendor);
         
@@ -58,9 +67,11 @@ public class GeofenceServiceImpl implements GeofenceService {
     public ValidateLocationResponse validateLocation(ValidateLocationRequest request) {
         Vendor vendor = vendorRepository.findByVendorCode(request.getVendorCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
-                
-        if (vendor.getGeoLocation() == null || vendor.getGeoRadius() == null) {
-            return new ValidateLocationResponse(true, 0.0, 0.0); // Geofence not set, allow
+        
+        // If geofence is not enabled or not configured, allow ordering
+        boolean geofenceEnabled = vendor.getSettings() != null && vendor.getSettings().isEnableGeofence();
+        if (!geofenceEnabled || vendor.getGeoLocation() == null || vendor.getGeoRadius() == null) {
+            return new ValidateLocationResponse(true, 0.0, 0.0);
         }
         
         double distance = calculateDistance(

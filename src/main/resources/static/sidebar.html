@@ -1,6 +1,12 @@
 <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-        <i data-lucide="qr-code"></i> DeQueue
+    <div class="sidebar-brand" style="justify-content: space-between;">
+        <span style="display:flex;align-items:center;gap:0.75rem;"><i data-lucide="qr-code"></i> DeQueue</span>
+        <button class="btn-icon close-sidebar"
+                style="display:none; color:var(--text-muted); flex-shrink:0;"
+                title="Close sidebar"
+                onclick="document.getElementById('sidebar').classList.remove('open')">
+            <i data-lucide="x"></i>
+        </button>
     </div>
     <nav class="sidebar-nav">
         <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
@@ -11,6 +17,7 @@
         <a href="departments.html" class="nav-item"><i data-lucide="briefcase"></i> Departments</a>
         <a href="staff.html" class="nav-item"><i data-lucide="users"></i> Staff</a>
         <a href="reports.html" class="nav-item"><i data-lucide="bar-chart-3"></i> Reports</a>
+        <a href="geofence.html" class="nav-item"><i data-lucide="map-pin"></i> Geofence</a>
         <a href="qr.html" class="nav-item"><i data-lucide="qr-code"></i> QR Code</a>
         <a href="profile.html" class="nav-item"><i data-lucide="store"></i> Shop Profile</a>
         <a href="settings.html" class="nav-item"><i data-lucide="settings"></i> Settings</a>

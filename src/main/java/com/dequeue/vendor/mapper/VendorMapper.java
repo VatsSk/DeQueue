@@ -19,6 +19,7 @@ public interface VendorMapper {
         dto.setAllowCustomOrder(settings.isAllowCustomOrder());
         dto.setShowPreparationTime(settings.isShowPreparationTime());
         dto.setCurrency(settings.getCurrency());
+        dto.setEnableGeofence(settings.isEnableGeofence());
         return dto;
     }
 }
