@@ -20,5 +20,6 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     List<Order> findByVendorIdAndStatusIn(String vendorId, List<OrderStatus> statuses);
     List<Order> findByVendorIdAndCreatedAtAfter(String vendorId, Instant date);
     long countByVendorIdAndStatus(String vendorId, OrderStatus status);
+    List<Order> findByVendorIdAndCreatedAtBetween(String vendorId, Instant start, Instant end);
 }
 

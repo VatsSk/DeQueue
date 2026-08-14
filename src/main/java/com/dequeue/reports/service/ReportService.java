@@ -10,4 +10,5 @@ public interface ReportService {
     PeakHourReport getPeakHours(String vendorId, LocalDate startDate, LocalDate endDate);
     QueueStatsReport getQueueStats(String vendorId, LocalDate startDate, LocalDate endDate);
     SummaryReport getSummary(String vendorId, LocalDate startDate, LocalDate endDate);
+    String getExportCSV(String vendorId, LocalDate startDate, LocalDate endDate);
 }
