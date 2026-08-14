@@ -8,11 +8,22 @@
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/layout.css">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .bar-chart { display: flex; align-items: flex-end; gap: 0.5rem; height: 200px; padding-top: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
-        .bar { background-color: var(--primary); width: 100%; border-radius: 4px 4px 0 0; min-height: 10px; transition: height 0.3s; position: relative; }
-        .bar:hover { background-color: var(--primary-hover); }
-        .bar-label { text-align: center; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
+        .report-filters { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap; }
+        .filter-group { display: flex; align-items: center; gap: 0.5rem; }
+        .chart-container { background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 1.5rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .stat-card { background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
+        .stat-value { font-size: 2rem; font-weight: bold; color: var(--primary); margin: 0.5rem 0; }
+        .stat-label { color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .drilldown-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .drilldown-content { background: var(--surface); padding: 2rem; border-radius: 8px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; }
+        .close-modal { float: right; cursor: pointer; color: var(--text-muted); }
+        .table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+        .chart-container canvas { max-height: 250px; width: 100% !important; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
     </style>
 </head>
 <body>
@@ -32,22 +43,78 @@
                     <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"><i data-lucide="menu"></i></button>
                     <h2 class="text-xl">Reports & Analytics</h2>
                 </div>
-                <button class="btn btn-secondary"><i data-lucide="download"></i> Export CSV</button>
+                <button class="btn btn-secondary" id="exportBtn"><i data-lucide="download"></i> Export CSV</button>
             </header>
 
             <div class="page-content" id="reports-content">
-                <div class="text-center text-muted p-8">
-                    <i data-lucide="bar-chart-3" style="width: 48px; height: 48px; margin: 0 auto 1rem; opacity: 0.5;"></i>
-                    <p>Loading reports data...</p>
+                <div class="report-filters">
+                    <div class="filter-group">
+                        <label for="startDate">Start Date:</label>
+                        <input type="date" id="startDate" class="form-control" style="width: auto;">
+                    </div>
+                    <div class="filter-group">
+                        <label for="endDate">End Date:</label>
+                        <input type="date" id="endDate" class="form-control" style="width: auto;">
+                    </div>
+                    <button class="btn btn-primary" id="applyFiltersBtn">Apply</button>
+                </div>
+
+                <div class="grid-2" style="margin-bottom: 1.5rem;">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-value" id="totalRevenue">$0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Orders</div>
+                        <div class="stat-value" id="totalOrders">0</div>
+                    </div>
+                </div>
+
+                <div class="grid-3">
+                    <div class="chart-container">
+                        <h3>Order Status Breakdown</h3>
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Peak Hours (Order Volume)</h3>
+                        <canvas id="peakHoursChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Revenue Over Time</h3>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <h3>Popular Items Drilldown</h3>
+                    <p class="text-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">Click on a bar to view detailed metrics for that item.</p>
+                    <canvas id="popularItemsChart" height="100"></canvas>
                 </div>
             </div>
         </main>
     </div>
 
+    <!-- Drilldown Modal -->
+    <div class="drilldown-modal" id="drilldownModal">
+        <div class="drilldown-content">
+            <i data-lucide="x" class="close-modal" id="closeModalBtn"></i>
+            <h3 id="drilldownTitle" style="margin-bottom: 1rem;">Item Details</h3>
+            <div class="grid-2" style="margin-bottom: 1.5rem;">
+                <div class="stat-card" style="padding: 1rem;">
+                    <div class="stat-label">Orders</div>
+                    <div class="stat-value" id="modalOrderCount" style="font-size: 1.5rem;">0</div>
+                </div>
+                <div class="stat-card" style="padding: 1rem;">
+                    <div class="stat-label">Revenue</div>
+                    <div class="stat-value" id="modalRevenue" style="font-size: 1.5rem;">$0.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/router.js"></script>
     <script src="js/reports.js"></script>
     <script>lucide.createIcons();</script>
 </body>

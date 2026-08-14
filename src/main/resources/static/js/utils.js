@@ -90,3 +90,35 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 });
+
+// Load Sidebar dynamically
+window.loadSidebar = async () => {
+    try {
+        const res = await fetch('sidebar.html');
+        if (!res.ok) return;
+        const html = await res.text();
+        const existingSidebar = document.getElementById('sidebar');
+        if (existingSidebar) {
+            existingSidebar.outerHTML = html;
+        }
+        
+        const currentPath = window.location.pathname.split('/').pop() || 'dashboard.html';
+        document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+            if (item.getAttribute('href') === currentPath) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+        
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    } catch (e) {
+        console.error('Failed to load sidebar', e);
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.loadSidebar();
+});

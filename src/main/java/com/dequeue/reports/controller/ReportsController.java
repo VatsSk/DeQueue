@@ -57,4 +57,16 @@ public class ReportsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return ApiResponse.success(reportService.getSummary(SecurityUtils.getCurrentVendorId(), startDate, endDate));
     }
+    
+    @GetMapping(value = "/export", produces = "text/csv")
+    public org.springframework.http.ResponseEntity<String> exportCsv(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        String csv = reportService.getExportCSV(SecurityUtils.getCurrentVendorId(), startDate, endDate);
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.add(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report.csv");
+        return org.springframework.http.ResponseEntity.ok()
+                .headers(headers)
+                .body(csv);
+    }
 }
