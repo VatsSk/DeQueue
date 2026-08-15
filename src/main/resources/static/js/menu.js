@@ -86,28 +86,30 @@ class Menu {
     }
     let html = '';
     this.items.forEach(item => {
-      const img = item.image || 'https://images.unsplash.com/photo-1544148103-0773bf10d330?w=500&q=80';
+      const img = item.image
+        ? `<img src="${item.image}" alt="${item.name}" loading="lazy">`
+        : `<div class="menu-img-placeholder"><i data-lucide="utensils"></i></div>`;
       const isChecked = item.available ? 'checked' : '';
       html += `
         <div class="menu-item-admin">
           <div class="menu-img-wrapper">
-              <img src="${img}" alt="${item.name}">
+              ${img}
           </div>
           <div class="menu-details">
               <div class="menu-title-row">
                   <div class="menu-title">${item.name}</div>
                   <div class="menu-price">₹${item.price}</div>
               </div>
-              <div class="menu-desc">${item.description || ''}</div>
+              <div class="menu-desc">${item.description || '<span class="text-muted" style="font-style:italic">No description</span>'}</div>
           </div>
           <div class="menu-footer">
-              <label class="toggle-switch">
+              <label class="toggle-switch" title="${item.available ? 'Available' : 'Unavailable'}">
                   <input type="checkbox" ${isChecked} onchange="menuApp.toggleAvailability('${item.id}')">
                   <span class="slider"></span>
               </label>
               <div class="flex gap-2">
-                  <button class="btn-icon" onclick="menuApp.editItem('${item.id}')"><i data-lucide="edit-2"></i></button>
-                  <button class="btn-icon text-danger" onclick="menuApp.deleteItem('${item.id}')"><i data-lucide="trash-2"></i></button>
+                  <button class="btn-icon" title="Edit item" onclick="menuApp.editItem('${item.id}')"><i data-lucide="pencil"></i></button>
+                  <button class="btn-icon text-danger" title="Delete item" onclick="menuApp.deleteItem('${item.id}')"><i data-lucide="trash-2"></i></button>
               </div>
           </div>
         </div>
@@ -116,6 +118,7 @@ class Menu {
     grid.innerHTML = html;
     if (window.lucide) lucide.createIcons();
   }
+
 
   // ─── Search ───────────────────────────────────────────────────
 
@@ -144,39 +147,31 @@ class Menu {
       fileInput.addEventListener('change', async (e) => {
         if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
+
+          // Show local preview immediately
           const reader = new FileReader();
           reader.onload = (ev) => {
-            document.getElementById('imagePreview').src = ev.target.result;
-            document.getElementById('imagePreview').style.display = 'block';
-            document.getElementById('imagePreviewContainer').style.display = 'none';
+            const preview = document.getElementById('imagePreview');
+            const wrap = document.getElementById('imagePreviewWrap');
+            const container = document.getElementById('imagePreviewContainer');
+            preview.src = ev.target.result;
+            if (wrap) wrap.style.display = 'block';
+            if (container) container.style.display = 'none';
           };
           reader.readAsDataURL(file);
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('folder', 'menu');
-          try {
-            const uploadRes = await fetch('/api/v1/images/upload', {
-              method: 'POST',
-              headers: { 'Authorization': 'Bearer ' + api.token },
-              body: formData
-            });
-            const resJson = await uploadRes.json();
-            if (resJson.success) {
-              document.getElementById('uploadedImageUrl').value = resJson.data.url;
-              if (window.showToast) showToast('Image uploaded successfully', 'success');
-            }
-          } catch (e) {
-            console.error('Image upload failed', e);
-            if (window.showToast) showToast('Failed to upload image', 'error');
-          }
+
+          // Upload to Cloudinary via backend
+          this._uploadImageFile(file);
         }
       });
     }
 
+    // Patch openModal only ONCE. Only reset form when user opens "Add Item" explicitly
+    // (NOT when editItem() calls openModal, which is flagged by _isEditing).
     const origOpen = window.openModal;
     if (!window.customModalPatched) {
       window.openModal = (id) => {
-        if (id === 'add-item-modal') {
+        if (id === 'add-item-modal' && !this._isEditing) {
           document.getElementById('modalTitle').innerText = 'Add Menu Item';
           document.getElementById('editItemId').value = '';
           this.resetForm();
@@ -188,48 +183,109 @@ class Menu {
     }
   }
 
+  async _uploadImageFile(file) {
+    const btn = document.getElementById('saveItemBtn');
+    const uploadHint = document.getElementById('imageUploadHint');
+    if (uploadHint) uploadHint.textContent = 'Uploading…';
+    if (btn) btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', 'menu');
+    try {
+      const uploadRes = await fetch('/api/v1/images/upload', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + api.token },
+        body: formData
+      });
+      const resJson = await uploadRes.json();
+      if (resJson.success) {
+        document.getElementById('uploadedImageUrl').value = resJson.data.url;
+        if (uploadHint) uploadHint.textContent = '✓ Image uploaded';
+        if (window.showToast) showToast('Image uploaded successfully', 'success');
+      } else {
+        if (uploadHint) uploadHint.textContent = 'Upload failed — image won\'t be saved';
+        if (window.showToast) showToast('Image upload failed: ' + (resJson.message || ''), 'error');
+      }
+    } catch (e) {
+      console.error('Image upload failed', e);
+      if (uploadHint) uploadHint.textContent = 'Upload error';
+      if (window.showToast) showToast('Failed to upload image', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   resetForm() {
     document.getElementById('addItemName').value = '';
     document.getElementById('addItemPrice').value = '';
     document.getElementById('addItemDesc').value = '';
     document.getElementById('uploadedImageUrl').value = '';
-    document.getElementById('imagePreview').style.display = 'none';
-    document.getElementById('imagePreviewContainer').style.display = 'block';
+    this._clearImage();
     document.getElementById('customizationsList').innerHTML = '';
     const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
     checkboxes.forEach(c => c.checked = false);
   }
 
+  _clearImage() {
+    const preview = document.getElementById('imagePreview');
+    const wrap = document.getElementById('imagePreviewWrap');
+    const container = document.getElementById('imagePreviewContainer');
+    const hint = document.getElementById('imageUploadHint');
+    const fileInput = document.getElementById('itemImageFile');
+    if (preview) { preview.src = ''; }
+    if (wrap) wrap.style.display = 'none';
+    if (container) container.style.display = 'block';
+    if (hint) hint.textContent = '';
+    if (fileInput) fileInput.value = '';
+    document.getElementById('uploadedImageUrl').value = '';
+  }
+
+
   editItem(id) {
     const item = this.items.find(i => i.id === id);
     if (!item) return;
+
+    // Set flag so the openModal patch does NOT reset the form we're about to fill
+    this._isEditing = true;
+
     document.getElementById('modalTitle').innerText = 'Edit Menu Item';
     document.getElementById('editItemId').value = item.id;
-    document.getElementById('addItemName').value = item.name;
-    document.getElementById('addItemPrice').value = item.price;
+    document.getElementById('addItemName').value = item.name || '';
+    document.getElementById('addItemPrice').value = item.price || '';
     document.getElementById('addItemDesc').value = item.description || '';
-    document.getElementById('addItemCategory').value = item.categoryId;
     document.getElementById('customizationsList').innerHTML = '';
+
     if (item.image) {
       document.getElementById('uploadedImageUrl').value = item.image;
       document.getElementById('imagePreview').src = item.image;
-      document.getElementById('imagePreview').style.display = 'block';
-      document.getElementById('imagePreviewContainer').style.display = 'none';
+      const wrap = document.getElementById('imagePreviewWrap');
+      const container = document.getElementById('imagePreviewContainer');
+      if (wrap) wrap.style.display = 'block';
+      if (container) container.style.display = 'none';
     } else {
-      document.getElementById('uploadedImageUrl').value = '';
-      document.getElementById('imagePreview').style.display = 'none';
-      document.getElementById('imagePreviewContainer').style.display = 'block';
+      this._clearImage();
     }
+    const hint = document.getElementById('imageUploadHint');
+    if (hint) hint.textContent = '';
+
+    // Load customizations then tick the right ones
     this.loadCustomizationGroups().then(() => {
-      if (item.customizationGroups) {
-        const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
-        checkboxes.forEach(c => {
-          if (item.customizationGroups.includes(c.value)) c.checked = true;
-        });
-      }
+      const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
+      const attachedIds = item.customizationGroupIds || item.customizationGroups || [];
+      checkboxes.forEach(c => { c.checked = attachedIds.includes(c.value); });
     });
+
     window.openModal('add-item-modal');
+
+    // Set category AFTER modal opens (select DOM is ready)
+    requestAnimationFrame(() => {
+      const catSelect = document.getElementById('addItemCategory');
+      if (catSelect) catSelect.value = item.categoryId || '';
+      this._isEditing = false; // reset flag
+    });
   }
+
 
   async loadCustomizationGroups() {
     try {

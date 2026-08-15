@@ -150,23 +150,23 @@ class Orders {
                 item.selectedCustomizations.forEach(c => {
                     if (c.selectedOptions) {
                         c.selectedOptions.forEach(opt => {
-                            optionsArr.push(`- ${opt.name} (+₹${opt.additionalPrice})`);
+                            optionsArr.push(`${opt.name}${opt.additionalPrice > 0 ? ' (+₹' + opt.additionalPrice + ')' : ''}`);
                         });
                     }
                 });
                 if (optionsArr.length > 0) {
-                    customHtml = `<div class="item-customizations" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">${optionsArr.join('<br>')}</div>`;
+                    customHtml = `<div class="item-customizations">${optionsArr.map(o => `<span class="order-cust-chip">${o}</span>`).join('')}</div>`;
                 }
             }
             let instructionsHtml = '';
             if (item.specialInstructions) {
-                instructionsHtml = `<div class="item-instructions" style="font-size: 0.85rem; color: var(--warning); margin-top: 2px; font-style: italic;">Note: ${item.specialInstructions}</div>`;
+                instructionsHtml = `<div class="item-instructions">📝 ${item.specialInstructions}</div>`;
             }
             itemsHtml += `
-                <div class="order-item" style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px dashed var(--border);">
-                    <div class="item-main" style="display: flex; justify-content: space-between; font-weight: 500;">
-                        <span>${item.quantity}x ${item.menuItemName}</span>
-                        <span>₹${item.totalPrice}</span>
+                <div class="order-item">
+                    <div class="item-main">
+                        <span><span class="item-qty-badge">${item.quantity}×</span> ${item.menuItemName}</span>
+                        <span class="item-price-tag">₹${item.totalPrice}</span>
                     </div>
                     ${customHtml}
                     ${instructionsHtml}
@@ -175,15 +175,24 @@ class Orders {
         });
       }
 
+      // Customer note banner
+      const noteHtml = order.customerNote
+        ? `<div class="order-customer-note">
+             <span style="font-size:1rem;">💬</span>
+             <span>${this._escHtml(order.customerNote)}</span>
+           </div>`
+        : '';
+
       html += `
         <div class="order-card ${order.status !== 'PENDING' ? 'border-l-4' : ''}" style="${order.status !== 'PENDING' ? 'border-left-color: ' + borderColor + ';' : ''}">
             <div class="order-card-header">
-                <div class="order-queue-num">${order.queueNumber}</div>
-                <div class="text-right">
-                    <span class="badge ${badgeClass} mb-1 block">${order.status}</span>
+                <div>
+                    <div class="order-queue-num">${order.queueNumber}</div>
                     <div class="order-time">${window.getTimeAgo ? window.getTimeAgo(order.createdAt) : new Date(order.createdAt).toLocaleTimeString()}</div>
                 </div>
+                <span class="badge ${badgeClass}">${order.status}</span>
             </div>
+            ${noteHtml}
             <div class="order-items">
                 ${itemsHtml}
             </div>
@@ -202,6 +211,12 @@ class Orders {
 
     grid.innerHTML = html;
   }
+
+  _escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
 
   async updateStatus(orderId, newStatus) {
     try {

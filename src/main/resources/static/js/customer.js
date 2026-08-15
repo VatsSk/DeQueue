@@ -1,8 +1,9 @@
 // Customer App Logic - DeQueue Customer Ordering System
 class CustomerApp {
   constructor() {
-    this.cart = [];
     this.vendorCode = this.getVendorCodeFromUrl();
+    const storedCart = sessionStorage.getItem(`dequeue_cart_${this.vendorCode}`);
+    this.cart = storedCart ? JSON.parse(storedCart) : [];
     this.vendor = null;
     this.menu = null;
     this.activeOrder = null;
@@ -206,8 +207,9 @@ class CustomerApp {
               onclick="customerApp.handleAddToCart('${item.id}')">Add</button>
           </div>
         </div>
-        ${item.image ? `<img src="${item.image}" alt="${item.name}" class="item-image" loading="lazy">` : 
-          `<div class="item-image" style="background:var(--surface);display:flex;align-items:center;justify-content:center;"><i data-lucide="utensils" style="opacity:0.3"></i></div>`}
+        ${item.image
+          ? `<img src="${item.image}" alt="${item.name}" class="item-image" loading="lazy">`
+          : `<div class="item-image-placeholder"><i data-lucide="utensils"></i></div>`}
       </div>
     `).join('');
 
@@ -257,22 +259,23 @@ class CustomerApp {
     } else {
         html += `<div style="width: 100%; height: 160px; background: var(--surface); display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); margin-bottom: 1rem;"><i data-lucide="utensils" style="opacity: 0.3; width: 48px; height: 48px;"></i></div>`;
     }
-    item.customizationGroups.forEach((group, gIdx) => {
+    (item.customizationGroups || []).forEach((group, gIdx) => {
         html += `<div class="mb-4">
             <h4 class="font-bold mb-2">${group.name} ${group.required ? '<span class="text-danger">*</span>' : ''}</h4>
             <div class="flex flex-col gap-2">`;
         
-        group.options.forEach((opt, oIdx) => {
+        (group.options || []).forEach((opt, oIdx) => {
             const inputType = group.selectionType === 'SINGLE' || group.maxSelection === 1 ? 'radio' : 'checkbox';
             const inputName = `cust_${group.id}`;
             const inputId = `cust_${group.id}_${oIdx}`;
+            const additionalPrice = opt.additionalPrice || 0;
             
             html += `<label class="flex items-center justify-between p-2 border border-border rounded-md" for="${inputId}">
                 <div class="flex items-center gap-2">
-                    <input type="${inputType}" name="${inputName}" id="${inputId}" value="${opt.name}" data-price="${opt.additionalPrice}" data-group-name="${group.name}">
+                    <input type="${inputType}" name="${inputName}" id="${inputId}" value="${opt.name}" data-price="${additionalPrice}" data-group-name="${group.name}">
                     <span>${opt.name}</span>
                 </div>
-                ${opt.additionalPrice > 0 ? `<span class="text-muted text-sm">+₹${opt.additionalPrice}</span>` : ''}
+                ${additionalPrice > 0 ? `<span class="text-muted text-sm">+₹${additionalPrice}</span>` : ''}
             </label>`;
         });
         
@@ -285,7 +288,7 @@ class CustomerApp {
         const customizations = [];
         let missingRequired = false;
         
-        item.customizationGroups.forEach(group => {
+        (item.customizationGroups || []).forEach(group => {
             const inputs = body.querySelectorAll(`input[name="cust_${group.id}"]:checked`);
             if (group.required && inputs.length === 0) {
                 missingRequired = true;
@@ -318,6 +321,7 @@ class CustomerApp {
     const cartItem = {
       menuItemId: item.id,
       menuItemName: item.name,
+      image: item.image || null,         // ← store image for cart display
       quantity: 1,
       unitPrice: unitPrice,
       totalPrice: unitPrice,
@@ -338,6 +342,7 @@ class CustomerApp {
     this.renderCartModal();
     if (typeof showToast === 'function') showToast(`Added ${item.name} to cart`, 'success');
   }
+
 
   updateQuantity(cartId, delta) {
     const item = this.cart.find(c => c.cartId === cartId);
@@ -360,7 +365,14 @@ class CustomerApp {
     this.renderCartModal();
   }
 
+  saveCart() {
+    if (this.vendorCode) {
+      sessionStorage.setItem(`dequeue_cart_${this.vendorCode}`, JSON.stringify(this.cart));
+    }
+  }
+
   updateCartUI() {
+    this.saveCart();
     const cartBtn = document.getElementById('floating-cart');
     if (!cartBtn) return;
 
@@ -381,35 +393,69 @@ class CustomerApp {
     if (!body) return;
 
     if (this.cart.length === 0) {
-      body.innerHTML = `<p class="text-muted text-center py-4">Your cart is empty</p>`;
+      body.innerHTML = `
+        <div class="text-center py-8 text-muted">
+          <i data-lucide="shopping-cart" style="width:40px;height:40px;opacity:0.3;margin:0 auto 0.75rem;display:block;"></i>
+          <p>Your cart is empty</p>
+        </div>`;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
       return;
     }
 
+    const total = this.cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+
     body.innerHTML = `
-      <div class="cart-items">
-        ${this.cart.map(item => `
-          <div class="flex items-center justify-between py-3 border-b border-border">
-            <div class="flex-1">
-              <div class="font-medium">${item.menuItemName}</div>
-              <div class="text-sm text-muted">${this.formatPrice(item.unitPrice)}</div>
+      <div class="cart-items" style="margin-bottom: 1rem;">
+        ${this.cart.map(item => {
+          // thumbnail: Cloudinary image or food emoji placeholder
+          const thumb = item.image
+            ? `<img src="${item.image}" alt="${item.menuItemName}"
+                style="width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0;">`
+            : `<div style="width:52px;height:52px;border-radius:10px;background:var(--surface-hover);
+                display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.5rem;">
+                🍽️
+               </div>`;
+
+          // customization summary
+          const custLines = item.customizations && item.customizations.length > 0
+            ? item.customizations.map(c => `<span class="cart-cust-chip">${c.optionName || c.groupName || ''}</span>`).join('')
+            : '';
+
+          return `
+          <div class="cart-item-row" data-cart-id="${item.cartId}">
+            ${thumb}
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.menuItemName}</div>
+              ${custLines ? `<div class="cart-cust-chips">${custLines}</div>` : ''}
+              <div style="font-size:0.85rem;color:var(--text-muted);">${this.formatPrice(item.unitPrice)} each</div>
             </div>
-            <div class="flex items-center gap-3">
-              <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.25rem;">
-                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, -1)" style="padding: 2px;"><i data-lucide="minus" style="width:14px;height:14px;"></i></button>
-                <span style="font-weight: 500; min-width: 1.5rem; text-align: center;">${item.quantity}</span>
-                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, 1)" style="padding: 2px;"><i data-lucide="plus" style="width:14px;height:14px;"></i></button>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem;flex-shrink:0;">
+              <span style="font-weight:700;color:var(--primary);">${this.formatPrice(item.unitPrice * item.quantity)}</span>
+              <div class="cart-qty-ctrl">
+                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, -1)" style="padding:2px;width:26px;height:26px;min-height:26px;">
+                  <i data-lucide="minus" style="width:12px;height:12px;"></i>
+                </button>
+                <span style="font-weight:600;min-width:1.25rem;text-align:center;">${item.quantity}</span>
+                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, 1)" style="padding:2px;width:26px;height:26px;min-height:26px;">
+                  <i data-lucide="plus" style="width:12px;height:12px;"></i>
+                </button>
               </div>
-              <span class="font-bold" style="min-width: 60px; text-align: right;">${this.formatPrice(item.unitPrice * item.quantity)}</span>
             </div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>
-      <div class="flex items-center justify-between py-4 font-bold text-lg">
+
+      <div class="cart-total-row">
         <span>Total</span>
-        <span>${this.formatPrice(this.cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0))}</span>
+        <span>${this.formatPrice(total)}</span>
       </div>
-      <textarea id="customer-note" class="form-control mb-3" placeholder="Any special instructions..." rows="2"></textarea>
-      <button class="btn btn-primary w-full" onclick="customerApp.placeOrder()" style="padding: 1rem;">
+
+      <textarea id="customer-note" class="form-control mb-3" placeholder="Any special instructions or allergies..." rows="2"
+        style="resize:none;font-size:0.9rem;"></textarea>
+
+      <button id="place-order-btn" class="btn btn-primary w-full" onclick="customerApp.placeOrder()"
+        style="padding: 1rem; font-size: 1rem; font-weight: 600; letter-spacing: 0.02em;">
+        <i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i>
         Place Order
       </button>
     `;
@@ -419,14 +465,26 @@ class CustomerApp {
   async placeOrder() {
     if (this.cart.length === 0) return;
 
+    // ── Prevent double-submit immediately ──
+    const placeBtn = document.getElementById('place-order-btn');
+    if (placeBtn) {
+      if (placeBtn.disabled) return; // already in-flight
+      placeBtn.disabled = true;
+      placeBtn.innerHTML = '<i data-lucide="loader-2" style="width:18px;height:18px;display:inline;margin-right:0.4rem;animation:spin 1s linear infinite;"></i> Placing Order…';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     // Geofence check: if vendor requires it, validate user location first
     if (this.vendor && this.vendor.settings && this.vendor.settings.enableGeofence) {
       const allowed = await this.validateGeofence();
-      if (!allowed) return; // blocked — message already shown
+      if (!allowed) {
+        if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = '<i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i> Place Order'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
+        return;
+      }
     }
 
     const note = document.getElementById('customer-note')?.value || '';
-    
+
     const orderData = {
       sessionId: this.sessionId,
       items: this.cart.map(item => ({
@@ -436,7 +494,6 @@ class CustomerApp {
       })),
       customerNote: note
     };
-
 
     try {
       const res = await fetch(`/api/v1/public/orders/${this.vendorCode}`, {
@@ -448,12 +505,12 @@ class CustomerApp {
 
       if (!data.success) {
         if (typeof showToast === 'function') showToast(data.message || 'Failed to place order', 'error');
+        // Re-enable button so user can retry
+        if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = '<i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i> Place Order'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
         return;
       }
 
       this.activeOrder = data.data;
-
-      // (WebSocket will be connected inside showOrderTracking)
 
       // Initialize notification manager for real-time updates
       if (typeof CustomerNotificationManager !== 'undefined') {
@@ -476,6 +533,7 @@ class CustomerApp {
 
       localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
       this.cart = [];
+      sessionStorage.removeItem(`dequeue_cart_${this.vendorCode}`);
 
       // Close cart modal and show tracking
       const floatingCart = document.getElementById('floating-cart');
@@ -486,12 +544,28 @@ class CustomerApp {
     } catch (err) {
       if (typeof showToast === 'function') showToast('Failed to place order. Please try again.', 'error');
       console.error(err);
+      // Re-enable button so user can retry
+      if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = '<i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i> Place Order'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
     }
   }
+
 
   async checkExistingOrder() {
     try {
       const res = await fetch(`/api/v1/public/orders/${this.vendorCode}/track/${this.activeOrder.queueNumber}`);
+      
+      // If the order genuinely doesn't exist (404), clear the session.
+      if (res.status === 404) {
+        localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
+        this.activeOrder = null;
+        await this.loadVendor();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Failed to track order: ${res.status}`);
+      }
+
       const data = await res.json();
 
       if (data.success) {
@@ -540,12 +614,72 @@ class CustomerApp {
           }
         }
       } else {
-        localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
-        this.activeOrder = null;
+        // Just log the error, don't clear the session unless it was a 404
+        console.error('Track API returned success: false', data);
         await this.loadVendor();
+        this.showOrderTracking(); // keep showing tracking view with last known state
       }
     } catch (err) {
+      console.error('Error checking existing order:', err);
+      // Don't wipe session on network errors or 500s. Just show the last known state.
       await this.loadVendor();
+      if (this.activeOrder) {
+          this.showOrderTracking();
+      }
+    }
+  }
+
+  async cancelOrder() {
+    if (!this.activeOrder) return;
+    
+    const cancelBtn = document.getElementById('cancel-order-btn');
+    if (cancelBtn) {
+      if (cancelBtn.disabled) return;
+      cancelBtn.disabled = true;
+      cancelBtn.innerHTML = '<i data-lucide="loader-2" style="width:18px;height:18px;display:inline;margin-right:0.4rem;animation:spin 1s linear infinite;"></i> Cancelling…';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    try {
+      const storedToken = localStorage.getItem(`dequeue_token_${this.vendorCode}`);
+      let sessionToken = '';
+      if (storedToken) {
+          try {
+              sessionToken = JSON.parse(storedToken).customerToken || '';
+          } catch(e) {}
+      }
+
+      const res = await fetch(`/api/v1/public/orders/${this.vendorCode}/cancel/${this.activeOrder.queueNumber}`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-Session-Token': sessionToken
+        }
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        if (typeof showToast === 'function') showToast(data.message || 'Failed to cancel order', 'error');
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
+            cancelBtn.innerHTML = '<i data-lucide="x-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i> Cancel Order';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        return;
+      }
+      
+      // Order cancelled successfully. The WebSocket will pick up the CANCELLED status,
+      // but we can manually handle it here just in case.
+      this.handleOrderUpdate(data.data);
+
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+      if (typeof showToast === 'function') showToast('Failed to cancel order', 'error');
+      if (cancelBtn) {
+          cancelBtn.disabled = false;
+          cancelBtn.innerHTML = '<i data-lucide="x-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i> Cancel Order';
+          if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
     }
   }
 
@@ -748,6 +882,9 @@ class CustomerApp {
   
   startNewOrder() {
       this.activeOrder = null;
+      this.cart = [];
+      sessionStorage.removeItem(`dequeue_cart_${this.vendorCode}`);
+      this.updateCartUI();
       this.geofenceValidated = false; // reset for next order attempt
       const thankYouView = document.getElementById('thank-you-view');
       const menuView = document.getElementById('menu-view');
@@ -876,6 +1013,15 @@ class CustomerApp {
           customerLongitude: this.customerLng
         })
       });
+
+      if (!res.ok) {
+         console.error('Geofence API failed with status:', res.status);
+         if (typeof showToast === 'function') {
+           showToast('Unable to verify your location. Please try again.', 'error');
+         }
+         return false;
+      }
+
       const data = await res.json();
 
       if (data.success && data.data) {
@@ -891,11 +1037,12 @@ class CustomerApp {
         }
       }
     } catch (e) {
-      console.error('Geofence validation error:', e);
-      // On network error, allow ordering (fail-open)
+      console.error('Geofence validation network error:', e);
+      // On genuine network error, allow ordering (fail-open)
+      return true;
     }
 
-    return true;
+    return false;
   }
 
   updateStatusDisplay(status) {
@@ -922,6 +1069,15 @@ class CustomerApp {
         if (icon) icon.setAttribute('data-lucide', 'circle');
       }
     });
+
+    const cancelContainer = document.getElementById('cancel-order-container');
+    if (cancelContainer) {
+      if (status === 'PENDING') {
+        cancelContainer.classList.remove('hidden');
+      } else {
+        cancelContainer.classList.add('hidden');
+      }
+    }
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
   }

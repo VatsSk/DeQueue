@@ -1,4 +1,3 @@
-/* Orders Layout */
 .orders-container {
   display: flex;
   flex-direction: column;
@@ -46,6 +45,7 @@
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .order-card-header {
@@ -64,6 +64,20 @@
   font-size: 0.875rem;
   color: var(--text-muted);
 }
+
+/* Customer note banner */
+.order-customer-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(234, 179, 8, 0.08);
+  border-bottom: 1px solid rgba(234, 179, 8, 0.2);
+  padding: 0.6rem 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+.order-customer-note span:last-child { flex: 1; }
 
 .order-items {
   padding: 1rem 1.5rem;
@@ -84,19 +98,60 @@
 .item-main {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   font-weight: 500;
+  gap: 0.5rem;
 }
+
+/* Qty badge */
+.item-qty-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-right: 4px;
+}
+
+.item-price-tag {
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+/* Customization chips on order cards */
 .item-customizations {
-  font-size: 0.875rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.order-cust-chip {
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
   color: var(--text-muted);
-  margin-top: 0.25rem;
-  padding-left: 1rem;
+}
+
+.item-instructions {
+  font-size: 0.83rem;
+  color: var(--warning);
+  margin-top: 4px;
+  font-style: italic;
 }
 
 .order-card-footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border);
-  background: rgba(0,0,0,0.1);
+  background: rgba(0,0,0,0.05);
   display: flex;
   flex-direction: column;
   gap: 1rem;

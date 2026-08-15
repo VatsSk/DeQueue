@@ -84,6 +84,15 @@
                         <i data-lucide="circle"></i> <span>Ready for Collection</span>
                     </div>
                 </div>
+                
+                <!-- Cancel Button Container -->
+                <div id="cancel-order-container" class="mt-4 text-center hidden">
+                    <button class="btn btn-danger w-full" onclick="customerApp.cancelOrder()" id="cancel-order-btn">
+                        <i data-lucide="x-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i>
+                        Cancel Order
+                    </button>
+                    <p class="text-muted text-sm mt-2">You can only cancel before the order is being prepared.</p>
+                </div>
             </div>
         </div>
 

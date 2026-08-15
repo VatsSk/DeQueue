@@ -19,4 +19,5 @@ public interface OrderService {
     List<OrderSummary> getActiveSessionOrders(String vendorCode, String sessionId);
     OrderResponse placeCustomOrder(String vendorCode, CustomOrderRequest request);
     String getCurrentlyServing(String vendorCode);
+    OrderResponse cancelOrder(String vendorCode, String queueNumber, String sessionToken);
 }

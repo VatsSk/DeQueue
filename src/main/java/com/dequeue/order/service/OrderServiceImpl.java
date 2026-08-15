@@ -232,4 +232,32 @@ public class OrderServiceImpl implements OrderService {
             .map(Order::getQueueNumber)
             .orElse(null);
     }
+
+    @Override
+    @Transactional
+    public OrderResponse cancelOrder(String vendorCode, String queueNumber, String sessionToken) {
+        Vendor vendor = vendorRepository.findByVendorCode(vendorCode)
+            .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+            
+        Order order = orderRepository.findByVendorIdAndQueueNumber(vendor.getId(), queueNumber)
+            .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+            
+        if (!customerSessionTokenService.validateToken(sessionToken, order.getId(), order.getSessionId())) {
+             throw new BadRequestException("Invalid session token");
+        }
+            
+        if (order.getStatus() != OrderStatus.PENDING) {
+             throw new BadRequestException("Order cannot be cancelled at this stage");
+        }
+        
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setUpdatedAt(Instant.now());
+        order.setCompletedAt(Instant.now());
+        
+        order = orderRepository.save(order);
+        eventPublisher.publishOrderEvent(new OrderEvent(vendor.getId(), order.getId(), order.getStatus().name(), order.getQueueNumber(), Instant.now(), OrderEvent.EventType.STATUS_CHANGED));
+        notificationServiceImpl.publishCustomerOrderStatusEvent(order);
+        
+        return orderMapper.toResponse(order);
+    }
 }

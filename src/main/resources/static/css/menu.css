@@ -75,6 +75,15 @@
   height: 100%;
   object-fit: cover;
 }
+.menu-img-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--border);
+}
+.menu-img-placeholder svg { width: 40px; height: 40px; }
 .menu-badges {
   position: absolute;
   top: 0.75rem;
@@ -84,7 +93,7 @@
 }
 
 .menu-details {
-  padding: 1.25rem;
+  padding: 1rem 1.25rem 0;
 }
 .menu-title-row {
   display: flex;
@@ -92,17 +101,34 @@
   align-items: flex-start;
   margin-bottom: 0.5rem;
 }
-.menu-title { font-weight: 600; font-size: 1.1rem; }
-.menu-price { font-weight: 700; color: var(--primary); }
-.menu-desc { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem; min-height: 2.5rem; }
+.menu-title { font-weight: 600; font-size: 1.05rem; }
+.menu-price { font-weight: 700; color: var(--primary); white-space: nowrap; }
+.menu-desc { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.75rem; min-height: 2.5rem; }
 
 .menu-footer {
-  padding-top: 1rem;
+  padding: 0.75rem 1.25rem;
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: var(--surface);
 }
+
+/* Make edit/delete buttons clearly visible */
+.menu-footer .btn-icon {
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.menu-footer .btn-icon:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.menu-footer .btn-icon.text-danger:hover { background: var(--danger); border-color: var(--danger); }
+
 
 /* Toggle Switch */
 .toggle-switch {

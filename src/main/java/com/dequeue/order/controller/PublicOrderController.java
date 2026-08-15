@@ -51,4 +51,12 @@ public class PublicOrderController {
     public ApiResponse<String> getCurrentlyServing(@PathVariable String vendorCode) {
         return ApiResponse.success(orderService.getCurrentlyServing(vendorCode));
     }
+
+    @PostMapping("/{vendorCode}/cancel/{queueNumber}")
+    public ApiResponse<OrderResponse> cancelOrder(
+            @PathVariable String vendorCode,
+            @PathVariable String queueNumber,
+            @RequestHeader(value = "X-Session-Token", required = false) String sessionToken) {
+        return ApiResponse.success(orderService.cancelOrder(vendorCode, queueNumber, sessionToken));
+    }
 }
