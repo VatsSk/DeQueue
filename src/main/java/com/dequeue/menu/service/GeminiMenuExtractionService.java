@@ -1,5 +1,6 @@
 package com.dequeue.menu.service;
 
+import com.dequeue.menu.dto.ExtractedCustomizationGroupDto;
 import com.dequeue.menu.dto.ExtractedMenuItemDto;
 import com.dequeue.menu.dto.MenuExtractionPreviewResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -38,24 +39,42 @@ public class GeminiMenuExtractionService {
     private static final String EXTRACTION_PROMPT = """
             You are a professional menu digitization assistant. Carefully analyze the provided menu image and extract ALL visible menu items.
 
+            IMPORTANT – Handling size/portion variants:
+            When a menu lists the SAME item multiple times with different sizes or portions (e.g. "Samosa Half ₹20 / Samosa Full ₹40", or "Tea Small ₹10 / Tea Medium ₹15 / Tea Large ₹20"), you MUST represent them as ONE item with a customizationGroups entry instead of multiple separate items.
+            - Set the item's "price" to the lowest variant price (base price).
+            - The additional price for each option is the option price MINUS the base price (so the cheapest option gets additionalPrice 0).
+            - Common patterns to detect as customizations: Half/Full, Small/Medium/Large, Quarter/Half/Full, Regular/Large, Single/Double, etc.
+            - Only create a customization group when the SAME item name (ignoring size word) appears multiple times at different prices. Do NOT create fake groups for items that have only a single price.
+
             Return ONLY a valid JSON object with this exact structure (no extra text, no markdown, no code fences):
             {
               "summary": "Brief description of the menu type/restaurant",
               "categories": ["Category1", "Category2"],
               "items": [
                 {
-                  "name": "Item Name",
+                  "name": "Item Name (without the size word)",
                   "description": "Item description or empty string if not shown",
                   "price": 9.99,
                   "categoryName": "Category1",
                   "preparationTime": null,
-                  "tags": ""
+                  "tags": "",
+                  "customizationGroups": [
+                    {
+                      "name": "Size",
+                      "required": true,
+                      "options": [
+                        { "name": "Half",  "additionalPrice": 0.00,  "sortOrder": 0 },
+                        { "name": "Full",  "additionalPrice": 20.00, "sortOrder": 1 }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
 
             Rules:
             - Extract every visible item, do not skip any.
+            - "customizationGroups" should be an empty array [] when the item has no detected variants.
             - If price is unclear or missing, use 0.00.
             - If no categories are present, group items under "General".
             - The "tags" field should be a comma-separated string of dietary tags if visible (e.g., "veg,spicy"), otherwise empty string.
@@ -63,6 +82,7 @@ public class GeminiMenuExtractionService {
             - Prices must be numeric (no currency symbols).
             - Return ONLY the raw JSON object.
             """;
+
 
     @Value("${gemini.api-key:}")
     private String geminiApiKey;
@@ -296,7 +316,7 @@ public class GeminiMenuExtractionService {
                     try {
                         price = new BigDecimal(itemNode.path("price").asText("0"));
                     } catch (NumberFormatException e) {
-                        price = BigDecimal.ZERO; // Default per user preference
+                        price = BigDecimal.ZERO;
                     }
 
                     Integer prepTime = null;
@@ -307,6 +327,45 @@ public class GeminiMenuExtractionService {
                     String categoryName = itemNode.path("categoryName").asText("General");
                     if (categoryName.isBlank()) categoryName = "General";
 
+                    // ── Parse customizationGroups ──────────────────────────────
+                    List<ExtractedCustomizationGroupDto> customizationGroups = new ArrayList<>();
+                    JsonNode groupsNode = itemNode.path("customizationGroups");
+                    if (groupsNode.isArray()) {
+                        for (JsonNode groupNode : groupsNode) {
+                            String groupName = groupNode.path("name").asText("Size");
+                            boolean required = groupNode.path("required").asBoolean(true);
+
+                            List<ExtractedCustomizationGroupDto.Option> options = new ArrayList<>();
+                            JsonNode optionsNode = groupNode.path("options");
+                            if (optionsNode.isArray()) {
+                                int sortIdx = 0;
+                                for (JsonNode optNode : optionsNode) {
+                                    BigDecimal additionalPrice;
+                                    try {
+                                        additionalPrice = new BigDecimal(optNode.path("additionalPrice").asText("0"));
+                                    } catch (NumberFormatException ex) {
+                                        additionalPrice = BigDecimal.ZERO;
+                                    }
+                                    int sortOrder = optNode.path("sortOrder").asInt(sortIdx);
+                                    options.add(ExtractedCustomizationGroupDto.Option.builder()
+                                            .name(optNode.path("name").asText(""))
+                                            .additionalPrice(additionalPrice)
+                                            .sortOrder(sortOrder)
+                                            .build());
+                                    sortIdx++;
+                                }
+                            }
+
+                            if (!options.isEmpty()) {
+                                customizationGroups.add(ExtractedCustomizationGroupDto.builder()
+                                        .name(groupName)
+                                        .required(required)
+                                        .options(options)
+                                        .build());
+                            }
+                        }
+                    }
+
                     items.add(ExtractedMenuItemDto.builder()
                             .name(itemNode.path("name").asText(""))
                             .description(itemNode.path("description").asText(""))
@@ -314,6 +373,7 @@ public class GeminiMenuExtractionService {
                             .categoryName(categoryName)
                             .preparationTime(prepTime)
                             .tags(itemNode.path("tags").asText(""))
+                            .customizationGroups(customizationGroups.isEmpty() ? null : customizationGroups)
                             .build());
                 }
             }
@@ -331,6 +391,7 @@ public class GeminiMenuExtractionService {
             throw new MenuExtractionException("Failed to parse menu extraction response. Please try again.", e);
         }
     }
+
 
     private void evictExpiredSessions() {
         long now = System.currentTimeMillis();
