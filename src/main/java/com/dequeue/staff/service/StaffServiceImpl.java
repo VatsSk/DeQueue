@@ -5,6 +5,10 @@ import com.dequeue.common.dto.PageResponse;
 import com.dequeue.common.exception.BadRequestException;
 import com.dequeue.common.exception.ResourceNotFoundException;
 import com.dequeue.common.security.SecurityUtils;
+import com.dequeue.rbac.entity.RbacPermission;
+import com.dequeue.rbac.entity.RbacRole;
+import com.dequeue.rbac.repository.RbacPermissionRepository;
+import com.dequeue.rbac.repository.RbacRoleRepository;
 import com.dequeue.staff.dto.CreateStaffRequest;
 import com.dequeue.staff.dto.StaffResponse;
 import com.dequeue.staff.dto.StaffStatusRequest;
@@ -22,6 +26,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,6 +37,8 @@ public class StaffServiceImpl implements StaffService {
 
     private final StaffRepository staffRepository;
     private final DepartmentRepository departmentRepository;
+    private final RbacRoleRepository roleRepository;
+    private final RbacPermissionRepository permissionRepository;
     private final StaffMapper staffMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
@@ -39,19 +46,21 @@ public class StaffServiceImpl implements StaffService {
     @Override
     public PageResponse<StaffResponse> findAll(int page, int size) {
         String vendorId = SecurityUtils.getCurrentVendorId();
+        String currentUserId = SecurityUtils.getCurrentUserId();
         Page<Staff> staffPage = staffRepository.findByVendorId(vendorId, PageRequest.of(page, size));
-        
+
         List<StaffResponse> content = staffPage.getContent().stream()
-                .map(this::enrichWithDepartmentName)
+                .filter(staff -> !staff.getId().equals(currentUserId)) // Exclude current user
+                .map(this::enrichWithDetails)
                 .collect(Collectors.toList());
-                
+
         return PageResponse.of(content, staffPage);
     }
 
     @Override
     public StaffResponse findById(String id) {
         Staff staff = getStaff(id);
-        return enrichWithDepartmentName(staff);
+        return enrichWithDetails(staff);
     }
 
     @Override
@@ -59,20 +68,27 @@ public class StaffServiceImpl implements StaffService {
         if (staffRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email already exists");
         }
-        
+
         String vendorId = SecurityUtils.getCurrentVendorId();
-        if (request.getDepartmentId() != null) {
-            validateDepartment(request.getDepartmentId(), vendorId);
+
+        // Validate departments belong to this vendor
+        if (request.getDepartmentIds() != null) {
+            request.getDepartmentIds().forEach(deptId -> validateDepartment(deptId, vendorId));
         }
+
+        // Validate roles belong to this vendor
+        validateRoleIds(request.getRoleIds(), vendorId);
 
         Staff staff = staffMapper.toEntity(request);
         staff.setVendorId(vendorId);
         staff.setPassword(passwordEncoder.encode(request.getPassword()));
         staff.setStatus(StaffStatus.ACTIVE);
-        
+        staff.setRoleIds(request.getRoleIds() != null ? request.getRoleIds() : new ArrayList<>());
+        staff.setDepartmentIds(request.getDepartmentIds() != null ? request.getDepartmentIds() : new ArrayList<>());
+
         staff = staffRepository.save(staff);
         auditService.logAction("CREATE_STAFF", "Staff created: " + staff.getId());
-        return enrichWithDepartmentName(staff);
+        return enrichWithDetails(staff);
     }
 
     @Override
@@ -80,19 +96,22 @@ public class StaffServiceImpl implements StaffService {
         Staff staff = getStaff(id);
         String vendorId = SecurityUtils.getCurrentVendorId();
 
-        if (request.getDepartmentId() != null && !request.getDepartmentId().equals(staff.getDepartmentId())) {
-            validateDepartment(request.getDepartmentId(), vendorId);
+        if (request.getDepartmentIds() != null) {
+            request.getDepartmentIds().forEach(deptId -> validateDepartment(deptId, vendorId));
+            staff.setDepartmentIds(request.getDepartmentIds());
+        }
+
+        if (request.getRoleIds() != null) {
+            validateRoleIds(request.getRoleIds(), vendorId);
+            staff.setRoleIds(request.getRoleIds());
         }
 
         staff.setName(request.getName());
-        staff.setPhone(request.getPhone());
-        staff.setDepartmentId(request.getDepartmentId());
-        if (request.getRole() != null) staff.setRole(request.getRole());
-        if (request.getPermissions() != null) staff.setPermissions(request.getPermissions());
+        if (request.getPhone() != null) staff.setPhone(request.getPhone());
 
         staff = staffRepository.save(staff);
         auditService.logAction("UPDATE_STAFF", "Staff updated: " + staff.getId());
-        return enrichWithDepartmentName(staff);
+        return enrichWithDetails(staff);
     }
 
     @Override
@@ -100,7 +119,7 @@ public class StaffServiceImpl implements StaffService {
         Staff staff = getStaff(id);
         staff.setStatus(StaffStatus.INACTIVE);
         staffRepository.save(staff);
-        auditService.logAction("DELETE_STAFF", "Staff deleted: " + id);
+        auditService.logAction("DELETE_STAFF", "Staff deactivated: " + id);
     }
 
     @Override
@@ -108,18 +127,20 @@ public class StaffServiceImpl implements StaffService {
         Staff staff = getStaff(id);
         staff.setStatus(request.getStatus());
         staff = staffRepository.save(staff);
-        auditService.logAction("CHANGE_STAFF_STATUS", "Staff status changed: " + id);
-        return enrichWithDepartmentName(staff);
+        auditService.logAction("CHANGE_STAFF_STATUS", "Staff status changed: " + id + " → " + request.getStatus());
+        return enrichWithDetails(staff);
     }
 
     @Override
     public List<StaffResponse> findByDepartment(String departmentId) {
         String vendorId = SecurityUtils.getCurrentVendorId();
-        return staffRepository.findByVendorIdAndDepartmentId(vendorId, departmentId)
+        return staffRepository.findByVendorIdAndDepartmentIdsContaining(vendorId, departmentId)
                 .stream()
-                .map(this::enrichWithDepartmentName)
+                .map(this::enrichWithDetails)
                 .collect(Collectors.toList());
     }
+
+    // ────────────────────────── private helpers ──────────────────────────
 
     private Staff getStaff(String id) {
         String vendorId = SecurityUtils.getCurrentVendorId();
@@ -133,18 +154,60 @@ public class StaffServiceImpl implements StaffService {
 
     private void validateDepartment(String departmentId, String vendorId) {
         Department dept = departmentRepository.findById(departmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Department not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Department not found: " + departmentId));
         if (!dept.getVendorId().equals(vendorId)) {
-            throw new ResourceNotFoundException("Department not found in your vendor scope");
+            throw new ResourceNotFoundException("Department not found in your vendor scope: " + departmentId);
         }
     }
 
-    private StaffResponse enrichWithDepartmentName(Staff staff) {
+    private void validateRoleIds(List<String> roleIds, String vendorId) {
+        if (roleIds == null || roleIds.isEmpty()) return;
+
+        List<RbacRole> found = roleRepository.findByIdInAndVendorId(roleIds, vendorId);
+        if (found.size() != roleIds.size()) {
+            List<String> foundIds = found.stream().map(RbacRole::getId).collect(Collectors.toList());
+            List<String> invalid = roleIds.stream().filter(id -> !foundIds.contains(id)).collect(Collectors.toList());
+            throw new BadRequestException("Invalid role IDs (not found or not in your vendor scope): " + invalid);
+        }
+    }
+
+    /**
+     * Enriches a StaffResponse with resolved role names, department name,
+     * and effective permissions — all required by the FRD for Android dynamic UI.
+     */
+    private StaffResponse enrichWithDetails(Staff staff) {
         StaffResponse response = staffMapper.toResponse(staff);
-        if (staff.getDepartmentId() != null) {
-            departmentRepository.findById(staff.getDepartmentId())
+
+        // Resolve first department name
+        if (staff.getDepartmentIds() != null && !staff.getDepartmentIds().isEmpty()) {
+            departmentRepository.findById(staff.getDepartmentIds().get(0))
                     .ifPresent(d -> response.setDepartmentName(d.getName()));
         }
+
+        // Resolve role names and effective permissions
+        if (staff.getRoleIds() != null && !staff.getRoleIds().isEmpty()) {
+            List<RbacRole> roles = roleRepository.findByIdIn(staff.getRoleIds());
+
+            List<String> roleNames = roles.stream()
+                    .map(RbacRole::getName)
+                    .collect(Collectors.toList());
+            response.setRoleNames(roleNames);
+
+            // Collect all permission IDs, deduplicated
+            List<String> allPermissionIds = roles.stream()
+                    .flatMap(r -> r.getPermissionIds() != null ? r.getPermissionIds().stream() : java.util.stream.Stream.empty())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            if (!allPermissionIds.isEmpty()) {
+                List<String> permKeys = permissionRepository.findByIdIn(allPermissionIds).stream()
+                        .filter(RbacPermission::isActive)
+                        .map(RbacPermission::getPermissionKey)
+                        .collect(Collectors.toList());
+                response.setEffectivePermissions(permKeys);
+            }
+        }
+
         return response;
     }
 }

@@ -40,13 +40,13 @@ public class DashboardServiceImpl implements DashboardService {
         List<OrderSummary> recent = getRecentOrders(vendorId);
         response.setRecentOrders(recent);
         
-        // Calculate average wait time logic: for collected/completed orders today
+        // Calculate average wait time logic: for completed orders today
         Instant startOfDay = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant();
         List<Order> todayOrders = orderRepository.findByVendorIdAndCreatedAtAfter(vendorId, startOfDay);
         long totalMins = 0;
         int completedCount = 0;
         for (Order o : todayOrders) {
-            if (o.getStatus() == OrderStatus.COLLECTED && o.getCompletedAt() != null) {
+            if (o.getStatus() == OrderStatus.COMPLETED && o.getCompletedAt() != null) {
                 totalMins += Duration.between(o.getCreatedAt(), o.getCompletedAt()).toMinutes();
                 completedCount++;
             }
@@ -69,7 +69,7 @@ public class DashboardServiceImpl implements DashboardService {
         int pending = 0;
         int preparing = 0;
         int ready = 0;
-        int collected = 0;
+        int completed = 0;
         int cancelled = 0;
         BigDecimal revenue = BigDecimal.ZERO;
         
@@ -77,10 +77,10 @@ public class DashboardServiceImpl implements DashboardService {
             if (o.getStatus() == OrderStatus.PENDING) pending++;
             else if (o.getStatus() == OrderStatus.PREPARING) preparing++;
             else if (o.getStatus() == OrderStatus.READY) ready++;
-            else if (o.getStatus() == OrderStatus.COLLECTED) collected++;
+            else if (o.getStatus() == OrderStatus.COMPLETED) completed++;
             else if (o.getStatus() == OrderStatus.CANCELLED) cancelled++;
             
-            if (o.getStatus() == OrderStatus.COLLECTED) {
+            if (o.getStatus() == OrderStatus.COMPLETED) {
                 revenue = revenue.add(o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO);
             }
         }
@@ -88,7 +88,7 @@ public class DashboardServiceImpl implements DashboardService {
         stats.setPendingOrders(pending);
         stats.setPreparingOrders(preparing);
         stats.setReadyOrders(ready);
-        stats.setCollectedOrders(collected);
+        stats.setCollectedOrders(completed);
         stats.setCancelledOrders(cancelled);
         stats.setTotalRevenue(revenue);
         return stats;

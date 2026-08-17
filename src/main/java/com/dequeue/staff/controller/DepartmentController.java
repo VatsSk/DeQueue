@@ -22,23 +22,25 @@ public class DepartmentController {
     private final DepartmentService departmentService;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'staff.view')")
     public ApiResponse<List<DepartmentResponse>> getAll() {
         return ApiResponse.success(departmentService.findAll());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'staff.view')")
     public ApiResponse<DepartmentResponse> getById(@PathVariable String id) {
         return ApiResponse.success(departmentService.findById(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGE_STAFF')")
+    @PreAuthorize("hasPermission(null, 'staff.create')")
     public ApiResponse<DepartmentResponse> create(@Valid @RequestBody CreateDepartmentRequest request) {
         return ApiResponse.success(departmentService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGE_STAFF')")
+    @PreAuthorize("hasPermission(null, 'staff.update')")
     public ApiResponse<DepartmentResponse> update(
             @PathVariable String id,
             @Valid @RequestBody UpdateDepartmentRequest request) {
@@ -46,7 +48,7 @@ public class DepartmentController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGE_STAFF')")
+    @PreAuthorize("hasPermission(null, 'staff.delete')")
     public ApiResponse<Void> delete(@PathVariable String id) {
         departmentService.delete(id);
         return ApiResponse.success(null);

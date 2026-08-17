@@ -15,8 +15,14 @@ public class PermissionEvaluator implements org.springframework.security.access.
             return false;
         }
         UserPrincipal user = (UserPrincipal) authentication.getPrincipal();
-        List<String> permissions = user.getPermissions();
-        return permissions != null && permissions.contains(permission.toString());
+
+        // Platform admins have all permissions
+        if (user.isPlatformAdmin()) {
+            return true;
+        }
+
+        List<String> effectivePermissions = user.getEffectivePermissions();
+        return effectivePermissions != null && effectivePermissions.contains(permission.toString());
     }
 
     @Override

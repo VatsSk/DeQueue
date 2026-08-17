@@ -92,6 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Load Sidebar dynamically
+// NOTE: This is disabled because router.js handles sidebar rendering dynamically based on roles
+// Uncomment only if you want to use the static sidebar.html file
+/*
 window.loadSidebar = async () => {
     try {
         const res = await fetch('sidebar.html');
@@ -122,3 +125,4 @@ window.loadSidebar = async () => {
 document.addEventListener('DOMContentLoaded', () => {
     window.loadSidebar();
 });
+*/

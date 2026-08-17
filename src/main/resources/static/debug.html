@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug - User Data</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        pre { background: #2a2a2a; padding: 20px; border-radius: 8px; }
+        .test { margin-top: 20px; padding: 15px; background: #333; border-radius: 8px; }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug User Data</h1>
+    
+    <h2>LocalStorage 'user' object:</h2>
+    <pre id="user-data"></pre>
+    
+    <h2>Tests:</h2>
+    <div id="tests"></div>
+
+    <script>
+        const userStr = localStorage.getItem('user');
+        const userDataEl = document.getElementById('user-data');
+        const testsEl = document.getElementById('tests');
+        
+        if (userStr) {
+            userDataEl.textContent = JSON.stringify(JSON.parse(userStr), null, 2);
+            
+            const user = JSON.parse(userStr);
+            let html = '';
+            
+            html += `<div class="test">✓ user exists: <span class="success">true</span></div>`;
+            html += `<div class="test">user.platformAdmin: <span class="${user.platformAdmin === true ? 'success' : 'error'}">${user.platformAdmin}</span></div>`;
+            html += `<div class="test">user.roleNames: <span>${JSON.stringify(user.roleNames)}</span></div>`;
+            html += `<div class="test">typeof user.platformAdmin: <span>${typeof user.platformAdmin}</span></div>`;
+            html += `<div class="test">user.platformAdmin === true: <span class="${user.platformAdmin === true ? 'success' : 'error'}">${user.platformAdmin === true}</span></div>`;
+            
+            const isPlatformAdmin = user.platformAdmin === true;
+            html += `<div class="test">Should show Platform Vendors: <span class="${isPlatformAdmin ? 'success' : 'error'}">${isPlatformAdmin ? 'YES' : 'NO'}</span></div>`;
+            
+            testsEl.innerHTML = html;
+        } else {
+            userDataEl.textContent = 'No user data in localStorage';
+            testsEl.innerHTML = '<div class="test error">✗ No user logged in</div>';
+        }
+    </script>
+</body>
+</html>

@@ -85,6 +85,13 @@ public class GlobalExceptionHandler {
                 .body(buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage(), request, null));
     }
 
+    @ExceptionHandler(com.dequeue.common.exception.WorkflowConflictException.class)
+    public ResponseEntity<ErrorResponse> handleWorkflowConflictException(
+            com.dequeue.common.exception.WorkflowConflictException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage(), request, null));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> errors = new HashMap<>();

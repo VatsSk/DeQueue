@@ -70,4 +70,50 @@ public class VendorServiceImpl implements VendorService {
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found with code: " + vendorCode));
         return vendor.getShopStatus();
     }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Platform Admin Methods
+    // ────────────────────────────────────────────────────────────────────────
+
+    @Override
+    public java.util.List<VendorResponse> getAllVendors() {
+        return vendorRepository.findAll().stream()
+                .map(vendorMapper::toResponse)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public VendorResponse toggleVendorStatus(String vendorId, boolean active) {
+        Vendor vendor = vendorRepository.findById(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+        vendor.setActive(active);
+        return vendorMapper.toResponse(vendorRepository.save(vendor));
+    }
+
+    @Override
+    @Transactional
+    public VendorResponse createVendor(CreateVendorRequest request) {
+        // We will just create the Vendor. The frontend for Platform Admin
+        // can use this to onboard a new vendor.
+        String vendorCode = request.getShopName().toLowerCase().replaceAll("[^a-z0-9]", "-")
+                + "-" + java.util.UUID.randomUUID().toString().substring(0, 4);
+
+        Vendor vendor = new Vendor();
+        vendor.setShopName(request.getShopName());
+        vendor.setOwnerName(request.getOwnerName());
+        vendor.setPhone(request.getPhone());
+        vendor.setAddress(com.dequeue.vendor.entity.Address.builder().street(request.getAddress()).build());
+        vendor.setVendorCode(vendorCode);
+        vendor.setShopStatus(ShopStatus.CLOSED);
+        vendor.setActive(true);
+        
+        vendor = vendorRepository.save(vendor);
+
+        // Note: Creating the initial admin user and roles should ideally be here or via a separate endpoint,
+        // but for simplicity we return the created vendor. In a real scenario, this would reuse the 
+        // logic from AuthServiceImpl.register or publish an event.
+        
+        return vendorMapper.toResponse(vendor);
+    }
 }

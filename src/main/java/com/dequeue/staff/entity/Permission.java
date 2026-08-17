@@ -1,8 +1,10 @@
 package com.dequeue.staff.entity;
 
-public enum Permission {
-    VIEW_DASHBOARD, MANAGE_ORDERS, MANAGE_MENU, MANAGE_STAFF,
-    MANAGE_SETTINGS, VIEW_REPORTS, MANAGE_QUEUE, VIEW_QUEUE,
-    UPDATE_ORDER_STATUS, MARK_COLLECTED, MANAGE_DEPARTMENTS,
-    MANAGE_PROFILE, MANAGE_QR
+/**
+ * @deprecated Replaced by {@link com.dequeue.rbac.entity.RbacPermission} documents.
+ * Kept as a compilation placeholder during migration. Will be removed.
+ */
+@Deprecated
+public final class Permission {
+    private Permission() {}
 }

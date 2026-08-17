@@ -10,4 +10,9 @@ public interface VendorService {
     ShopStatus getShopStatus(String userId);
     PublicVendorResponse getVendorByCode(String vendorCode);
     ShopStatus getVendorStatusByCode(String vendorCode);
+
+    // Platform Admin Methods
+    VendorResponse createVendor(CreateVendorRequest request);
+    java.util.List<VendorResponse> getAllVendors();
+    VendorResponse toggleVendorStatus(String vendorId, boolean active);
 }

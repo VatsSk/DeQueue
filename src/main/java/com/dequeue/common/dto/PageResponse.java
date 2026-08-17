@@ -29,4 +29,8 @@ public class PageResponse<T> {
             page.isLast()
         );
     }
+
+    public static <T> PageResponse<T> empty() {
+        return new PageResponse<>(java.util.Collections.emptyList(), 0, 0, 0, 0, true);
+    }
 }

@@ -1,5 +1,10 @@
 package com.dequeue.staff.entity;
 
-public enum Role {
-    ADMIN, MANAGER, KITCHEN_STAFF, COUNTER_STAFF, CUSTOM
+/**
+ * @deprecated Replaced by {@link com.dequeue.rbac.entity.RbacRole} documents.
+ * Kept as a compilation placeholder during migration. Will be removed.
+ */
+@Deprecated
+public final class Role {
+    private Role() {}
 }

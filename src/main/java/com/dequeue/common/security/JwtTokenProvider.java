@@ -1,6 +1,5 @@
 package com.dequeue.common.security;
 
-import com.dequeue.staff.entity.Staff;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -23,7 +22,7 @@ public class JwtTokenProvider {
 
     @Value("${jwt.expiration}")
     private long jwtExpirationMs;
-    
+
     @Value("${jwt.refresh-expiration}")
     private long refreshExpirationMs;
 
@@ -32,25 +31,24 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
+    /**
+     * Generates a short-lived access token for the given principal.
+     * Claims contain: sub (staffId), vendorId.
+     * Permissions are NOT embedded in the token — they are resolved fresh
+     * from the database on each request via CustomUserDetailsService.loadUserById().
+     * This ensures permission changes take effect immediately.
+     */
     public String generateToken(UserPrincipal userPrincipal) {
         return buildToken(userPrincipal.getId(), userPrincipal.getVendorId(),
-                userPrincipal.getEmail(), userPrincipal.getRole(),
-                userPrincipal.getDepartment(), jwtExpirationMs);
-    }
-
-    public String generateToken(Staff staff) {
-        return buildToken(staff.getId(), staff.getVendorId(), staff.getEmail(),
-                staff.getRole() != null ? staff.getRole().name() : null,
-                staff.getDepartmentId(), jwtExpirationMs);
+                userPrincipal.getEmail(), jwtExpirationMs);
     }
 
     public String generateRefreshToken(UserPrincipal userPrincipal) {
         return buildToken(userPrincipal.getId(), userPrincipal.getVendorId(),
-                userPrincipal.getEmail(), null, null, refreshExpirationMs);
+                userPrincipal.getEmail(), refreshExpirationMs);
     }
 
-    private String buildToken(String userId, String vendorId, String email, 
-                              String role, String department, long expirationMs) {
+    private String buildToken(String userId, String vendorId, String email, long expirationMs) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationMs);
 
@@ -58,8 +56,6 @@ public class JwtTokenProvider {
                 .setSubject(userId)
                 .claim("vendorId", vendorId)
                 .claim("email", email)
-                .claim("role", role)
-                .claim("department", department)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

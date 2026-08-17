@@ -1,0 +1,168 @@
+﻿Functional Requirements Document
+DeQueue ΓÇô Role-Based Access Control & Order Workflow Authorization
+1. Document Overview
+Project: DeQueue
+Feature: Dynamic Role-Based Access Control (RBAC) and Order Workflow Authorization
+Platform: Web/Admin, Android and Backend
+Primary Users: DeQueue Platform Admin, Vendor Admin and Vendor Staff
+2. Objective
+Allow DeQueue to centrally define the available permissions.
+Allow each vendor to create custom roles by combining predefined permissions.
+Allow vendors to assign one or more roles to staff.
+Control application features and actions based on effective permissions.
+Control order visibility based on role and allowed order statuses.
+Allow order actions only when the user has the required permission and the order is in a valid state.
+Maintain strict vendor-level tenant isolation.
+Provide Android clients with effective permissions for dynamic UI rendering.
+Keep the backend as the final source of truth for authorization.
+3. User Hierarchy
+DeQueue operates with two authorization scopes: Platform and Vendor. The Platform Admin manages vendors, while the Vendor Admin manages users, roles, departments and vendor operations within that vendor.
+DeQueue Platform ΓåÆ Platform Admin ΓåÆ Vendor ΓåÆ Vendor Admin ΓåÆ Roles / Departments / Staff
+4. Platform Admin
+Create, view, update, activate and deactivate vendors.
+Manage platform-level configuration.
+Define and maintain the global permission catalog.
+Operate independently of vendor-specific roles.
+5. Vendor Admin
+Manage vendor-specific staff.
+Create, update and delete vendor roles subject to system restrictions.
+Assign roles to staff.
+Manage departments.
+Manage vendor operations such as orders, menu and reports according to permissions.
+Access only data belonging to the vendor.
+6. Permission Model
+Permissions are defined and maintained by DeQueue. Vendors cannot create arbitrary permissions. Permissions represent capabilities that the application exposes.
+7. Role Management
+Roles are vendor-owned configurations. A vendor can create any number of roles and combine the predefined DeQueue permissions according to its operational needs.
+Examples:
+Kitchen Staff: order.view, order.prepare, order.ready
+Kitchen Manager: order.view, order.accept, order.prepare, order.ready, order.complete, order.cancel, menu.view, menu.update, staff.view
+Counter Staff: order.view, order.complete
+8. Staff and Role Assignment
+A staff member may be assigned one or more roles. Effective permissions are the union of permissions granted by all assigned roles.
+Example: Rahul ΓåÆ Kitchen Staff + Inventory Manager ΓåÆ effective permissions include order.view, order.prepare, order.ready, inventory.view and inventory.update.
+9. Departments
+Departments and roles are separate concepts. A department identifies an operational area, while a role determines what the staff member is allowed to do.
+Example: Rahul ΓåÆ Department: Kitchen; Role: Kitchen Manager.
+10. Order Workflow
+The order lifecycle is controlled by a predefined state machine:
+PENDING ΓåÆ ACCEPTED ΓåÆ PREPARING ΓåÆ READY ΓåÆ COMPLETED
+Optional cancellation transitions may include PENDING ΓåÆ CANCELLED, ACCEPTED ΓåÆ CANCELLED and PREPARING ΓåÆ CANCELLED.
+The valid order state machine is controlled by DeQueue and cannot be arbitrarily modified by vendors.
+11. Order Action Authorization
+Every order action requires both the required permission and a valid current order state.
+12. Order Visibility
+Order visibility is separate from action permissions. A role may have order.view while still being restricted to specific order statuses.
+13. Backend Authorization Flow
+For every protected request the backend must validate: authentication ΓåÆ vendor/tenant isolation ΓåÆ permission ΓåÆ resource visibility ΓåÆ workflow state transition.
+Example for POST /orders/{id}/prepare: validate JWT, verify the order belongs to the user's vendor, verify order.prepare permission, verify the order is visible, verify current status is ACCEPTED, then transition it to PREPARING.
+14. Tenant Isolation
+All vendor-owned resources must be scoped by vendorId. A user belonging to Vendor A must not be able to access or modify Vendor B data, even if the user has the relevant functional permission.
+orders
+staff
+roles
+departments
+menu_items
+categories
+customization_groups
+vendor settings
+15. Android Application Requirements
+After login, the backend shall provide the user's effective permissions. The Android application shall use these permissions to control navigation, screens, buttons and available actions.
+Example: order.prepare ΓåÆ display Start Preparing; order.ready ΓåÆ display Mark Ready; order.complete ΓåÆ display Complete.
+Android UI restrictions are for user experience only. They must never replace backend authorization.
+16. Login and Session Requirements
+During login, the backend determines the user, vendor, assigned roles and effective permissions. The access token/session may contain vendorId, user identity, role IDs and permissions. Access tokens should be short-lived so permission changes become effective promptly.
+17. Redis and WebSocket Integration
+Successful order state changes shall update MongoDB, record status history, update relevant Redis state and publish a real-time event through the existing WebSocket/pub-sub mechanism.
+Example: Vendor accepts PENDING ΓåÆ ACCEPTED ΓåÆ MongoDB update ΓåÆ status history ΓåÆ Redis update ΓåÆ ORDER_ACCEPTED event ΓåÆ Kitchen Android displays the order.
+18. Data Model
+Recommended collections:
+vendors
+staff
+departments
+roles
+permissions
+orders
+menu_items
+categories
+customization_groups
+qr_metadata
+vendor_profiles
+vendor_settings
+refresh_tokens
+audit_logs
+Role document should contain: id, vendorId, name, description, permissionIds[], orderVisibility.statuses[], active, createdAt and updatedAt.
+Permission document should contain: id, resource, action, description and active.
+Staff document should contain: id, vendorId, roleIds[], departmentIds[], name, email, phone and active.
+19. Error Handling
+20. Audit Requirements
+Every successful order status transition must record the previous status, new status, user/staff ID and timestamp in the order status history. Role and permission changes should also be auditable through the existing audit_logs mechanism.
+21. Functional Requirements
+22. End-to-End Example
+Platform Admin creates Pizza Palace and its initial Vendor Admin.
+Vendor Admin creates Kitchen Staff with order.view, order.prepare and order.ready.
+Vendor Admin configures Kitchen Staff visibility as ACCEPTED, PREPARING and READY.
+Vendor Admin creates Counter Staff with order.view and order.complete, visible only for READY orders.
+Customer places an order; status is PENDING. Vendor Admin sees it; Kitchen Staff does not.
+Vendor accepts the order; status becomes ACCEPTED and a real-time event makes it visible to Kitchen Staff.
+Kitchen Staff starts preparation; status becomes PREPARING.
+Kitchen Staff marks the order ready; status becomes READY.
+Counter Staff sees the READY order and completes it; status becomes COMPLETED.
+Each successful transition is stored in status history and propagated through Redis/WebSocket.
+23. Key Design Principles
+DeQueue defines permissions; vendors define roles.
+A role is a combination of predefined permissions.
+Departments represent operational grouping, not authorization.
+The order state machine is controlled by DeQueue.
+Vendors control which roles can perform valid actions.
+Order visibility is separate from action permission.
+Every request must satisfy authentication, tenant isolation, permission and workflow checks.
+Android controls the user experience; backend controls security.
+Vendor-specific configuration must never compromise cross-tenant isolation.
+---TABLES---
+Resource | Example Permissions | Purpose
+ORDER | order.view, order.accept, order.prepare, order.ready, order.complete, order.cancel | Control order operations
+MENU | menu.view, menu.create, menu.update, menu.delete | Control menu management
+STAFF | staff.view, staff.create, staff.update, staff.delete | Control staff management
+ROLE | role.view, role.create, role.update, role.delete | Control role management
+REPORT | report.view | Control reporting access
+Action | Required Permission | Current Status | New Status
+Accept | order.accept | PENDING | ACCEPTED
+Prepare | order.prepare | ACCEPTED | PREPARING
+Ready | order.ready | PREPARING | READY
+Complete | order.complete | READY | COMPLETED
+Cancel | order.cancel | Configured allowed states | CANCELLED
+Role Example | Permissions | Visible Statuses
+Vendor Admin | order.view, order.accept, order.prepare, order.ready, order.complete, order.cancel | All relevant statuses
+Kitchen Staff | order.view, order.prepare, order.ready | ACCEPTED, PREPARING, READY
+Counter Staff | order.view, order.complete | READY
+Condition | HTTP Status | Meaning
+Missing required permission | 403 Forbidden | User is not authorized to perform the action
+Invalid order state transition | 409 Conflict | User may have the permission, but the order is not in a valid state
+Cross-vendor access | 403 Forbidden | Resource does not belong to the user's vendor
+ID | Requirement
+FR-001 | System shall support Platform Admin users.
+FR-002 | Platform Admin shall be able to create and manage vendors.
+FR-003 | Each vendor shall have an initial Vendor Admin/Owner.
+FR-004 | DeQueue shall define and maintain the global permission catalog.
+FR-005 | Vendor Admin shall be able to create custom roles.
+FR-006 | Vendor Admin shall be able to assign predefined permissions to roles.
+FR-007 | Vendor Admin shall be able to modify and delete vendor roles subject to system restrictions.
+FR-008 | Vendor Admin shall be able to assign one or more roles to staff.
+FR-009 | Staff shall receive effective permissions from assigned roles.
+FR-010 | Departments shall be maintained separately from roles.
+FR-011 | System shall enforce vendor-level tenant isolation.
+FR-012 | System shall maintain a predefined order state machine.
+FR-013 | System shall validate permissions before allowing order actions.
+FR-014 | System shall validate current order status before allowing state transitions.
+FR-015 | Vendor users shall only access orders belonging to their vendor.
+FR-016 | Roles shall support configurable order-status visibility.
+FR-017 | Kitchen Staff shall only see orders matching their configured visibility statuses.
+FR-018 | Android application shall display UI components according to effective permissions.
+FR-019 | Backend shall enforce all permissions independently of Android UI.
+FR-020 | Successful order transitions shall create status history records.
+FR-021 | Order status changes shall update Redis and publish real-time events.
+FR-022 | Unauthorized actions shall return appropriate authorization errors.
+FR-023 | Invalid state transitions shall return a workflow conflict error.
+FR-024 | Vendors shall not be able to create arbitrary system permissions.
+FR-025 | Vendor users shall not be able to access or modify another vendor's data.

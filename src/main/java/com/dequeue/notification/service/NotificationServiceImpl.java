@@ -55,7 +55,7 @@ public class NotificationServiceImpl implements NotificationService {
             case "ACCEPTED" -> orderRef + " has been confirmed.";
             case "PREPARING" -> orderRef + " is being prepared.";
             case "READY" -> orderRef + " is ready for pickup!";
-            case "COLLECTED" -> orderRef + " has been collected. Thank you!";
+            case "COMPLETED" -> orderRef + " has been completed. Thank you!";
             case "CANCELLED" -> orderRef + " has been cancelled.";
             default -> orderRef + " status updated to " + status;
         };

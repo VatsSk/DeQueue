@@ -81,7 +81,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     public void delete(String id) {
         Department department = getDepartment(id);
         
-        long staffCount = staffRepository.countByVendorIdAndDepartmentId(
+        long staffCount = staffRepository.countByVendorIdAndDepartmentIdsContaining(
                 SecurityUtils.getCurrentVendorId(), id);
                 
         if (staffCount > 0) {
@@ -104,7 +104,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     private DepartmentResponse enrichWithStaffCount(Department department) {
         DepartmentResponse response = departmentMapper.toResponse(department);
-        long count = staffRepository.countByVendorIdAndDepartmentId(
+        long count = staffRepository.countByVendorIdAndDepartmentIdsContaining(
                 department.getVendorId(), department.getId());
         response.setStaffCount((int) count);
         return response;

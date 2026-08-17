@@ -13,9 +13,10 @@ import java.util.Optional;
 @Repository
 public interface StaffRepository extends MongoRepository<Staff, String> {
     Page<Staff> findByVendorId(String vendorId, Pageable pageable);
-    List<Staff> findByVendorIdAndDepartmentId(String vendorId, String departmentId);
+    List<Staff> findByVendorId(String vendorId);
+    List<Staff> findByVendorIdAndDepartmentIdsContaining(String vendorId, String departmentId);
     Optional<Staff> findByEmail(String email);
     boolean existsByEmail(String email);
-    long countByVendorIdAndDepartmentId(String vendorId, String departmentId);
+    long countByVendorIdAndDepartmentIdsContaining(String vendorId, String departmentId);
     List<Staff> findByVendorIdAndStatus(String vendorId, StaffStatus status);
 }

@@ -1,5 +1,10 @@
 package com.dequeue.order.entity;
 
 public enum OrderStatus {
-    PENDING, ACCEPTED, PREPARING, READY, COLLECTED, CANCELLED
+    PENDING,
+    ACCEPTED,
+    PREPARING,
+    READY,
+    COMPLETED,
+    CANCELLED
 }

@@ -53,7 +53,7 @@ public class ReportServiceImpl implements ReportService {
         int prepTimeCount = 0;
         
         for (Order order : orders) {
-            if (order.getStatus() == OrderStatus.COLLECTED) {
+            if (order.getStatus() == OrderStatus.COMPLETED) {
                 completed++;
                 revenue = revenue.add(order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO);
                 if (order.getCompletedAt() != null && order.getCreatedAt() != null) {
@@ -91,7 +91,7 @@ public class ReportServiceImpl implements ReportService {
         
         for (Order order : orders) {
             byStatus.put(order.getStatus(), byStatus.getOrDefault(order.getStatus(), 0L) + 1);
-            if (order.getStatus() == OrderStatus.COLLECTED) {
+            if (order.getStatus() == OrderStatus.COMPLETED) {
                 totalRevenue = totalRevenue.add(order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO);
             }
         }
@@ -99,7 +99,7 @@ public class ReportServiceImpl implements ReportService {
         report.setByStatus(byStatus);
         report.setTotalRevenue(totalRevenue);
         
-        long completedCount = byStatus.getOrDefault(OrderStatus.COLLECTED, 0L);
+        long completedCount = byStatus.getOrDefault(OrderStatus.COMPLETED, 0L);
         if (completedCount > 0) {
             report.setAverageOrderValue(totalRevenue.divide(BigDecimal.valueOf(completedCount), 2, RoundingMode.HALF_UP));
         } else {
@@ -160,7 +160,7 @@ public class ReportServiceImpl implements ReportService {
                 int hour = order.getCreatedAt().atZone(ZoneId.systemDefault()).getHour();
                 HourlyData hd = hourMap.get(hour);
                 hd.setOrderCount(hd.getOrderCount() + 1);
-                if (order.getStatus() == OrderStatus.COLLECTED && order.getTotalAmount() != null) {
+                if (order.getStatus() == OrderStatus.COMPLETED && order.getTotalAmount() != null) {
                     hd.setRevenue(hd.getRevenue().add(order.getTotalAmount()));
                 }
             }
@@ -180,7 +180,7 @@ public class ReportServiceImpl implements ReportService {
         int completedCount = 0;
         
         for (Order order : orders) {
-            if (order.getStatus() == OrderStatus.COLLECTED && order.getCreatedAt() != null && order.getCompletedAt() != null) {
+            if (order.getStatus() == OrderStatus.COMPLETED && order.getCreatedAt() != null && order.getCompletedAt() != null) {
                 totalWaitTime += ChronoUnit.MINUTES.between(order.getCreatedAt(), order.getCompletedAt());
                 if (order.getPreparationStartedAt() != null) {
                     totalPrepTime += ChronoUnit.MINUTES.between(order.getPreparationStartedAt(), order.getCompletedAt());
