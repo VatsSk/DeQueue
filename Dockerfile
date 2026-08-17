@@ -1,13 +1,11 @@
 # Stage 1: Build with Gradle
-FROM eclipse-temurin:21-jdk AS builder
+FROM gradle:8.5-jdk21 AS builder
 WORKDIR /app
-COPY gradlew .
-COPY gradle gradle
 COPY build.gradle settings.gradle ./
 # Copy source code
 COPY src src
 # Build the application
-RUN chmod +x ./gradlew && ./gradlew build -x test
+RUN gradle build -x test --no-daemon
 
 # Stage 2: Run with JRE
 FROM eclipse-temurin:21-jre-alpine
