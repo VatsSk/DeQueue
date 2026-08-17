@@ -8,6 +8,8 @@ import com.dequeue.profile.entity.*;
 
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface ProfileMapper {
+    @org.mapstruct.Mapping(source = "logo", target = "logoUrl")
+    @org.mapstruct.Mapping(source = "banner", target = "bannerUrl")
     ProfileResponse toResponse(VendorProfile profile);
     void updateProfileFromRequest(UpdateProfileRequest request, @MappingTarget VendorProfile profile);
 }

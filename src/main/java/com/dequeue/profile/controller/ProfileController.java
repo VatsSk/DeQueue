@@ -18,12 +18,12 @@ public class ProfileController {
 
     private final ProfileService profileService;
 
-    @GetMapping("/")
+    @GetMapping({"", "/"})
     public ApiResponse<ProfileResponse> getProfile() {
         return ApiResponse.success(profileService.getProfile(SecurityUtils.getCurrentVendorId()));
     }
 
-    @PutMapping("/")
+    @PutMapping({"", "/"})
     public ApiResponse<ProfileResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
         return ApiResponse.success(profileService.updateProfile(SecurityUtils.getCurrentVendorId(), request));
     }

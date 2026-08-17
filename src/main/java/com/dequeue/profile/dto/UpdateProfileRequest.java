@@ -9,4 +9,6 @@ public class UpdateProfileRequest {
     private String ownerName;
     private String description;
     private SocialLinks socialLinks;
+    private String logo;
+    private String banner;
 }
