@@ -40,22 +40,6 @@
             </header>
 
             <div class="page-content">
-                <!-- DEBUG OVERLAY START -->
-                <div id="debug-box" style="background: red; color: white; padding: 20px; font-size: 16px; margin-bottom: 20px; border-radius: 8px;">
-                    <h3>DEBUG INFO: DO YOU SEE THIS RED BOX?</h3>
-                    <pre id="debug-user-info" style="white-space: pre-wrap; font-family: monospace;"></pre>
-                </div>
-                <script>
-                    setTimeout(() => {
-                        const dbg = document.getElementById('debug-user-info');
-                        if (dbg) {
-                            const usr = localStorage.getItem('user');
-                            dbg.innerHTML = "localStorage user object:\n\n" + usr;
-                        }
-                    }, 500);
-                </script>
-                <!-- DEBUG OVERLAY END -->
-                
                 <div class="dashboard-grid">
                     <!-- Stats -->
                     <div class="stats-card">

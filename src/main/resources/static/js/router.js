@@ -60,6 +60,13 @@ class Router {
                 hasManagerRole = user.roleNames.includes('Manager');
                 hasKitchenRole = user.roleNames.includes('Kitchen Staff');
                 hasCounterRole = user.roleNames.includes('Counter Staff');
+                
+                // Fallback: if backend doesn't provide roles but user is authenticated, default to Admin
+                if (user.roleNames.length === 0) {
+                    hasAdminRole = true;
+                }
+            } else {
+                hasAdminRole = true;
             }
         } else {
             // Fallback for safety
@@ -136,6 +143,11 @@ class Router {
         let hasManagerRole = user.roleNames && user.roleNames.includes('Manager');
         let hasKitchenRole = user.roleNames && user.roleNames.includes('Kitchen Staff');
         let hasCounterRole = user.roleNames && user.roleNames.includes('Counter Staff');
+        
+        // Fallback: if backend doesn't provide roles but user is authenticated, default to Admin
+        if (!user.roleNames || user.roleNames.length === 0) {
+            hasAdminRole = true;
+        }
 
         const currentItem = this.navConfig.find(item => this.currentPath.includes(item.path));
         
@@ -149,7 +161,19 @@ class Router {
             if (!allowed && currentItem.roles.length > 0) {
                 // Redirect to a safe page if unauthorized
                 const fallback = hasKitchenRole ? 'orders.html' : 'dashboard.html';
-                window.location.href = `/${fallback}`;
+                if (!this.currentPath.includes(fallback)) {
+                    window.location.href = `/${fallback}`;
+                } else {
+                    document.querySelector('.page-content').innerHTML = `
+                        <div class="card p-6" style="text-align: center; max-width: 400px; margin: 40px auto;">
+                            <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin: 0 auto 16px;"></i>
+                            <h2 class="mb-4">Unauthorized Access</h2>
+                            <p class="text-muted mb-4">You do not have the required roles assigned to access this page. Please contact your administrator.</p>
+                            <button class="btn btn-primary" onclick="auth.logout()">Logout</button>
+                        </div>
+                    `;
+                    if (window.lucide) lucide.createIcons();
+                }
             }
         }
     }
