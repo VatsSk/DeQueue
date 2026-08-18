@@ -58,34 +58,20 @@ public class CustomUserDetailsService implements UserDetailsService {
         List<String> effectivePermissions = new ArrayList<>();
         List<OrderStatus> orderVisibilityStatuses = new ArrayList<>();
 
-        if (staff.getRoleIds() != null && !staff.getRoleIds().isEmpty()) {
-            // Fetch assigned roles (scoped to vendor for non-platform admins)
-            List<RbacRole> roles = staff.isPlatformAdmin()
-                    ? rbacRoleRepository.findByIdIn(staff.getRoleIds())
-                    : rbacRoleRepository.findByIdInAndVendorId(staff.getRoleIds(), staff.getVendorId());
-
-            // Collect all permission IDs (deduplicated)
-            Set<String> permissionIds = new LinkedHashSet<>();
-            Set<OrderStatus> visibilityStatuses = new LinkedHashSet<>();
+        if (staff.getRoles() != null && !staff.getRoles().isEmpty()) {
+            List<RbacRole> roles = rbacRoleRepository.findByVendorIdAndNameIn(staff.getVendorId(), staff.getRoles());
+            java.util.Set<String> permissionKeys = new java.util.LinkedHashSet<>();
+            java.util.Set<OrderStatus> visibilityStatuses = new java.util.LinkedHashSet<>();
 
             for (RbacRole role : roles) {
-                if (role.getPermissionIds() != null) {
-                    permissionIds.addAll(role.getPermissionIds());
+                if (role.getPermissions() != null) {
+                    permissionKeys.addAll(role.getPermissions());
                 }
                 if (role.getOrderVisibility() != null && role.getOrderVisibility().getStatuses() != null) {
                     visibilityStatuses.addAll(role.getOrderVisibility().getStatuses());
                 }
             }
-
-            // Fetch permissions and build keys
-            if (!permissionIds.isEmpty()) {
-                List<RbacPermission> permissions = rbacPermissionRepository.findByIdIn(new ArrayList<>(permissionIds));
-                effectivePermissions = permissions.stream()
-                        .filter(RbacPermission::isActive)
-                        .map(RbacPermission::getPermissionKey)
-                        .collect(Collectors.toList());
-            }
-
+            effectivePermissions = new ArrayList<>(permissionKeys);
             orderVisibilityStatuses = new ArrayList<>(visibilityStatuses);
         }
 

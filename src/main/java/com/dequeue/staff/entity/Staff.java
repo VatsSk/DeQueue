@@ -30,9 +30,9 @@ public class Staff {
     private String password;
     private String phone;
 
-    /** IDs of RbacRole documents assigned to this staff member. */
+    /** Static roles assigned to this staff member (e.g. ROLE_VENDOR_ADMIN). */
     @Builder.Default
-    private List<String> roleIds = new ArrayList<>();
+    private List<String> roles = new ArrayList<>();
 
     /** IDs of Department documents this staff belongs to. */
     @Builder.Default

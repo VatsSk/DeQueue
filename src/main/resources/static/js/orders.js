@@ -39,20 +39,45 @@ class Orders {
   }
 
   setupFilters() {
-    const tabs = document.querySelectorAll('.filter-tab');
-    if (!tabs.length) return;
-    
-    tabs.forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        tabs.forEach(t => t.classList.remove('active'));
+    const container = document.getElementById('orders-filters-container');
+    if (!container) return;
+
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
+    const isPlatformAdmin = user ? user.platformAdmin === true : false;
+
+    // Determine tabs based on action permissions
+    let tabs = [];
+    tabs.push({ id: 'ALL', label: 'All' });
+
+    if (isPlatformAdmin || permissions.includes('order.accept')) {
+      tabs.push({ id: 'PENDING', label: 'Pending' });
+    }
+    if (isPlatformAdmin || permissions.includes('order.prepare')) {
+      tabs.push({ id: 'ACCEPTED', label: 'Accepted' });
+    }
+    if (isPlatformAdmin || permissions.includes('order.ready')) {
+      tabs.push({ id: 'PREPARING', label: 'Preparing' });
+    }
+    if (isPlatformAdmin || permissions.includes('order.complete')) {
+      tabs.push({ id: 'READY', label: 'Ready' });
+    }
+
+    let html = '';
+    tabs.forEach((tab, index) => {
+      const activeClass = tab.id === this.currentFilter ? 'active' : '';
+      html += `<button class="filter-tab ${activeClass}" data-filter="${tab.id}">${tab.label}</button>`;
+    });
+    container.innerHTML = html;
+
+    // Attach click events
+    const tabButtons = container.querySelectorAll('.filter-tab');
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        tabButtons.forEach(t => t.classList.remove('active'));
         e.target.classList.add('active');
-        
-        const filterText = e.target.innerText.toLowerCase();
-        if (filterText.includes('all')) this.currentFilter = 'ALL';
-        else if (filterText.includes('pending')) this.currentFilter = 'PENDING';
-        else if (filterText.includes('preparing')) this.currentFilter = 'PREPARING';
-        else if (filterText.includes('ready')) this.currentFilter = 'READY';
-        
+        this.currentFilter = e.target.getAttribute('data-filter');
         this.renderOrders();
       });
     });
@@ -87,15 +112,17 @@ class Orders {
 
   updateFilterCounts() {
     const pendingCount = this.orders.filter(o => o.status === 'PENDING').length;
+    const acceptedCount = this.orders.filter(o => o.status === 'ACCEPTED').length;
     const preparingCount = this.orders.filter(o => o.status === 'PREPARING').length;
     const readyCount = this.orders.filter(o => o.status === 'READY').length;
 
     const tabs = document.querySelectorAll('.filter-tab');
     tabs.forEach(tab => {
-      const text = tab.innerText.toLowerCase();
-      if (text.includes('pending')) tab.innerText = `Pending (${pendingCount})`;
-      else if (text.includes('preparing')) tab.innerText = `Preparing (${preparingCount})`;
-      else if (text.includes('ready')) tab.innerText = `Ready (${readyCount})`;
+      const filterId = tab.getAttribute('data-filter');
+      if (filterId === 'PENDING') tab.innerText = `Pending (${pendingCount})`;
+      else if (filterId === 'ACCEPTED') tab.innerText = `Accepted (${acceptedCount})`;
+      else if (filterId === 'PREPARING') tab.innerText = `Preparing (${preparingCount})`;
+      else if (filterId === 'READY') tab.innerText = `Ready (${readyCount})`;
     });
   }
 
@@ -117,6 +144,11 @@ class Orders {
       return;
     }
 
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
+    const isPlatformAdmin = user ? user.platformAdmin === true : false;
+
     let html = '';
     filtered.forEach(order => {
       let borderColor = 'var(--border)';
@@ -125,86 +157,94 @@ class Orders {
 
       if (order.status === 'PENDING') {
         badgeClass = 'badge-pending';
-        actionsHtml = `
-            <button class="btn btn-danger" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')">Reject</button>
-            <button class="btn btn-primary" onclick="ordersApp.updateStatus('${order.id}', 'PREPARING')">Accept</button>
-        `;
+        if (isPlatformAdmin || permissions.includes('order.accept')) {
+          actionsHtml = `
+              <button class="btn btn-danger" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')">Reject</button>
+              <button class="btn btn-primary" onclick="ordersApp.updateStatus('${order.id}', 'ACCEPTED')">Accept</button>
+          `;
+        }
+      } else if (order.status === 'ACCEPTED') {
+        borderColor = 'var(--warning)';
+        badgeClass = 'badge-accepted';
+        if (isPlatformAdmin || permissions.includes('order.prepare')) {
+          actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'PREPARING')">Start Preparing</button>`;
+        }
       } else if (order.status === 'PREPARING') {
         borderColor = 'var(--info)';
         badgeClass = 'badge-preparing';
-        actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'READY')">Mark Ready</button>`;
+        if (isPlatformAdmin || permissions.includes('order.ready')) {
+          actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'READY')">Mark Ready</button>`;
+        }
       } else if (order.status === 'READY') {
         borderColor = 'var(--success)';
         badgeClass = 'badge-ready';
-        actionsHtml = `<button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COLLECTED')">Mark Completed</button>`;
+        if (isPlatformAdmin || permissions.includes('order.complete')) {
+          actionsHtml = `<button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">Mark Completed</button>`;
+        }
       } else {
          actionsHtml = `<button class="btn btn-secondary w-full" disabled>${order.status}</button>`;
       }
 
       let itemsHtml = '';
-      if (order.items && order.items.length > 0) {
-        order.items.forEach(item => {
+      if (order.orderItems && order.orderItems.length > 0) {
+        order.orderItems.forEach(item => {
             let customHtml = '';
             if (item.selectedCustomizations && item.selectedCustomizations.length > 0) {
                 let optionsArr = [];
                 item.selectedCustomizations.forEach(c => {
                     if (c.selectedOptions) {
-                        c.selectedOptions.forEach(opt => {
-                            optionsArr.push(`${opt.name}${opt.additionalPrice > 0 ? ' (+₹' + opt.additionalPrice + ')' : ''}`);
-                        });
+                        c.selectedOptions.forEach(opt => optionsArr.push(opt.name));
                     }
                 });
                 if (optionsArr.length > 0) {
-                    customHtml = `<div class="item-customizations">${optionsArr.map(o => `<span class="order-cust-chip">${o}</span>`).join('')}</div>`;
+                    customHtml = `<div class="text-xs text-muted" style="margin-left: 0.5rem;">+ ${optionsArr.join(', ')}</div>`;
                 }
             }
-            let instructionsHtml = '';
-            if (item.specialInstructions) {
-                instructionsHtml = `<div class="item-instructions">📝 ${item.specialInstructions}</div>`;
-            }
             itemsHtml += `
-                <div class="order-item">
-                    <div class="item-main">
-                        <span><span class="item-qty-badge">${item.quantity}×</span> ${item.menuItemName}</span>
-                        <span class="item-price-tag">₹${item.totalPrice}</span>
+                <div class="flex justify-between items-start mb-1 text-sm">
+                    <div>
+                        <span class="font-medium">${item.quantity}x</span> ${this._escHtml(item.menuItemName)}
+                        ${customHtml}
                     </div>
-                    ${customHtml}
-                    ${instructionsHtml}
+                    <span>₹${item.totalPrice.toFixed(2)}</span>
                 </div>
             `;
         });
+      } else if (order.customOrderText) {
+          itemsHtml = `<div class="text-sm border p-2 rounded bg-light mb-2"><strong>Custom:</strong> ${this._escHtml(order.customOrderText)}</div>`;
       }
 
-      // Customer note banner
-      const noteHtml = order.customerNote
-        ? `<div class="order-customer-note">
-             <span style="font-size:1rem;">💬</span>
-             <span>${this._escHtml(order.customerNote)}</span>
-           </div>`
-        : '';
+      let noteHtml = '';
+      if (order.customerNote) {
+          noteHtml = `<div class="text-xs text-warning mb-2">Note: ${this._escHtml(order.customerNote)}</div>`;
+      }
 
       html += `
-        <div class="order-card ${order.status !== 'PENDING' ? 'border-l-4' : ''}" style="${order.status !== 'PENDING' ? 'border-left-color: ' + borderColor + ';' : ''}">
-            <div class="order-card-header">
-                <div>
-                    <div class="order-queue-num">${order.queueNumber}</div>
-                    <div class="order-time">${window.getTimeAgo ? window.getTimeAgo(order.createdAt) : new Date(order.createdAt).toLocaleTimeString()}</div>
-                </div>
-                <span class="badge ${badgeClass}">${order.status}</span>
+        <div class="card p-4 flex flex-col justify-between" style="border-top: 4px solid ${borderColor}; min-height: 250px;">
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <span class="font-bold text-lg">#${order.queueNumber}</span>
+                <div class="text-xs text-muted">${new Date(order.createdAt).toLocaleTimeString()}</div>
+              </div>
+              <span class="badge ${badgeClass}">${order.status}</span>
             </div>
-            ${noteHtml}
-            <div class="order-items">
-                ${itemsHtml}
+            
+            <div class="order-items-list mb-4">
+              ${itemsHtml}
+              ${noteHtml}
             </div>
-            <div class="order-card-footer">
-                <div class="order-total">
-                    <span>Total</span>
-                    <span>₹${order.totalAmount}</span>
-                </div>
-                <div class="order-actions ${order.status === 'PENDING' ? 'two-col' : ''}">
-                    ${actionsHtml}
-                </div>
+          </div>
+          
+          <div>
+            <div class="border-t pt-3 flex justify-between items-center mb-3 text-sm font-bold">
+              <span>Total</span>
+              <span>₹${order.totalAmount.toFixed(2)}</span>
             </div>
+            <div class="flex gap-2">
+              ${actionsHtml}
+            </div>
+          </div>
         </div>
       `;
     });

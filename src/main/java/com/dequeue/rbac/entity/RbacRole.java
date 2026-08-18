@@ -26,9 +26,9 @@ public class RbacRole {
     private String name;
     private String description;
 
-    /** References to RbacPermission.id */
+    /** List of permission keys, e.g. ["menu.view", "menu.edit"] */
     @Builder.Default
-    private List<String> permissionIds = new ArrayList<>();
+    private List<String> permissions = new ArrayList<>();
 
     /** Controls which order statuses this role can see */
     @Builder.Default

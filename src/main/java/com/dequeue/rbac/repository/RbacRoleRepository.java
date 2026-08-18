@@ -18,4 +18,6 @@ public interface RbacRoleRepository extends MongoRepository<RbacRole, String> {
     boolean existsByVendorIdAndName(String vendorId, String name);
 
     List<RbacRole> findByVendorId(String vendorId);
+
+    List<RbacRole> findByVendorIdAndNameIn(String vendorId, List<String> names);
 }

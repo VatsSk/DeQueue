@@ -76,14 +76,14 @@ public class StaffServiceImpl implements StaffService {
             request.getDepartmentIds().forEach(deptId -> validateDepartment(deptId, vendorId));
         }
 
-        // Validate roles belong to this vendor
-        validateRoleIds(request.getRoleIds(), vendorId);
+        // Validate roles and resolve names
+        List<String> resolvedRoles = resolveAndValidateRoleNames(request.getRoleIds(), vendorId);
 
         Staff staff = staffMapper.toEntity(request);
         staff.setVendorId(vendorId);
         staff.setPassword(passwordEncoder.encode(request.getPassword()));
         staff.setStatus(StaffStatus.ACTIVE);
-        staff.setRoleIds(request.getRoleIds() != null ? request.getRoleIds() : new ArrayList<>());
+        staff.setRoles(resolvedRoles);
         staff.setDepartmentIds(request.getDepartmentIds() != null ? request.getDepartmentIds() : new ArrayList<>());
 
         staff = staffRepository.save(staff);
@@ -102,8 +102,8 @@ public class StaffServiceImpl implements StaffService {
         }
 
         if (request.getRoleIds() != null) {
-            validateRoleIds(request.getRoleIds(), vendorId);
-            staff.setRoleIds(request.getRoleIds());
+            List<String> resolvedRoles = resolveAndValidateRoleNames(request.getRoleIds(), vendorId);
+            staff.setRoles(resolvedRoles);
         }
 
         staff.setName(request.getName());
@@ -160,8 +160,8 @@ public class StaffServiceImpl implements StaffService {
         }
     }
 
-    private void validateRoleIds(List<String> roleIds, String vendorId) {
-        if (roleIds == null || roleIds.isEmpty()) return;
+    private List<String> resolveAndValidateRoleNames(List<String> roleIds, String vendorId) {
+        if (roleIds == null || roleIds.isEmpty()) return new ArrayList<>();
 
         List<RbacRole> found = roleRepository.findByIdInAndVendorId(roleIds, vendorId);
         if (found.size() != roleIds.size()) {
@@ -169,6 +169,20 @@ public class StaffServiceImpl implements StaffService {
             List<String> invalid = roleIds.stream().filter(id -> !foundIds.contains(id)).collect(Collectors.toList());
             throw new BadRequestException("Invalid role IDs (not found or not in your vendor scope): " + invalid);
         }
+
+        List<String> roleNames = new ArrayList<>();
+        for (RbacRole role : found) {
+            if (role.getName().toUpperCase().trim().equals("ROLE_VENDOR_ADMIN")) {
+                throw new BadRequestException("ROLE_VENDOR_ADMIN is a system-reserved role and cannot be assigned to other staff members.");
+            }
+            try {
+                com.dequeue.staff.entity.Role.valueOf(role.getName().toUpperCase().trim());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid static role config in database: " + role.getName());
+            }
+            roleNames.add(role.getName());
+        }
+        return roleNames;
     }
 
     /**
@@ -185,27 +199,16 @@ public class StaffServiceImpl implements StaffService {
         }
 
         // Resolve role names and effective permissions
-        if (staff.getRoleIds() != null && !staff.getRoleIds().isEmpty()) {
-            List<RbacRole> roles = roleRepository.findByIdIn(staff.getRoleIds());
-
-            List<String> roleNames = roles.stream()
-                    .map(RbacRole::getName)
-                    .collect(Collectors.toList());
-            response.setRoleNames(roleNames);
-
-            // Collect all permission IDs, deduplicated
-            List<String> allPermissionIds = roles.stream()
-                    .flatMap(r -> r.getPermissionIds() != null ? r.getPermissionIds().stream() : java.util.stream.Stream.empty())
-                    .distinct()
-                    .collect(Collectors.toList());
-
-            if (!allPermissionIds.isEmpty()) {
-                List<String> permKeys = permissionRepository.findByIdIn(allPermissionIds).stream()
-                        .filter(RbacPermission::isActive)
-                        .map(RbacPermission::getPermissionKey)
-                        .collect(Collectors.toList());
-                response.setEffectivePermissions(permKeys);
+        if (staff.getRoles() != null && !staff.getRoles().isEmpty()) {
+            response.setRoleNames(staff.getRoles());
+            List<RbacRole> roles = roleRepository.findByVendorIdAndNameIn(staff.getVendorId(), staff.getRoles());
+            java.util.Set<String> keys = new java.util.LinkedHashSet<>();
+            for (RbacRole role : roles) {
+                if (role.getPermissions() != null) {
+                    keys.addAll(role.getPermissions());
+                }
             }
+            response.setEffectivePermissions(new ArrayList<>(keys));
         }
 
         return response;

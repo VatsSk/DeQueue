@@ -70,34 +70,28 @@ public class DataSeeder implements CommandLineRunner {
         Department counterDept = saveDept(vendorId, "Counter");
 
         // ── 4. Seed Roles ─────────────────────────────────────────────────
-        // Vendor Admin — all permissions, all statuses
-        List<String> allPermIds = new ArrayList<>(permMap.values().stream()
-                .map(RbacPermission::getId).collect(Collectors.toList()));
-        RbacRole adminRole = saveRole(vendorId, "Vendor Admin",
-                "Full access for the vendor administrator",
-                allPermIds,
+        saveRole(vendorId, "ROLE_VENDOR_ADMIN", "Full access for the vendor administrator",
+                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "report.view"),
                 Arrays.asList(OrderStatus.values()));
 
-        // Kitchen Staff — order.view, order.prepare, order.ready
-        List<String> kitchenPermIds = permIds(permMap, "order.view", "order.prepare", "order.ready");
-        RbacRole kitchenRole = saveRole(vendorId, "Kitchen Staff",
-                "Kitchen staff can see and progress orders",
-                kitchenPermIds,
+        saveRole(vendorId, "ROLE_VENDOR_MANAGER", "Full access for the vendor manager",
+                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "report.view"),
+                Arrays.asList(OrderStatus.values()));
+
+        saveRole(vendorId, "ROLE_VENDOR_KITCHEN", "Kitchen staff can see and progress orders",
+                List.of("order.view", "order.accept", "order.prepare", "order.ready"),
                 List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY));
 
-        // Counter Staff — order.view, order.complete
-        List<String> counterPermIds = permIds(permMap, "order.view", "order.complete");
-        RbacRole counterRole = saveRole(vendorId, "Counter Staff",
-                "Counter staff can complete ready orders",
-                counterPermIds,
+        saveRole(vendorId, "ROLE_VENDOR_COUNTER", "Counter staff can complete ready orders",
+                List.of("order.view", "order.complete", "order.cancel"),
                 List.of(OrderStatus.READY));
 
-        logger.info("Seeded 3 roles for vendor: {}", vendorId);
+        logger.info("Seeded static roles in database for vendor: {}", vendorId);
 
         // ── 5. Create Staff ───────────────────────────────────────────────
-        saveStaff(vendorId, "Admin User",        "admin@dequeue.com",     "admin123",   adminDept,   adminRole, true);
-        saveStaff(vendorId, "Kitchen Staff 1",   "kitchen@chaicorner.com","kitchen123", kitchenDept, kitchenRole, false);
-        saveStaff(vendorId, "Counter Staff 1",   "counter@chaicorner.com","counter123", counterDept, counterRole, false);
+        saveStaff(vendorId, "Admin User",        "admin@dequeue.com",     "admin123",   adminDept,   "ROLE_VENDOR_ADMIN", true);
+        saveStaff(vendorId, "Kitchen Staff 1",   "kitchen@chaicorner.com","kitchen123", kitchenDept, "ROLE_VENDOR_KITCHEN", false);
+        saveStaff(vendorId, "Counter Staff 1",   "counter@chaicorner.com","counter123", counterDept, "ROLE_VENDOR_COUNTER", false);
 
         // ── 6. Create Categories ──────────────────────────────────────────
         Category hotBev  = saveCategory(vendorId, "Hot Beverages",  1);
@@ -224,12 +218,12 @@ public class DataSeeder implements CommandLineRunner {
     // ─── Role helpers ─────────────────────────────────────────────────────────
 
     private RbacRole saveRole(String vendorId, String name, String description,
-                               List<String> permissionIds, List<OrderStatus> visibilityStatuses) {
+                               List<String> permissions, List<OrderStatus> visibilityStatuses) {
         RbacRole role = RbacRole.builder()
                 .vendorId(vendorId)
                 .name(name)
                 .description(description)
-                .permissionIds(permissionIds)
+                .permissions(permissions)
                 .orderVisibility(OrderVisibility.builder().statuses(visibilityStatuses).build())
                 .active(true)
                 .build();
@@ -247,13 +241,13 @@ public class DataSeeder implements CommandLineRunner {
     // ─── Staff helper ─────────────────────────────────────────────────────────
 
     private void saveStaff(String vendorId, String name, String email, String password,
-                            Department dept, RbacRole role, boolean isPlatformAdmin) {
+                            Department dept, String roleName, boolean isPlatformAdmin) {
         Staff staff = new Staff();
         staff.setVendorId(vendorId);
         staff.setName(name);
         staff.setEmail(email);
         staff.setPassword(passwordEncoder.encode(password));
-        staff.setRoleIds(List.of(role.getId()));
+        staff.setRoles(List.of(roleName));
         staff.setDepartmentIds(List.of(dept.getId()));
         staff.setStatus(StaffStatus.ACTIVE);
         staff.setPlatformAdmin(isPlatformAdmin);

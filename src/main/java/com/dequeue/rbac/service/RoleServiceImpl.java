@@ -36,7 +36,10 @@ public class RoleServiceImpl implements RoleService {
     public List<RoleResponse> findAll() {
         String vendorId = SecurityUtils.getCurrentVendorId();
         List<RbacRole> roles = roleRepository.findByVendorId(vendorId);
-        return roles.stream().map(this::toResponse).collect(Collectors.toList());
+        return roles.stream()
+                .filter(role -> !role.getName().equalsIgnoreCase("ROLE_VENDOR_ADMIN"))
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -48,13 +51,11 @@ public class RoleServiceImpl implements RoleService {
     public RoleResponse create(CreateRoleRequest request) {
         String vendorId = SecurityUtils.getCurrentVendorId();
 
-        validatePermissionIds(request.getPermissionIds());
-
         RbacRole role = RbacRole.builder()
                 .vendorId(vendorId)
                 .name(request.getName())
                 .description(request.getDescription())
-                .permissionIds(request.getPermissionIds())
+                .permissions(request.getPermissionIds() != null ? request.getPermissionIds() : new ArrayList<>())
                 .orderVisibility(request.getOrderVisibility() != null
                         ? request.getOrderVisibility()
                         : new OrderVisibility())
@@ -72,8 +73,7 @@ public class RoleServiceImpl implements RoleService {
         RbacRole role = getRole(id);
 
         if (request.getPermissionIds() != null) {
-            validatePermissionIds(request.getPermissionIds());
-            role.setPermissionIds(request.getPermissionIds());
+            role.setPermissions(request.getPermissionIds());
         }
 
         if (request.getName() != null) role.setName(request.getName());
@@ -93,7 +93,7 @@ public class RoleServiceImpl implements RoleService {
 
         // Check if any staff members are still assigned this role
         long staffCount = staffRepository.findByVendorId(vendorId).stream()
-                .filter(s -> s.getRoleIds() != null && s.getRoleIds().contains(id))
+                .filter(s -> s.getRoles() != null && s.getRoles().contains(id))
                 .count();
 
         if (staffCount > 0) {
@@ -141,21 +141,13 @@ public class RoleServiceImpl implements RoleService {
     }
 
     private RoleResponse toResponse(RbacRole role) {
-        List<String> permissionKeys = new ArrayList<>();
-        if (role.getPermissionIds() != null && !role.getPermissionIds().isEmpty()) {
-            List<RbacPermission> permissions = permissionRepository.findByIdIn(role.getPermissionIds());
-            permissionKeys = permissions.stream()
-                    .map(RbacPermission::getPermissionKey)
-                    .collect(Collectors.toList());
-        }
-
         RoleResponse response = new RoleResponse();
         response.setId(role.getId());
         response.setVendorId(role.getVendorId());
         response.setName(role.getName());
         response.setDescription(role.getDescription());
-        response.setPermissionIds(role.getPermissionIds());
-        response.setPermissionKeys(permissionKeys);
+        response.setPermissionIds(role.getPermissions() != null ? role.getPermissions() : new ArrayList<>());
+        response.setPermissionKeys(role.getPermissions() != null ? role.getPermissions() : new ArrayList<>());
         response.setOrderVisibility(role.getOrderVisibility());
         response.setActive(role.isActive());
         response.setCreatedAt(role.getCreatedAt());

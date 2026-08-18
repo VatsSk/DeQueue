@@ -100,32 +100,53 @@ public class AuthServiceImpl implements AuthService {
         vendor.setActive(true);
         vendor = vendorRepository.save(vendor);
 
-        // Create a default "Vendor Admin" role with all active permissions for this new vendor
-        List<RbacPermission> allPermissions = rbacPermissionRepository.findByActiveTrue();
-        List<String> allPermissionIds = allPermissions.stream()
-                .map(RbacPermission::getId)
-                .collect(Collectors.toList());
-
-        OrderVisibility allStatuses = OrderVisibility.builder()
-                .statuses(Arrays.asList(OrderStatus.values()))
-                .build();
-
-        RbacRole adminRole = RbacRole.builder()
+        // Seed static roles for the new vendor in DB
+        // ROLE_VENDOR_ADMIN
+        rbacRoleRepository.save(RbacRole.builder()
                 .vendorId(vendor.getId())
-                .name("Vendor Admin")
-                .description("Full access role for vendor administrator")
-                .permissionIds(allPermissionIds)
-                .orderVisibility(allStatuses)
+                .name("ROLE_VENDOR_ADMIN")
+                .description("Full access for the vendor administrator")
+                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "report.view"))
+                .orderVisibility(OrderVisibility.builder().statuses(Arrays.asList(OrderStatus.values())).build())
                 .active(true)
-                .build();
-        adminRole = rbacRoleRepository.save(adminRole);
+                .build());
+
+        // ROLE_VENDOR_MANAGER
+        rbacRoleRepository.save(RbacRole.builder()
+                .vendorId(vendor.getId())
+                .name("ROLE_VENDOR_MANAGER")
+                .description("Full access for the vendor manager")
+                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "report.view"))
+                .orderVisibility(OrderVisibility.builder().statuses(Arrays.asList(OrderStatus.values())).build())
+                .active(true)
+                .build());
+
+        // ROLE_VENDOR_KITCHEN
+        rbacRoleRepository.save(RbacRole.builder()
+                .vendorId(vendor.getId())
+                .name("ROLE_VENDOR_KITCHEN")
+                .description("Kitchen staff can see and progress orders")
+                .permissions(List.of("order.view", "order.accept", "order.prepare", "order.ready"))
+                .orderVisibility(OrderVisibility.builder().statuses(List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY)).build())
+                .active(true)
+                .build());
+
+        // ROLE_VENDOR_COUNTER
+        rbacRoleRepository.save(RbacRole.builder()
+                .vendorId(vendor.getId())
+                .name("ROLE_VENDOR_COUNTER")
+                .description("Counter staff can complete ready orders")
+                .permissions(List.of("order.view", "order.complete", "order.cancel"))
+                .orderVisibility(OrderVisibility.builder().statuses(List.of(OrderStatus.READY)).build())
+                .active(true)
+                .build());
 
         Staff staff = new Staff();
         staff.setName(request.getOwnerName());
         staff.setEmail(request.getEmail());
         staff.setPassword(passwordEncoder.encode(request.getPassword()));
         staff.setPhone(request.getPhone());
-        staff.setRoleIds(List.of(adminRole.getId()));
+        staff.setRoles(List.of("ROLE_VENDOR_ADMIN"));
         staff.setDepartmentIds(new ArrayList<>());
         staff.setStatus(StaffStatus.ACTIVE);
         staff.setVendorId(vendor.getId());
@@ -189,35 +210,24 @@ public class AuthServiceImpl implements AuthService {
 
     // ────────────────────────── private helpers ──────────────────────────
 
-    /**
-     * Resolves effective permissions and order visibility by fetching
-     * the staff's assigned RbacRole documents and their RbacPermission documents.
-     */
     private ResolvedPermissions resolvePermissions(Staff staff) {
         List<String> permissionKeys = new ArrayList<>();
         List<OrderStatus> visibilityStatuses = new ArrayList<>();
 
-        if (staff.getRoleIds() != null && !staff.getRoleIds().isEmpty()) {
-            List<RbacRole> roles = staff.isPlatformAdmin()
-                    ? rbacRoleRepository.findByIdIn(staff.getRoleIds())
-                    : rbacRoleRepository.findByIdInAndVendorId(staff.getRoleIds(), staff.getVendorId());
-
-            Set<String> permissionIds = new LinkedHashSet<>();
-            Set<OrderStatus> statuses = new LinkedHashSet<>();
+        if (staff.getRoles() != null && !staff.getRoles().isEmpty()) {
+            List<RbacRole> roles = rbacRoleRepository.findByVendorIdAndNameIn(staff.getVendorId(), staff.getRoles());
+            java.util.Set<String> keys = new java.util.LinkedHashSet<>();
+            java.util.Set<OrderStatus> statuses = new java.util.LinkedHashSet<>();
 
             for (RbacRole role : roles) {
-                if (role.getPermissionIds() != null) permissionIds.addAll(role.getPermissionIds());
+                if (role.getPermissions() != null) {
+                    keys.addAll(role.getPermissions());
+                }
                 if (role.getOrderVisibility() != null && role.getOrderVisibility().getStatuses() != null) {
                     statuses.addAll(role.getOrderVisibility().getStatuses());
                 }
             }
-
-            if (!permissionIds.isEmpty()) {
-                permissionKeys = rbacPermissionRepository.findByIdIn(new ArrayList<>(permissionIds)).stream()
-                        .filter(RbacPermission::isActive)
-                        .map(RbacPermission::getPermissionKey)
-                        .collect(Collectors.toList());
-            }
+            permissionKeys = new ArrayList<>(keys);
             visibilityStatuses = new ArrayList<>(statuses);
         }
 
@@ -229,20 +239,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private StaffSummary mapToSummary(Staff staff, Vendor vendor, ResolvedPermissions resolved) {
-        // Resolve role names
-        List<String> roleNames = new ArrayList<>();
-        if (staff.getRoleIds() != null && !staff.getRoleIds().isEmpty()) {
-            roleNames = rbacRoleRepository.findByIdIn(staff.getRoleIds()).stream()
-                    .map(RbacRole::getName)
-                    .collect(Collectors.toList());
-        }
-
         return StaffSummary.builder()
                 .id(staff.getId())
                 .name(staff.getName())
                 .email(staff.getEmail())
-                .roleIds(staff.getRoleIds())
-                .roleNames(roleNames)
+                .roleIds(staff.getRoles())
+                .roleNames(staff.getRoles())
                 .effectivePermissions(resolved.permissionKeys)
                 .orderVisibilityStatuses(resolved.visibilityStatuses)
                 .departmentIds(staff.getDepartmentIds())

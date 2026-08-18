@@ -12,6 +12,7 @@ public interface StaffMapper {
     @Mapping(target = "departmentName", ignore = true)
     @Mapping(target = "roleNames", ignore = true)
     @Mapping(target = "effectivePermissions", ignore = true)
+    @Mapping(target = "roleIds", source = "roles")
     StaffResponse toResponse(Staff staff);
 
     @Mapping(target = "id", ignore = true)
@@ -22,5 +23,6 @@ public interface StaffMapper {
     @Mapping(target = "platformAdmin", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "roles", source = "roleIds")
     Staff toEntity(CreateStaffRequest request);
 }

@@ -46,4 +46,14 @@ public class AuthController {
     public ApiResponse<StaffSummary> getCurrentUser() {
         return ApiResponse.success(authService.getCurrentUser(SecurityUtils.getCurrentUserId()));
     }
+
+    @GetMapping("/me/permissions")
+    public ApiResponse<com.dequeue.auth.dto.UserPermissionsResponse> getMyPermissions() {
+        com.dequeue.auth.dto.StaffSummary summary = authService.getCurrentUser(SecurityUtils.getCurrentUserId());
+        return ApiResponse.success(com.dequeue.auth.dto.UserPermissionsResponse.builder()
+                .userId(summary.getId())
+                .roles(summary.getRoleNames())
+                .permissions(summary.getEffectivePermissions())
+                .build());
+    }
 }

@@ -25,9 +25,9 @@ public class UserPrincipal implements UserDetails {
     private String email;
     private String password;
 
-    /** IDs of the RbacRole documents assigned to this user */
+    /** Static roles assigned to this user */
     @Builder.Default
-    private List<String> roleIds = new ArrayList<>();
+    private List<String> roles = new ArrayList<>();
 
     /** Department IDs the user belongs to */
     @Builder.Default
@@ -62,6 +62,13 @@ public class UserPrincipal implements UserDetails {
                                        List<OrderStatus> orderVisibilityStatuses) {
         List<GrantedAuthority> authorities = new ArrayList<>();
 
+        // Grant ROLE_ authority for each static role name
+        if (staff.getRoles() != null) {
+            staff.getRoles().stream()
+                    .map(r -> new SimpleGrantedAuthority(r.toUpperCase().trim()))
+                    .forEach(authorities::add);
+        }
+
         // Grant PERM_ authority for each effective permission key
         if (effectivePermissions != null) {
             effectivePermissions.stream()
@@ -80,7 +87,7 @@ public class UserPrincipal implements UserDetails {
                 .name(staff.getName())
                 .email(staff.getEmail())
                 .password(staff.getPassword())
-                .roleIds(staff.getRoleIds() != null ? staff.getRoleIds() : new ArrayList<>())
+                .roles(staff.getRoles() != null ? staff.getRoles() : new ArrayList<>())
                 .departmentIds(staff.getDepartmentIds() != null ? staff.getDepartmentIds() : new ArrayList<>())
                 .effectivePermissions(effectivePermissions != null ? effectivePermissions : new ArrayList<>())
                 .orderVisibilityStatuses(orderVisibilityStatuses != null ? orderVisibilityStatuses : new ArrayList<>())

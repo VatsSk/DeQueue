@@ -22,7 +22,7 @@ public class RoleController {
     private final RoleService roleService;
 
     @GetMapping
-    @PreAuthorize("hasPermission(null, 'role.view')")
+    @PreAuthorize("hasPermission(null, 'staff.view')")
     public ApiResponse<List<RoleResponse>> getAll() {
         return ApiResponse.success(roleService.findAll());
     }
