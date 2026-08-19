@@ -11,4 +11,5 @@ public class CustomOrderRequest {
     private String text;
     private String customerNote;
     private String sessionId;
+    private java.util.Map<String, String> metadata;
 }

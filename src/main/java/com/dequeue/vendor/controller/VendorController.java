@@ -9,6 +9,7 @@ import com.dequeue.vendor.dto.*;
 import com.dequeue.vendor.entity.ShopStatus;
 import com.dequeue.common.dto.ApiResponse;
 import com.dequeue.common.security.SecurityUtils;
+import com.dequeue.vendor.entity.VendorSettings;
 
 @RestController
 @RequestMapping("/api/v1/vendors")
@@ -23,13 +24,13 @@ public class VendorController {
         return ApiResponse.success(vendorService.getCurrentVendor(SecurityUtils.getCurrentVendorId()));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_VENDOR_ADMIN', 'ROLE_VENDOR_MANAGER') or hasAuthority('ROLE_PLATFORM_ADMIN')")
     @PutMapping("/me")
     public ApiResponse<VendorResponse> updateVendor(@Valid @RequestBody UpdateVendorRequest request) {
         return ApiResponse.success(vendorService.updateVendor(SecurityUtils.getCurrentVendorId(), request));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_VENDOR_ADMIN', 'ROLE_VENDOR_MANAGER') or hasAuthority('ROLE_PLATFORM_ADMIN')")
     @PatchMapping("/me/status")
     public ApiResponse<ShopStatus> updateShopStatus(@Valid @RequestBody ShopStatusRequest request) {
         return ApiResponse.success(vendorService.updateShopStatus(SecurityUtils.getCurrentVendorId(), request));
@@ -38,5 +39,11 @@ public class VendorController {
     @GetMapping("/me/status")
     public ApiResponse<ShopStatus> getShopStatus() {
         return ApiResponse.success(vendorService.getShopStatus(SecurityUtils.getCurrentVendorId()));
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_VENDOR_ADMIN', 'ROLE_VENDOR_MANAGER') or hasAuthority('ROLE_PLATFORM_ADMIN')")
+    @PatchMapping("/me/settings")
+    public ApiResponse<VendorSettings> updateSettings(@RequestBody VendorSettingsDto request) {
+        return ApiResponse.success(vendorService.updateSettings(SecurityUtils.getCurrentVendorId(), request));
     }
 }

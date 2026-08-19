@@ -48,8 +48,7 @@ class Orders {
     const isPlatformAdmin = user ? user.platformAdmin === true : false;
 
     // Determine tabs based on action permissions
-    let tabs = [];
-    tabs.push({ id: 'ALL', label: 'All' });
+    let tabs = [{ id: 'ALL', label: 'All Active' }];
 
     if (isPlatformAdmin || permissions.includes('order.accept')) {
       tabs.push({ id: 'PENDING', label: 'Pending' });
@@ -94,14 +93,10 @@ class Orders {
 
   async fetchOrders() {
     try {
-      // Get all active order summaries
+      // /orders/active already returns full OrderResponse objects (including items)
       const res = await api.get('/orders/active');
       if (res.success && res.data) {
-        // Fetch detailed order info for each active order
-        const detailsPromises = res.data.map(summary => api.get(`/orders/${summary.id}`));
-        const detailsRes = await Promise.all(detailsPromises);
-        
-        this.orders = detailsRes.filter(r => r.success).map(r => r.data);
+        this.orders = res.data;
         this.updateFilterCounts();
         this.renderOrders();
       }
@@ -111,6 +106,7 @@ class Orders {
   }
 
   updateFilterCounts() {
+    const allCount = this.orders.length;
     const pendingCount = this.orders.filter(o => o.status === 'PENDING').length;
     const acceptedCount = this.orders.filter(o => o.status === 'ACCEPTED').length;
     const preparingCount = this.orders.filter(o => o.status === 'PREPARING').length;
@@ -119,7 +115,8 @@ class Orders {
     const tabs = document.querySelectorAll('.filter-tab');
     tabs.forEach(tab => {
       const filterId = tab.getAttribute('data-filter');
-      if (filterId === 'PENDING') tab.innerText = `Pending (${pendingCount})`;
+      if (filterId === 'ALL') tab.innerText = `All Active (${allCount})`;
+      else if (filterId === 'PENDING') tab.innerText = `Pending (${pendingCount})`;
       else if (filterId === 'ACCEPTED') tab.innerText = `Accepted (${acceptedCount})`;
       else if (filterId === 'PREPARING') tab.innerText = `Preparing (${preparingCount})`;
       else if (filterId === 'READY') tab.innerText = `Ready (${readyCount})`;
@@ -159,35 +156,55 @@ class Orders {
         badgeClass = 'badge-pending';
         if (isPlatformAdmin || permissions.includes('order.accept')) {
           actionsHtml = `
-              <button class="btn btn-danger" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')">Reject</button>
-              <button class="btn btn-primary" onclick="ordersApp.updateStatus('${order.id}', 'ACCEPTED')">Accept</button>
+              <button class="btn btn-danger flex-1" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')"><i data-lucide="x" style="width:16px;height:16px;margin-right:4px;"></i> Reject</button>
+              <button class="btn btn-primary flex-1" onclick="ordersApp.updateStatus('${order.id}', 'ACCEPTED')"><i data-lucide="check" style="width:16px;height:16px;margin-right:4px;"></i> Accept</button>
           `;
         }
       } else if (order.status === 'ACCEPTED') {
         borderColor = 'var(--warning)';
         badgeClass = 'badge-accepted';
         if (isPlatformAdmin || permissions.includes('order.prepare')) {
-          actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'PREPARING')">Start Preparing</button>`;
+          actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'PREPARING')"><i data-lucide="chef-hat" style="width:16px;height:16px;margin-right:4px;"></i> Start Preparing</button>`;
         }
       } else if (order.status === 'PREPARING') {
         borderColor = 'var(--info)';
         badgeClass = 'badge-preparing';
         if (isPlatformAdmin || permissions.includes('order.ready')) {
-          actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'READY')">Mark Ready</button>`;
+          actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'READY')"><i data-lucide="bell-ring" style="width:16px;height:16px;margin-right:4px;"></i> Mark Ready</button>`;
         }
       } else if (order.status === 'READY') {
         borderColor = 'var(--success)';
         badgeClass = 'badge-ready';
         if (isPlatformAdmin || permissions.includes('order.complete')) {
-          actionsHtml = `<button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">Mark Completed</button>`;
+          actionsHtml = `
+            <button class="btn btn-secondary flex-1" onclick="ordersApp.printBill('${order.id}')" title="Print bill for customer">
+              <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print
+            </button>
+            <button class="btn btn-success flex-1" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">
+              <i data-lucide="check-circle-2" style="width:16px;height:16px;margin-right:4px;"></i> Complete
+            </button>
+          `;
+        } else {
+          actionsHtml = `<button class="btn btn-secondary w-full" onclick="ordersApp.printBill('${order.id}')">
+            <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print Bill
+          </button>`;
         }
       } else {
          actionsHtml = `<button class="btn btn-secondary w-full" disabled>${order.status}</button>`;
       }
 
+      const statusLabels = {
+        PENDING: 'Order Initiated',
+        ACCEPTED: 'Order Accepted',
+        PREPARING: 'Started Preparing',
+        READY: 'Prepared',
+        COMPLETED: 'Completed',
+        CANCELLED: 'Cancelled'
+      };
+
       let itemsHtml = '';
-      if (order.orderItems && order.orderItems.length > 0) {
-        order.orderItems.forEach(item => {
+      if (order.items && order.items.length > 0) {
+        order.items.forEach(item => {
             let customHtml = '';
             if (item.selectedCustomizations && item.selectedCustomizations.length > 0) {
                 let optionsArr = [];
@@ -197,51 +214,71 @@ class Orders {
                     }
                 });
                 if (optionsArr.length > 0) {
-                    customHtml = `<div class="text-xs text-muted" style="margin-left: 0.5rem;">+ ${optionsArr.join(', ')}</div>`;
+                    customHtml += `<div class="text-xs text-muted mt-1" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="plus" style="width:12px;height:12px;"></i> ${optionsArr.join(', ')}</div>`;
                 }
             }
+            if (item.specialInstructions) {
+                customHtml += `<div class="text-xs text-warning mt-1 font-medium" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="message-square" style="width:12px;height:12px;"></i> "${this._escHtml(item.specialInstructions)}"</div>`;
+            }
             itemsHtml += `
-                <div class="flex justify-between items-start mb-1 text-sm">
-                    <div>
-                        <span class="font-medium">${item.quantity}x</span> ${this._escHtml(item.menuItemName)}
+                <div class="flex justify-between items-start mb-3 pb-2 border-b border-border last:border-0 last:mb-0 last:pb-0 text-sm">
+                    <div class="flex-1">
+                        <div class="flex items-start gap-2">
+                            <span class="font-bold min-w-[20px] bg-surface-hover rounded px-1 text-center">${item.quantity}x</span> 
+                            <span class="font-semibold">${this._escHtml(item.menuItemName)}</span>
+                        </div>
                         ${customHtml}
                     </div>
-                    <span>₹${item.totalPrice.toFixed(2)}</span>
+                    <span class="font-medium whitespace-nowrap ml-3">₹${item.totalPrice.toFixed(2)}</span>
                 </div>
             `;
         });
       } else if (order.customOrderText) {
-          itemsHtml = `<div class="text-sm border p-2 rounded bg-light mb-2"><strong>Custom:</strong> ${this._escHtml(order.customOrderText)}</div>`;
+          itemsHtml = `<div class="text-sm border p-3 rounded-md bg-surface-hover mb-2"><strong class="flex items-center gap-1 mb-1"><i data-lucide="pen-tool" style="width:14px;height:14px;"></i> Custom:</strong> ${this._escHtml(order.customOrderText)}</div>`;
       }
 
       let noteHtml = '';
       if (order.customerNote) {
-          noteHtml = `<div class="text-xs text-warning mb-2">Note: ${this._escHtml(order.customerNote)}</div>`;
+          noteHtml = `<div class="text-sm bg-warning/10 text-warning-foreground mt-3 p-2.5 rounded-md border border-warning/20">
+              <strong class="flex items-center gap-1 mb-0.5"><i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Order Note:</strong> 
+              ${this._escHtml(order.customerNote)}
+          </div>`;
       }
 
+      let metadataHtml = '';
+      if (order.metadata && Object.keys(order.metadata).length > 0) {
+          metadataHtml = `<div class="text-xs text-muted mt-3 grid grid-cols-2 gap-1 bg-surface-hover p-2 rounded-md">
+            ${Object.entries(order.metadata).map(([k, v]) => `<div><span class="font-medium">${this._escHtml(k)}:</span> ${this._escHtml(v)}</div>`).join('')}
+          </div>`;
+      }
+
+      let paymentHtml = `<div class="flex items-center gap-1 text-xs font-semibold text-danger mt-3 mb-1"><i data-lucide="wallet" style="width:14px;height:14px;"></i> Unpaid (Pay at counter)</div>`;
+
       html += `
-        <div class="card p-4 flex flex-col justify-between" style="border-top: 4px solid ${borderColor}; min-height: 250px;">
-          <div>
-            <div class="flex justify-between items-center mb-3">
+        <div class="card p-0 flex flex-col justify-between overflow-hidden transition-shadow hover:shadow-md" style="border-left: 4px solid ${borderColor}; min-height: 250px;">
+          <div class="p-4 flex-1 flex flex-col">
+            <div class="flex justify-between items-start mb-4 pb-3 border-b border-border">
               <div>
-                <span class="font-bold text-lg">#${order.queueNumber}</span>
-                <div class="text-xs text-muted">${new Date(order.createdAt).toLocaleTimeString()}</div>
+                <span class="font-extrabold text-xl">#${order.queueNumber}</span>
+                <div class="text-xs text-muted mt-0.5 flex items-center gap-1"><i data-lucide="clock" style="width:12px;height:12px;"></i> ${new Date(order.createdAt).toLocaleTimeString()}</div>
               </div>
-              <span class="badge ${badgeClass}">${order.status}</span>
+              <span class="badge ${badgeClass} shadow-sm">${statusLabels[order.status] || order.status}</span>
             </div>
             
-            <div class="order-items-list mb-4">
+            <div class="order-items-list flex-1 overflow-y-auto pr-1" style="max-height: 250px;">
               ${itemsHtml}
               ${noteHtml}
+              ${metadataHtml}
             </div>
+            ${paymentHtml}
           </div>
           
-          <div>
-            <div class="border-t pt-3 flex justify-between items-center mb-3 text-sm font-bold">
-              <span>Total</span>
-              <span>₹${order.totalAmount.toFixed(2)}</span>
+          <div class="p-4 bg-surface-hover/50 border-t border-border mt-auto">
+            <div class="flex justify-between items-center mb-3 text-sm">
+              <span class="font-medium text-muted">Total Amount</span>
+              <span class="font-extrabold text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 w-full">
               ${actionsHtml}
             </div>
           </div>
@@ -250,6 +287,7 @@ class Orders {
     });
 
     grid.innerHTML = html;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 
   _escHtml(str) {
@@ -257,6 +295,143 @@ class Orders {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  printBill(orderId) {
+    const order = this.orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : {};
+    const shopName = user.shopName || 'DeQueue Shop';
+    const address = user.address && user.address.street ? user.address.street : '';
+    const phone = user.phone || '';
+    const email = user.email || '';
+    
+    // Calculate values
+    const subtotal = order.items ? order.items.reduce((sum, item) => sum + item.totalPrice, 0) : order.totalAmount;
+    
+    // Read from settings
+    const settings = user.settings || {};
+    const taxName = settings.taxName || 'Tax';
+    const taxPct = settings.taxPercentage || 0;
+    const chargeAmt = settings.additionalCharges || 0;
+    const chargeName = settings.additionalChargeName || 'Service Charge';
+    const gstNumber = settings.gstNumber || '';
+    
+    const taxValue = (subtotal * taxPct) / 100;
+    let computedTotal = subtotal + taxValue + chargeAmt;
+
+    const items = (order.items || []).map(i => `
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px dashed #ccc;">
+            ${this._escHtml(i.menuItemName)}
+            ${i.selectedCustomizations && i.selectedCustomizations.length > 0 ? 
+                '<br><small style="color:#666">+' + i.selectedCustomizations.map(c => c.selectedOptions.map(o => o.name).join(',')).join(',') + '</small>' : ''}
+        </td>
+        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:center;">${i.quantity}</td>
+        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₹${Number(i.unitPrice || 0).toFixed(2)}</td>
+        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₹${Number(i.totalPrice || 0).toFixed(2)}</td>
+      </tr>`).join('');
+
+    let metadataHtml = '';
+    if (order.metadata && Object.keys(order.metadata).length > 0) {
+        metadataHtml = `<div class="divider"></div><div class="order-meta">` + Object.entries(order.metadata).map(([k,v]) => `<div><strong>${this._escHtml(k)}:</strong> ${this._escHtml(v)}</div>`).join('') + `</div>`;
+    }
+
+    const date = new Date().toLocaleString();
+
+    const html = `
+      <h2>${this._escHtml(shopName)}</h2>
+      <div class="info">
+        ${address ? address + '<br>' : ''}
+        ${phone ? 'Ph: ' + phone + '<br>' : ''}
+        ${email ? email + '<br>' : ''}
+        ${gstNumber ? 'GSTIN: ' + this._escHtml(gstNumber) : ''}
+      </div>
+      
+      <div class="divider"></div>
+      
+      <div class="order-meta">
+        <div><strong>Order #:</strong> ${order.queueNumber}</div>
+        <div><strong>Date:</strong> ${date}</div>
+        <div><strong>Payment:</strong> UNPAID (Pay at Counter)</div>
+      </div>
+      
+      ${metadataHtml}
+      
+      <div class="divider"></div>
+      
+      <table>
+        <thead><tr>
+          <th>Item</th><th style="text-align:center">Qty</th>
+          <th style="text-align:right">Price</th><th style="text-align:right">Total</th>
+        </tr></thead>
+        <tbody>${items}</tbody>
+      </table>
+      
+      <table class="totals-table">
+        <tr>
+            <td>Subtotal</td>
+            <td style="text-align:right">₹${subtotal.toFixed(2)}</td>
+        </tr>
+        ${taxPct > 0 ? `<tr>
+            <td>${this._escHtml(taxName)} (${taxPct}%)</td>
+            <td style="text-align:right">₹${taxValue.toFixed(2)}</td>
+        </tr>` : ''}
+        ${chargeAmt > 0 ? `<tr>
+            <td>${this._escHtml(chargeName)}</td>
+            <td style="text-align:right">₹${chargeAmt.toFixed(2)}</td>
+        </tr>` : ''}
+        <tr>
+            <td class="grand-total" style="padding-top:10px">Total</td>
+            <td class="grand-total" style="text-align:right;padding-top:10px">₹${computedTotal.toFixed(2)}</td>
+        </tr>
+      </table>
+      
+      ${order.customerNote ? `<div class="instruction"><strong>Instruction:</strong> ${this._escHtml(order.customerNote)}</div>` : ''}
+      
+      <div class="divider"></div>
+      
+      <div class="footer">
+        Thank you for visiting!<br>
+        Powered by DeQueue
+      </div>
+    `;
+
+    if (window.showToast) showToast('Generating PDF...', 'info');
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = `<style>
+        body{font-family:'Courier New', Courier, monospace;max-width:350px;margin:0 auto;padding:20px;color:#000;font-size:14px;line-height:1.4}
+        h2{text-align:center;margin:0 0 5px 0;font-size:22px;text-transform:uppercase}
+        .info{text-align:center;margin-bottom:15px;font-size:12px}
+        .divider{border-top:1px dashed #000;margin:10px 0}
+        .order-meta{margin-bottom:15px;font-size:13px}
+        table{width:100%;border-collapse:collapse;margin-bottom:15px;font-size:13px}
+        th{text-align:left;border-bottom:1px solid #000;padding-bottom:5px}
+        .totals-table{width:100%;font-size:13px}
+        .totals-table td{padding:3px 0}
+        .totals-table .bold{font-weight:bold}
+        .totals-table .grand-total{font-size:18px;font-weight:bold;border-top:1px dashed #000;padding-top:8px;margin-top:5px}
+        .footer{text-align:center;font-size:11px;margin-top:20px}
+        .instruction{font-size:12px;margin-top:10px;font-style:italic;}
+      </style>
+      <div style="padding:20px;max-width:350px;margin:0 auto;background:#fff;">${html}</div>`;
+
+    const opt = {
+      margin:       10,
+      filename:     `bill-${order.queueNumber || 'order'}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(tempDiv).save().then(() => {
+        if (window.showToast) showToast('PDF downloaded', 'success');
+    }).catch(err => {
+        console.error('PDF generation failed', err);
+        if (window.showToast) showToast('Failed to generate PDF', 'error');
+    });
+  }
 
   async updateStatus(orderId, newStatus) {
     try {

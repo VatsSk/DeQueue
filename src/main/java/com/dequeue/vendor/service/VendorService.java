@@ -2,6 +2,7 @@ package com.dequeue.vendor.service;
 
 import com.dequeue.vendor.dto.*;
 import com.dequeue.vendor.entity.ShopStatus;
+import com.dequeue.vendor.entity.VendorSettings;
 
 public interface VendorService {
     VendorResponse getCurrentVendor(String userId);
@@ -10,6 +11,8 @@ public interface VendorService {
     ShopStatus getShopStatus(String userId);
     PublicVendorResponse getVendorByCode(String vendorCode);
     ShopStatus getVendorStatusByCode(String vendorCode);
+
+    VendorSettings updateSettings(String vendorId, VendorSettingsDto settings);
 
     // Platform Admin Methods
     VendorResponse createVendor(CreateVendorRequest request);

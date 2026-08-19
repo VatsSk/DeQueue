@@ -24,5 +24,6 @@ public class OrderResponse {
     private Instant estimatedReadyTime;
     private String sessionId;
     private String customerSessionToken;
+    private java.util.Map<String, String> metadata;
 }
 

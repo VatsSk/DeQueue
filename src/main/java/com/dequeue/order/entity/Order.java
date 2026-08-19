@@ -24,6 +24,9 @@ public class Order {
     private String vendorCode;
     private String sessionId;
     
+    @Builder.Default
+    private java.util.Map<String, String> metadata = new java.util.HashMap<>();
+    
     private String queueNumber;
     
     @Builder.Default

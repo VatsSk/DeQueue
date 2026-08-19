@@ -13,5 +13,7 @@ public class OrderSummary {
     private OrderStatus status;
     private int itemCount;
     private Instant createdAt;
+    private Instant completedAt;
+    private Instant estimatedReadyTime;
+    private java.util.Map<String, String> metadata;
 }
-

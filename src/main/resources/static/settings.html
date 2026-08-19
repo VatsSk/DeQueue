@@ -44,9 +44,144 @@
             </header>
 
             <div class="page-content" id="settings-content">
-                <div class="text-center text-muted p-8">
-                    <i data-lucide="settings" style="width: 48px; height: 48px; margin: 0 auto 1rem; opacity: 0.5;"></i>
-                    <p>Loading settings data...</p>
+                <div class="settings-nav">
+                    <div class="settings-tab active" data-tab="general">General</div>
+                    <div class="settings-tab" data-tab="billing">Billing & Taxes</div>
+                    <div class="settings-tab" data-tab="coupons">Coupons</div>
+                    <div class="settings-tab" data-tab="custom-fields">Custom Fields</div>
+                </div>
+
+                <!-- General Settings -->
+                <div id="tab-general" class="tab-pane">
+                    <div class="card p-6">
+                        <h3 class="mb-4 font-bold">General Preferences</h3>
+                        <div class="form-group mb-4">
+                            <label class="form-label">GST Number / Tax ID (Optional)</label>
+                            <input type="text" id="set-gst-number" class="form-control" placeholder="e.g. 22AAAAA0000A1Z5">
+                            <p class="text-xs text-muted mt-1">This will be printed on customer bills if provided.</p>
+                        </div>
+                        <div class="toggle-row">
+                            <div>
+                                <div class="font-bold">Auto Accept Orders</div>
+                                <div class="text-sm text-muted">Automatically move new orders to ACCEPTED state</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="set-auto-accept">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <div>
+                                <div class="font-bold">Allow Custom Orders</div>
+                                <div class="text-sm text-muted">Let customers type custom requests instead of menu items</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="set-allow-custom">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Billing Settings -->
+                <div id="tab-billing" class="tab-pane hidden">
+                    <div class="card p-6">
+                        <h3 class="mb-4 font-bold">Taxes & Additional Charges</h3>
+                        <p class="text-sm text-muted mb-4">Configure taxes and fixed charges to be applied to all orders and printed bills.</p>
+                        
+                        <div class="form-group mb-4">
+                            <label class="form-label">Tax Name</label>
+                            <input type="text" id="set-tax-name" class="form-control" placeholder="e.g. GST or VAT">
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label class="form-label">Tax Percentage (%)</label>
+                            <input type="number" id="set-tax-pct" class="form-control" placeholder="e.g. 5.0" step="0.1">
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label class="form-label">Additional Charge Name</label>
+                            <input type="text" id="set-charge-name" class="form-control" placeholder="e.g. Packaging Fee or Service Charge">
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label class="form-label">Additional Charge Amount (₹)</label>
+                            <input type="number" id="set-charge-amt" class="form-control" placeholder="0.00" step="1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coupons Settings -->
+                <div id="tab-coupons" class="tab-pane hidden">
+                    <div class="card p-6 mb-4">
+                        <h3 class="font-bold mb-2">Available Coupons</h3>
+                        <p class="text-sm text-muted mb-4">Create coupons for customers to use at checkout.</p>
+                        
+                        <div id="coupons-list" class="flex flex-col gap-3 mb-4">
+                            <!-- Populated by JS -->
+                        </div>
+                        
+                        <div class="border-t pt-4 mt-2">
+                            <h4 class="font-bold mb-3 text-sm">Add New Coupon</h4>
+                            <div class="flex gap-2 items-end">
+                                <div class="flex-1">
+                                    <label class="text-xs text-muted">Code</label>
+                                    <input type="text" id="new-coupon-code" class="form-control" placeholder="e.g. SAVE20" style="text-transform:uppercase">
+                                </div>
+                                <div style="width: 120px;">
+                                    <label class="text-xs text-muted">Type</label>
+                                    <select id="new-coupon-type" class="form-control">
+                                        <option value="PERCENTAGE">% Off</option>
+                                        <option value="FLAT">Flat ₹ Off</option>
+                                    </select>
+                                </div>
+                                <div style="width: 100px;">
+                                    <label class="text-xs text-muted">Value</label>
+                                    <input type="number" id="new-coupon-value" class="form-control" placeholder="20">
+                                </div>
+                                <button class="btn btn-secondary" onclick="settingsApp.addCoupon()">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Fields Settings -->
+                <div id="tab-custom-fields" class="tab-pane hidden">
+                    <div class="card p-6 mb-4">
+                        <h3 class="font-bold mb-2">Order Custom Fields</h3>
+                        <p class="text-sm text-muted mb-4">Ask customers for extra information during checkout (e.g., Table Number, Vehicle Plate, Dine-in/Takeaway).</p>
+                        
+                        <div id="custom-fields-list" class="flex flex-col gap-3 mb-4">
+                            <!-- Populated by JS -->
+                        </div>
+                        
+                        <div class="border-t pt-4 mt-2">
+                            <h4 class="font-bold mb-3 text-sm">Add New Custom Field</h4>
+                            <div class="grid grid-cols-2 gap-4 mb-3">
+                                <div>
+                                    <label class="text-xs text-muted">Field Name (e.g. Table Number)</label>
+                                    <input type="text" id="new-cf-name" class="form-control">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-muted">Field Type</label>
+                                    <select id="new-cf-type" class="form-control" onchange="settingsApp.onCfTypeChange()">
+                                        <option value="TEXT">Text Input</option>
+                                        <option value="DROPDOWN">Dropdown</option>
+                                        <option value="CHECKBOX">Checkbox</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="cf-options-container" class="mb-3 hidden">
+                                <label class="text-xs text-muted">Options (comma separated, e.g. Table 1, Table 2)</label>
+                                <input type="text" id="new-cf-options" class="form-control">
+                            </div>
+                            <div class="flex items-center gap-2 mb-4">
+                                <input type="checkbox" id="new-cf-required">
+                                <label for="new-cf-required" class="text-sm">Make this field compulsory?</label>
+                            </div>
+                            <button class="btn btn-secondary w-full" onclick="settingsApp.addCustomField()">Add Field</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -56,6 +191,7 @@
     <script src="js/auth.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/router.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="js/settings.js"></script>
     <script>lucide.createIcons();</script>
 </body>

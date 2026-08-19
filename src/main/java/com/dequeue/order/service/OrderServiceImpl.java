@@ -42,6 +42,7 @@ public class OrderServiceImpl implements OrderService {
     private final EventPublisher eventPublisher;
     private final QueueNumberGenerator queueNumberGenerator;
     private final MenuItemRepository menuItemRepository;
+    private final com.dequeue.menu.repository.CustomizationGroupRepository customizationGroupRepository;
     private final NotificationServiceImpl notificationServiceImpl;
     private final CustomerSessionTokenService customerSessionTokenService;
 
@@ -146,7 +147,7 @@ public class OrderServiceImpl implements OrderService {
     // ────────────────── Active orders with visibility filter ──────────────────
 
     @Override
-    public List<OrderSummary> getActiveOrders(String vendorId, List<OrderStatus> visibilityFilter) {
+    public List<OrderResponse> getActiveOrders(String vendorId, List<OrderStatus> visibilityFilter) {
         List<OrderStatus> statuses;
         if (visibilityFilter != null && !visibilityFilter.isEmpty()) {
             statuses = visibilityFilter;
@@ -155,7 +156,7 @@ public class OrderServiceImpl implements OrderService {
                     OrderStatus.PREPARING, OrderStatus.READY);
         }
         List<Order> orders = orderRepository.findByVendorIdAndStatusIn(vendorId, statuses);
-        return orderMapper.toSummaryList(orders);
+        return orderMapper.toResponseList(orders);
     }
 
     // ────────────────── Analytics ──────────────────
@@ -196,6 +197,10 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(Instant.now());
         order.setSessionId(request.getSessionId());
+        
+        if (request.getMetadata() != null) {
+            order.setMetadata(request.getMetadata());
+        }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> items = new ArrayList<>();
@@ -210,9 +215,45 @@ public class OrderServiceImpl implements OrderService {
                 orderItem.setMenuItemName(menuItem.getName());
                 orderItem.setQuantity(itemReq.getQuantity());
                 orderItem.setUnitPrice(menuItem.getPrice());
-                orderItem.setTotalPrice(menuItem.getPrice().multiply(new BigDecimal(itemReq.getQuantity())));
+                
+                List<SelectedCustomization> selectedCustomizations = new ArrayList<>();
+                BigDecimal unitPriceWithCustomizations = menuItem.getPrice() != null ? menuItem.getPrice() : BigDecimal.ZERO;
+                
+                if (itemReq.getCustomizations() != null) {
+                    for (CustomizationRequest custReq : itemReq.getCustomizations()) {
+                        com.dequeue.menu.entity.CustomizationGroup group = customizationGroupRepository.findById(custReq.getGroupId())
+                                .orElseThrow(() -> new BadRequestException("Customization group not found: " + custReq.getGroupId()));
+                                
+                        List<SelectedOption> selectedOptions = new ArrayList<>();
+                        if (custReq.getSelectedOptionNames() != null) {
+                            for (String optionName : custReq.getSelectedOptionNames()) {
+                                com.dequeue.menu.entity.CustomizationOption option = group.getOptions().stream()
+                                        .filter(o -> o.getName().equals(optionName))
+                                        .findFirst()
+                                        .orElseThrow(() -> new BadRequestException("Option not found: " + optionName));
+                                
+                                selectedOptions.add(SelectedOption.builder()
+                                        .name(option.getName())
+                                        .additionalPrice(option.getAdditionalPrice())
+                                        .build());
+                                        
+                                if (option.getAdditionalPrice() != null) {
+                                    unitPriceWithCustomizations = unitPriceWithCustomizations.add(option.getAdditionalPrice());
+                                }
+                            }
+                        }
+                        
+                        selectedCustomizations.add(SelectedCustomization.builder()
+                                .groupId(group.getId())
+                                .groupName(group.getName())
+                                .selectedOptions(selectedOptions)
+                                .build());
+                    }
+                }
+                
+                orderItem.setSelectedCustomizations(selectedCustomizations);
+                orderItem.setTotalPrice(unitPriceWithCustomizations.multiply(new BigDecimal(itemReq.getQuantity())));
                 orderItem.setSpecialInstructions(itemReq.getSpecialInstructions());
-                orderItem.setSelectedCustomizations(new ArrayList<>());
 
                 totalAmount = totalAmount.add(orderItem.getTotalPrice());
                 items.add(orderItem);
@@ -266,6 +307,10 @@ public class OrderServiceImpl implements OrderService {
         order.setCustomOrderText(request.getText());
         order.setCustomerNote(request.getCustomerNote());
         order.setSessionId(request.getSessionId());
+        
+        if (request.getMetadata() != null) {
+            order.setMetadata(request.getMetadata());
+        }
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(Instant.now());
 

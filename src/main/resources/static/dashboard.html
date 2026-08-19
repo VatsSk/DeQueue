@@ -100,9 +100,19 @@
         
         document.addEventListener('DOMContentLoaded', async () => {
             const userStr = localStorage.getItem('user');
+            let user = null;
             if (userStr) {
-                const user = JSON.parse(userStr);
+                user = JSON.parse(userStr);
                 document.getElementById('shopNameHeading').innerText = user.shopName || 'Dashboard';
+
+                // Show Pause/Resume button only for ROLE_VENDOR_ADMIN, ROLE_VENDOR_MANAGER or platform admin
+                const roles = user.roleNames || user.roles || [];
+                const canPause = user.platformAdmin === true
+                    || roles.includes('ROLE_VENDOR_ADMIN')
+                    || roles.includes('ROLE_VENDOR_MANAGER');
+
+                const btn = document.getElementById('pauseOrdersBtn');
+                if (btn) btn.style.display = canPause ? '' : 'none';
             }
 
             try {
@@ -110,35 +120,40 @@
                 if (res.success) updateStatusUI(res.data);
             } catch (e) { console.error(e); }
 
-            document.getElementById('pauseOrdersBtn').addEventListener('click', async () => {
-                const badge = document.getElementById('shopStatusBadge');
-                const isPaused = badge.innerText === 'PAUSED' || badge.innerText === 'CLOSED';
-                const newStatus = isPaused ? 'OPEN' : 'PAUSED';
-                try {
-                    const res = await api.patch('/vendors/me/status', { status: newStatus });
-                    if (res.success) {
-                        updateStatusUI(res.data);
-                        if (window.showToast) showToast(`Orders are now ${newStatus.toLowerCase()}`, 'success');
+            const pauseBtn = document.getElementById('pauseOrdersBtn');
+            if (pauseBtn) {
+                pauseBtn.addEventListener('click', async () => {
+                    const badge = document.getElementById('shopStatusBadge');
+                    const isPaused = badge.innerText === 'PAUSED' || badge.innerText === 'CLOSED';
+                    const newStatus = isPaused ? 'OPEN' : 'PAUSED';
+                    try {
+                        const res = await api.patch('/vendors/me/status', { status: newStatus });
+                        if (res.success) {
+                            updateStatusUI(res.data);
+                            if (window.showToast) showToast(`Orders are now ${newStatus === 'OPEN' ? 'resumed' : 'paused'}`, 'success');
+                        } else {
+                            if (window.showToast) showToast(res.message || 'Failed to update status', 'error');
+                        }
+                    } catch (err) {
+                        if (window.showToast) showToast(err.message || 'Failed to update status', 'error');
                     }
-                } catch (err) {
-                    if (window.showToast) showToast('Failed to update status', 'error');
-                }
-            });
+                });
+            }
         });
 
         function updateStatusUI(statusData) {
             const status = typeof statusData === 'object' ? statusData.status : statusData;
             const badge = document.getElementById('shopStatusBadge');
             const btn = document.getElementById('pauseOrdersBtn');
-            badge.innerText = status;
+            if (badge) badge.innerText = status;
             if (status === 'OPEN') {
-                badge.className = 'badge badge-ready';
-                btn.innerHTML = '<i data-lucide="pause-circle"></i> Pause Orders';
+                if (badge) badge.className = 'badge badge-ready';
+                if (btn) btn.innerHTML = '<i data-lucide="pause-circle"></i> Pause Orders';
             } else {
-                badge.className = 'badge badge-preparing';
-                btn.innerHTML = '<i data-lucide="play-circle"></i> Resume Orders';
+                if (badge) badge.className = 'badge badge-preparing';
+                if (btn) btn.innerHTML = '<i data-lucide="play-circle"></i> Resume Orders';
             }
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         }
     </script>
 </body>

@@ -52,7 +52,7 @@ public class OrderController {
     @GetMapping("/active")
     @PreAuthorize("hasPermission(null, 'order.view')")
     @Operation(summary = "Get active orders visible to the caller's role")
-    public ApiResponse<List<OrderSummary>> getActiveOrders() {
+    public ApiResponse<List<OrderResponse>> getActiveOrders() {
         return ApiResponse.success(orderService.getActiveOrders(
                 SecurityUtils.getCurrentVendorId(),
                 SecurityUtils.getCurrentOrderVisibilityStatuses()));
