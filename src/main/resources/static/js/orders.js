@@ -47,10 +47,14 @@ class Orders {
     const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
     const isPlatformAdmin = user ? user.platformAdmin === true : false;
 
+    console.log('[DEBUG_FILTERS] userStr:', userStr);
+    console.log('[DEBUG_FILTERS] user:', user);
+    console.log('[DEBUG_FILTERS] permissions:', permissions);
+
     // Determine tabs based on action permissions
     let tabs = [{ id: 'ALL', label: 'All Active' }];
 
-    if (isPlatformAdmin || permissions.includes('order.accept')) {
+    if (isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending')) {
       tabs.push({ id: 'PENDING', label: 'Pending' });
     }
     if (isPlatformAdmin || permissions.includes('order.prepare')) {
@@ -145,6 +149,7 @@ class Orders {
     const user = userStr ? JSON.parse(userStr) : null;
     const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
     const isPlatformAdmin = user ? user.platformAdmin === true : false;
+    const hasPriceAccess = isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending') || permissions.includes('order.complete');
 
     let html = '';
     filtered.forEach(order => {
@@ -154,7 +159,7 @@ class Orders {
 
       if (order.status === 'PENDING') {
         badgeClass = 'badge-pending';
-        if (isPlatformAdmin || permissions.includes('order.accept')) {
+        if (isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending')) {
           actionsHtml = `
               <button class="btn btn-danger flex-1" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')"><i data-lucide="x" style="width:16px;height:16px;margin-right:4px;"></i> Reject</button>
               <button class="btn btn-primary flex-1" onclick="ordersApp.updateStatus('${order.id}', 'ACCEPTED')"><i data-lucide="check" style="width:16px;height:16px;margin-right:4px;"></i> Accept</button>
@@ -175,7 +180,10 @@ class Orders {
       } else if (order.status === 'READY') {
         borderColor = 'var(--success)';
         badgeClass = 'badge-ready';
-        if (isPlatformAdmin || permissions.includes('order.complete')) {
+        const canComplete = isPlatformAdmin || permissions.includes('order.complete');
+        const canPrint = isPlatformAdmin || permissions.includes('order.print');
+
+        if (canComplete && canPrint) {
           actionsHtml = `
             <button class="btn btn-secondary flex-1" onclick="ordersApp.printBill('${order.id}')" title="Print bill for customer">
               <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print
@@ -184,10 +192,18 @@ class Orders {
               <i data-lucide="check-circle-2" style="width:16px;height:16px;margin-right:4px;"></i> Complete
             </button>
           `;
-        } else {
-          actionsHtml = `<button class="btn btn-secondary w-full" onclick="ordersApp.printBill('${order.id}')">
-            <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print Bill
-          </button>`;
+        } else if (canComplete) {
+          actionsHtml = `
+            <button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">
+              <i data-lucide="check-circle-2" style="width:16px;height:16px;margin-right:4px;"></i> Complete
+            </button>
+          `;
+        } else if (canPrint) {
+          actionsHtml = `
+            <button class="btn btn-secondary w-full" onclick="ordersApp.printBill('${order.id}')">
+              <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print Bill
+            </button>
+          `;
         }
       } else {
          actionsHtml = `<button class="btn btn-secondary w-full" disabled>${order.status}</button>`;
@@ -229,7 +245,7 @@ class Orders {
                         </div>
                         ${customHtml}
                     </div>
-                    <span class="font-medium whitespace-nowrap ml-3">₹${item.totalPrice.toFixed(2)}</span>
+                    ${hasPriceAccess ? `<span class="font-medium whitespace-nowrap ml-3">₹${item.totalPrice.toFixed(2)}</span>` : ''}
                 </div>
             `;
         });
@@ -252,7 +268,10 @@ class Orders {
           </div>`;
       }
 
-      let paymentHtml = `<div class="flex items-center gap-1 text-xs font-semibold text-danger mt-3 mb-1"><i data-lucide="wallet" style="width:14px;height:14px;"></i> Unpaid (Pay at counter)</div>`;
+      let paymentHtml = '';
+      if (hasPriceAccess) {
+          paymentHtml = `<div class="flex items-center gap-1 text-xs font-semibold text-danger mt-3 mb-1"><i data-lucide="wallet" style="width:14px;height:14px;"></i> Unpaid (Pay at counter)</div>`;
+      }
 
       html += `
         <div class="card p-0 flex flex-col justify-between overflow-hidden transition-shadow hover:shadow-md" style="border-left: 4px solid ${borderColor}; min-height: 250px;">
@@ -274,10 +293,12 @@ class Orders {
           </div>
           
           <div class="p-4 bg-surface-hover/50 border-t border-border mt-auto">
+            ${hasPriceAccess ? `
             <div class="flex justify-between items-center mb-3 text-sm">
               <span class="font-medium text-muted">Total Amount</span>
               <span class="font-extrabold text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
             </div>
+            ` : ''}
             <div class="flex gap-2 w-full">
               ${actionsHtml}
             </div>

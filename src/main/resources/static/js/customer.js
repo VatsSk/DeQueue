@@ -293,11 +293,12 @@ class CustomerApp {
             if (group.required && inputs.length === 0) {
                 missingRequired = true;
             }
-            inputs.forEach(input => {
+             inputs.forEach(input => {
                 customizations.push({
                     optionName: input.value,
                     additionalPrice: parseFloat(input.dataset.price || 0),
-                    groupName: input.dataset.groupName
+                    groupName: input.dataset.groupName,
+                    groupId: group.id
                 });
             });
         });
@@ -559,11 +560,30 @@ class CustomerApp {
 
     const orderData = {
       sessionId: this.sessionId,
-      items: this.cart.map(item => ({
-        menuItemId: item.menuItemId,
-        quantity: item.quantity,
-        customizations: item.customizations || []
-      })),
+      items: this.cart.map(item => {
+        const groupedMap = {};
+        (item.customizations || []).forEach(cust => {
+          if (cust.groupId) {
+            if (!groupedMap[cust.groupId]) {
+              groupedMap[cust.groupId] = [];
+            }
+            if (!groupedMap[cust.groupId].includes(cust.optionName)) {
+              groupedMap[cust.groupId].push(cust.optionName);
+            }
+          }
+        });
+        
+        const customizationsPayload = Object.keys(groupedMap).map(gId => ({
+          groupId: gId,
+          selectedOptionNames: groupedMap[gId]
+        }));
+
+        return {
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          customizations: customizationsPayload
+        };
+      }),
       customerNote: note,
       metadata: metadata
     };
