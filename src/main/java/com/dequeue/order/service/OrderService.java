@@ -25,7 +25,7 @@ public interface OrderService {
     OrderResponse completeOrder(String vendorId, String id, String staffId, String staffName);
     OrderResponse cancelOrder(String vendorId, String id, String staffId, String staffName, String note);
 
-    List<OrderSummary> getActiveOrders(String vendorId, List<OrderStatus> visibilityFilter);
+    List<OrderResponse> getActiveOrders(String vendorId, List<OrderStatus> visibilityFilter);
 
     TodayOrdersSummary getTodaySummary(String vendorId);
 

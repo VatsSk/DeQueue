@@ -23,6 +23,24 @@ public class VendorSettings {
     private String currency = "INR";
     @Builder.Default
     private Double taxPercentage = 0.0;
+    
+    @Builder.Default
+    private String taxName = "Tax";
+    
+    private String gstNumber;
+
     @Builder.Default
     private boolean showPreparationTime = true;
+    
+    @Builder.Default
+    private Double additionalCharges = 0.0;
+    
+    @Builder.Default
+    private String additionalChargeName = "Service Charge";
+    
+    @Builder.Default
+    private java.util.List<Coupon> coupons = new java.util.ArrayList<>();
+    
+    @Builder.Default
+    private java.util.List<CustomFieldDef> customFields = new java.util.ArrayList<>();
 }

@@ -15,4 +15,5 @@ public class PlaceOrderRequest {
     private Double customerLatitude;
     private Double customerLongitude;
     private String sessionId;
+    private java.util.Map<String, String> metadata;
 }

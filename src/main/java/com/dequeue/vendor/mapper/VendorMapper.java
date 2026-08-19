@@ -12,6 +12,7 @@ public interface VendorMapper {
     VendorResponse toResponse(Vendor vendor);
     PublicVendorResponse toPublicResponse(Vendor vendor);
     void updateVendorFromRequest(UpdateVendorRequest request, @MappingTarget Vendor vendor);
+    void updateSettingsFromDto(VendorSettingsDto dto, @MappingTarget VendorSettings settings);
     
     default PublicVendorResponse.PublicSettingsDto mapSettings(VendorSettings settings) {
         if (settings == null) return null;

@@ -85,3 +85,8 @@ compileJava {
         '-Amapstruct.unmappedTargetPolicy=IGNORE'
     ]
 }
+
+// Enable hot-reloading of static resources (HTML/JS/CSS) without restarting the server
+bootRun {
+    sourceResources sourceSets.main
+}

@@ -45,8 +45,6 @@ public class VendorServiceImpl implements VendorService {
         vendor.setShopStatus(request.getStatus());
         vendorRepository.save(vendor);
         
-        // TODO: publish event for Redis cache invalidation and update Redis with online status
-        
         return vendor.getShopStatus();
     }
 
@@ -55,6 +53,21 @@ public class VendorServiceImpl implements VendorService {
         Vendor vendor = vendorRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
         return vendor.getShopStatus();
+    }
+
+    @Override
+    @Transactional
+    public VendorSettings updateSettings(String userId, VendorSettingsDto request) {
+        Vendor vendor = vendorRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+        
+        if (vendor.getSettings() == null) {
+            vendor.setSettings(new VendorSettings());
+        }
+        
+        vendorMapper.updateSettingsFromDto(request, vendor.getSettings());
+        vendorRepository.save(vendor);
+        return vendor.getSettings();
     }
 
     @Override
@@ -71,9 +84,7 @@ public class VendorServiceImpl implements VendorService {
         return vendor.getShopStatus();
     }
 
-    // ────────────────────────────────────────────────────────────────────────
     // Platform Admin Methods
-    // ────────────────────────────────────────────────────────────────────────
 
     @Override
     public java.util.List<VendorResponse> getAllVendors() {
@@ -94,8 +105,6 @@ public class VendorServiceImpl implements VendorService {
     @Override
     @Transactional
     public VendorResponse createVendor(CreateVendorRequest request) {
-        // We will just create the Vendor. The frontend for Platform Admin
-        // can use this to onboard a new vendor.
         String vendorCode = request.getShopName().toLowerCase().replaceAll("[^a-z0-9]", "-")
                 + "-" + java.util.UUID.randomUUID().toString().substring(0, 4);
 
@@ -109,11 +118,6 @@ public class VendorServiceImpl implements VendorService {
         vendor.setActive(true);
         
         vendor = vendorRepository.save(vendor);
-
-        // Note: Creating the initial admin user and roles should ideally be here or via a separate endpoint,
-        // but for simplicity we return the created vendor. In a real scenario, this would reuse the 
-        // logic from AuthServiceImpl.register or publish an event.
-        
         return vendorMapper.toResponse(vendor);
     }
 }

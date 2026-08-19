@@ -404,6 +404,32 @@ class CustomerApp {
 
     const total = this.cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
+    let cfHtml = '';
+    if (this.vendor?.settings?.customFields && this.vendor.settings.customFields.length > 0) {
+        this.vendor.settings.customFields.forEach((cf, idx) => {
+            cfHtml += `<div class="mb-3">
+                <label class="text-sm font-bold mb-1 block">${this._escHtml(cf.name)} ${cf.required ? '<span class="text-danger">*</span>' : ''}</label>`;
+            
+            if (cf.type === 'TEXT') {
+                cfHtml += `<input type="text" id="cf-${idx}" class="form-control" placeholder="Enter ${this._escHtml(cf.name)}">`;
+            } else if (cf.type === 'DROPDOWN') {
+                cfHtml += `<select id="cf-${idx}" class="form-control">
+                    <option value="">Select...</option>
+                    ${cf.options.map(o => `<option value="${this._escHtml(o)}">${this._escHtml(o)}</option>`).join('')}
+                </select>`;
+            } else if (cf.type === 'CHECKBOX') {
+                cfHtml += `<div class="flex flex-col gap-1">
+                    ${cf.options.map((o, oidx) => `
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="cf-${idx}" value="${this._escHtml(o)}"> <span class="text-sm">${this._escHtml(o)}</span>
+                        </label>
+                    `).join('')}
+                </div>`;
+            }
+            cfHtml += `</div>`;
+        });
+    }
+
     body.innerHTML = `
       <div class="cart-items" style="margin-bottom: 1rem;">
         ${this.cart.map(item => {
@@ -450,15 +476,37 @@ class CustomerApp {
         <span>${this.formatPrice(total)}</span>
       </div>
 
+      <!-- Payment Method Section -->
+      <div class="card mt-3 mb-3" style="padding:1rem;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold" style="font-size:.9rem;">Amount to Pay</span>
+          <span class="font-bold text-primary" style="font-size:1.2rem;">${this.formatPrice(total)}</span>
+        </div>
+        <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:.75rem;">Payment Method (select at counter)</div>
+        <label class="flex items-center gap-2" style="font-size:.9rem;">
+          <input type="radio" name="pay-method" value="counter" checked style="width:1.1rem;height:1.1rem;">
+          <span>Pay at Counter</span>
+        </label>
+        <label class="flex items-center gap-2 mt-2 opacity-50" style="font-size:.9rem;" title="Coming soon">
+          <input type="radio" name="pay-method" value="online" disabled style="width:1.1rem;height:1.1rem;">
+          <span>Online Payment <span class="badge" style="font-size:.65rem;padding:2px 6px;">Coming Soon</span></span>
+        </label>
+      </div>
+
+      <div id="cart-custom-fields" class="mb-3 ${cfHtml ? '' : 'hidden'}">
+        ${cfHtml}
+      </div>
+
       <textarea id="customer-note" class="form-control mb-3" placeholder="Any special instructions or allergies..." rows="2"
         style="resize:none;font-size:0.9rem;"></textarea>
 
       <button id="place-order-btn" class="btn btn-primary w-full" onclick="customerApp.placeOrder()"
         style="padding: 1rem; font-size: 1rem; font-weight: 600; letter-spacing: 0.02em;">
         <i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i>
-        Place Order
+        Place Order — ${this.formatPrice(total)}
       </button>
     `;
+    
     if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 
@@ -484,6 +532,30 @@ class CustomerApp {
     }
 
     const note = document.getElementById('customer-note')?.value || '';
+    
+    // Collect Custom Fields
+    const metadata = {};
+    if (this.vendor?.settings?.customFields) {
+        let missingRequired = false;
+        this.vendor.settings.customFields.forEach((cf, idx) => {
+            const el = document.getElementById(`cf-${idx}`);
+            if (cf.type === 'CHECKBOX') {
+                const checked = Array.from(document.querySelectorAll(`input[name="cf-${idx}"]:checked`)).map(cb => cb.value);
+                if (cf.required && checked.length === 0) missingRequired = true;
+                if (checked.length > 0) metadata[cf.name] = checked.join(', ');
+            } else {
+                const val = el ? el.value.trim() : '';
+                if (cf.required && !val) missingRequired = true;
+                if (val) metadata[cf.name] = val;
+            }
+        });
+        
+        if (missingRequired) {
+            if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = 'Place Order'; }
+            if (window.showToast) showToast('Please fill all required fields', 'error');
+            return;
+        }
+    }
 
     const orderData = {
       sessionId: this.sessionId,
@@ -492,7 +564,8 @@ class CustomerApp {
         quantity: item.quantity,
         customizations: item.customizations || []
       })),
-      customerNote: note
+      customerNote: note,
+      metadata: metadata
     };
 
     try {
@@ -694,6 +767,14 @@ class CustomerApp {
       const qnEl = document.getElementById('queue-number');
       if (qnEl) qnEl.textContent = this.activeOrder.queueNumber || 'N/A';
 
+      // Show amount-to-pay banner
+      const amtBanner = document.getElementById('amount-to-pay-banner');
+      const amtValue = document.getElementById('amount-to-pay-value');
+      if (amtBanner && amtValue && this.activeOrder.totalAmount != null) {
+        amtValue.textContent = this.formatPrice(this.activeOrder.totalAmount);
+        amtBanner.classList.remove('hidden');
+      }
+
       this.updateStatusDisplay(this.activeOrder.status);
       this.subscribeToOrder(this.activeOrder.queueNumber);
     }
@@ -765,11 +846,13 @@ class CustomerApp {
       if (!status) return;
       
       this.activeOrder.status = status;
+      // Update total from event if available
+      if (event.totalAmount != null) this.activeOrder.totalAmount = event.totalAmount;
       localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
       this.updateStatusDisplay(status);
       this.showBrowserNotification(status);
       
-      if (status === 'COLLECTED' || status === 'CANCELLED') {
+      if (status === 'COMPLETED' || status === 'COLLECTED' || status === 'CANCELLED') {
         localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
         localStorage.removeItem(`dequeue_token_${this.vendorCode}`);
         if (this.notificationManager) {
@@ -784,16 +867,29 @@ class CustomerApp {
             document.getElementById('thank-you-message').textContent = 'Unfortunately, your order was cancelled. Please try ordering again.';
             document.getElementById('thank-you-icon').setAttribute('data-lucide', 'x-circle');
             document.getElementById('thank-you-icon').setAttribute('class', 'text-warning');
+            const invoiceActions = document.getElementById('invoice-actions');
+            if (invoiceActions) invoiceActions.classList.add('hidden');
         } else {
             document.getElementById('thank-you-title').textContent = 'Thank You!';
-            document.getElementById('thank-you-message').textContent = 'Your order has been successfully collected. Please visit us again!';
+            document.getElementById('thank-you-message').textContent = 'Your order has been successfully completed. Please visit us again!';
             document.getElementById('thank-you-icon').setAttribute('data-lucide', 'heart');
             document.getElementById('thank-you-icon').setAttribute('class', 'text-danger');
+            // Show invoice
+            const invoiceActions = document.getElementById('invoice-actions');
+            const invoiceTotalDisplay = document.getElementById('invoice-total-display');
+            if (invoiceActions) invoiceActions.classList.remove('hidden');
+            if (invoiceTotalDisplay && this.activeOrder.totalAmount != null) {
+                invoiceTotalDisplay.textContent = this.formatPrice(this.activeOrder.totalAmount);
+            }
+            // Store completed order for invoice generation
+            this._completedOrder = { ...this.activeOrder };
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
         
         if (orderView) orderView.classList.add('hidden');
         if (thankYouView) thankYouView.classList.remove('hidden');
+        
+        this.activeOrder = null;
       }
   }
 
@@ -1046,40 +1142,215 @@ class CustomerApp {
   }
 
   updateStatusDisplay(status) {
-    const steps = ['PENDING', 'PREPARING', 'READY'];
-    const labels = { PENDING: 'Order Received', ACCEPTED: 'Order Accepted', PREPARING: 'Preparing', READY: 'Ready for Collection', COLLECTED: 'Collected', CANCELLED: 'Cancelled' };
-    
-    const statusBadge = document.querySelector('#order-view .badge');
-    if (statusBadge) {
-      statusBadge.textContent = labels[status] || status;
-      statusBadge.className = `badge badge-${status.toLowerCase()} text-lg px-4 py-2 mt-4`;
-    }
+    // 5 steps in order
+    const STEPS = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'];
+    const currentIdx = STEPS.indexOf(status);
 
-    // Update step indicators
-    const stepEls = document.querySelectorAll('#order-view .card .flex.items-center');
-    const currentStep = steps.indexOf(status === 'ACCEPTED' ? 'PENDING' : status);
-    
-    stepEls.forEach((el, idx) => {
-      const icon = el.querySelector('[data-lucide]');
-      if (idx <= currentStep) {
-        el.className = 'flex items-center gap-4 mb-4 text-primary';
-        if (icon) icon.setAttribute('data-lucide', 'check-circle-2');
-      } else {
-        el.className = 'flex items-center gap-4 mb-4 text-muted';
-        if (icon) icon.setAttribute('data-lucide', 'circle');
-      }
+    // Update each timeline step
+    STEPS.forEach((step, idx) => {
+      const el = document.getElementById(`step-${step}`);
+      if (!el) return;
+      el.classList.remove('done', 'active');
+      if (idx < currentIdx) el.classList.add('done');
+      else if (idx === currentIdx) el.classList.add('active');
     });
 
+    // Update badge
+    const labels = {
+      PENDING: 'Order Initiated',
+      ACCEPTED: 'Order Accepted',
+      PREPARING: 'Started Preparing',
+      READY: 'Prepared — Ready for Collection',
+      COMPLETED: 'Order Completed',
+      CANCELLED: 'Cancelled'
+    };
+    const badgeClasses = {
+      PENDING: 'badge-pending',
+      ACCEPTED: 'badge-accepted',
+      PREPARING: 'badge-preparing',
+      READY: 'badge-ready',
+      COMPLETED: 'badge-success',
+      CANCELLED: 'badge-danger'
+    };
+    const badge = document.getElementById('order-status-badge');
+    if (badge) {
+      badge.textContent = labels[status] || status;
+      badge.className = `badge ${badgeClasses[status] || 'badge-pending'} text-lg px-4 py-2 mt-4`;
+    }
+
+    // Show/hide cancel button (only for PENDING)
     const cancelContainer = document.getElementById('cancel-order-container');
     if (cancelContainer) {
-      if (status === 'PENDING') {
-        cancelContainer.classList.remove('hidden');
-      } else {
-        cancelContainer.classList.add('hidden');
-      }
+      cancelContainer.classList.toggle('hidden', status !== 'PENDING');
     }
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  generateInvoiceHTML(order) {
+    const shopName = this.vendor?.shopName || 'DeQueue Shop';
+    const address = this.vendor?.address && this.vendor.address.street ? this.vendor.address.street : '';
+    const phone = this.vendor?.phone || '';
+    const email = this.vendor?.email || '';
+
+    const settings = this.vendor?.settings || {};
+    const taxPct = settings.taxPercentage || 0;
+    const taxName = settings.taxName || 'Tax';
+    const chargeAmt = settings.additionalCharges || 0;
+    const chargeName = settings.additionalChargeName || 'Service Charge';
+    const gstNumber = settings.gstNumber || '';
+
+    const subtotal = order.items ? order.items.reduce((sum, item) => sum + item.totalPrice, 0) : order.totalAmount;
+    const taxValue = (subtotal * taxPct) / 100;
+    let computedTotal = subtotal + taxValue + chargeAmt;
+
+    const items = (order.items || []).map(i => `
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px dashed #ccc;">
+            ${this._escHtml(i.menuItemName)}
+            ${i.selectedCustomizations && i.selectedCustomizations.length > 0 ? 
+                '<br><small style="color:#666">+' + i.selectedCustomizations.map(c => c.selectedOptions.map(o => o.name).join(',')).join(',') + '</small>' : ''}
+        </td>
+        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:center;">${i.quantity}</td>
+        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₹${Number(i.unitPrice || 0).toFixed(2)}</td>
+        <td style="padding:8px 0;border-bottom:1px dashed #ccc;text-align:right;">₹${Number(i.totalPrice || 0).toFixed(2)}</td>
+      </tr>`).join('');
+
+    let metadataHtml = '';
+    if (order.metadata && Object.keys(order.metadata).length > 0) {
+        metadataHtml = `<div class="divider"></div><div class="order-meta">` + Object.entries(order.metadata).map(([k,v]) => `<div><strong>${this._escHtml(k)}:</strong> ${this._escHtml(v)}</div>`).join('') + `</div>`;
+    }
+
+    const date = order.completedAt ? new Date(order.completedAt).toLocaleString() : new Date().toLocaleString();
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>Invoice — ${this._escHtml(shopName)}</title>
+      <style>
+        body{font-family:'Courier New', Courier, monospace;max-width:350px;margin:0 auto;padding:20px;color:#000;font-size:14px;line-height:1.4}
+        h2{text-align:center;margin:0 0 5px 0;font-size:22px;text-transform:uppercase}
+        .info{text-align:center;margin-bottom:15px;font-size:12px}
+        .divider{border-top:1px dashed #000;margin:10px 0}
+        .order-meta{margin-bottom:15px;font-size:13px}
+        table{width:100%;border-collapse:collapse;margin-bottom:15px;font-size:13px}
+        th{text-align:left;border-bottom:1px solid #000;padding-bottom:5px}
+        .totals-table{width:100%;font-size:13px}
+        .totals-table td{padding:3px 0}
+        .totals-table .bold{font-weight:bold}
+        .totals-table .grand-total{font-size:18px;font-weight:bold;border-top:1px dashed #000;padding-top:8px;margin-top:5px}
+        .footer{text-align:center;font-size:11px;margin-top:20px}
+        .instruction{font-size:12px;margin-top:10px;font-style:italic;}
+        @media print{body{max-width:100%;padding:0;} .no-print{display:none}}
+      </style></head><body>
+      <h2>${this._escHtml(shopName)}</h2>
+      <div class="info">
+        ${address ? address + '<br>' : ''}
+        ${phone ? 'Ph: ' + phone + '<br>' : ''}
+        ${email ? email + '<br>' : ''}
+        ${gstNumber ? 'GSTIN: ' + this._escHtml(gstNumber) : ''}
+      </div>
+      
+      <div class="divider"></div>
+      
+      <div class="order-meta">
+        <div><strong>Order #:</strong> ${order.queueNumber}</div>
+        <div><strong>Date:</strong> ${date}</div>
+        <div><strong>Payment:</strong> UNPAID (Pay at Counter)</div>
+      </div>
+      
+      ${metadataHtml}
+      
+      <div class="divider"></div>
+      
+      <table>
+        <thead><tr>
+          <th>Item</th><th style="text-align:center">Qty</th>
+          <th style="text-align:right">Price</th><th style="text-align:right">Total</th>
+        </tr></thead>
+        <tbody>${items}</tbody>
+      </table>
+      
+      <table class="totals-table">
+        <tr>
+            <td>Subtotal</td>
+            <td style="text-align:right">₹${subtotal.toFixed(2)}</td>
+        </tr>
+        ${taxPct > 0 ? `<tr>
+            <td>${this._escHtml(taxName)} (${taxPct}%)</td>
+            <td style="text-align:right">₹${taxValue.toFixed(2)}</td>
+        </tr>` : ''}
+        ${chargeAmt > 0 ? `<tr>
+            <td>${this._escHtml(chargeName)}</td>
+            <td style="text-align:right">₹${chargeAmt.toFixed(2)}</td>
+        </tr>` : ''}
+        <tr>
+            <td class="grand-total" style="padding-top:10px">Total</td>
+            <td class="grand-total" style="text-align:right;padding-top:10px">₹${computedTotal.toFixed(2)}</td>
+        </tr>
+      </table>
+      
+      ${order.customerNote ? `<div class="instruction"><strong>Instruction:</strong> ${this._escHtml(order.customerNote)}</div>` : ''}
+      
+      <div class="divider"></div>
+      
+      <div class="footer">
+        Thank you for visiting!<br>
+        Powered by DeQueue
+      </div>
+      <script>window.onload=()=>window.print()<\/script>
+    </body></html>`;
+  }
+
+  viewInvoice() {
+    const order = this._completedOrder;
+    if (!order) { if (window.showToast) showToast('No invoice available', 'error'); return; }
+    const html = this.generateInvoiceHTML(order);
+    const win = window.open('', '_blank');
+    if (win) { win.document.write(html); win.document.close(); }
+  }
+
+  downloadInvoice() {
+    const order = this._completedOrder;
+    if (!order) { if (window.showToast) showToast('No invoice available', 'error'); return; }
+    
+    if (window.showToast) showToast('Generating PDF...', 'info');
+
+    // Create a temporary container for html2pdf
+    const tempDiv = document.createElement('div');
+    
+    // We strip the outer HTML/HEAD tags and print script from the generated HTML
+    // so html2pdf can render just the body content.
+    let contentHtml = this.generateInvoiceHTML(order);
+    contentHtml = contentHtml.replace(/<script>.*?<\/script>/g, '');
+    const bodyMatch = contentHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const styleMatch = contentHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    
+    tempDiv.innerHTML = (styleMatch ? `<style>${styleMatch[1]}</style>` : '') + 
+                        `<div style="padding:20px;max-width:350px;margin:0 auto;background:#fff;">${bodyMatch ? bodyMatch[1] : contentHtml}</div>`;
+    
+    const opt = {
+      margin:       10,
+      filename:     `invoice-${order.queueNumber || 'order'}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
+    };
+
+    if (window.html2pdf) {
+        html2pdf().set(opt).from(tempDiv).save().then(() => {
+            if (window.showToast) showToast('PDF downloaded', 'success');
+        }).catch(err => {
+            console.error('PDF generation error:', err);
+            if (window.showToast) showToast('Failed to generate PDF', 'error');
+        });
+    } else {
+        // Fallback to HTML if library failed to load
+        const blob = new Blob([this.generateInvoiceHTML(order)], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `invoice-${order.queueNumber || 'order'}.html`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
   }
 
   showClosed() {
@@ -1121,6 +1392,11 @@ class CustomerApp {
 
   formatPrice(amount) {
     return `₹${Math.round(Number(amount) * 100) / 100}`;
+  }
+
+  _escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 }
 

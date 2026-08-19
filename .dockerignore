@@ -1,6 +1,6 @@
 .gradle
 .idea
-build
+ build  <-- keep commented so Docker can COPY build/libs/*.jar
 out
 bin
 *.log
