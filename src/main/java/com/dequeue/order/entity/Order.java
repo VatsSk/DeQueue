@@ -36,6 +36,14 @@ Order {
     private String customOrderText;
     private BigDecimal totalAmount;
     
+    private BigDecimal subtotal;
+    private String couponCode;
+    private BigDecimal couponDiscount;
+    private String taxName;
+    private BigDecimal taxAmount;
+    private String serviceChargeName;
+    private BigDecimal serviceChargeAmount;
+    
     @Indexed
     @Builder.Default
     private OrderStatus status = OrderStatus.PENDING;

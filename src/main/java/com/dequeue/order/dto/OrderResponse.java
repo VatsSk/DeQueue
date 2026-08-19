@@ -15,6 +15,15 @@ public class OrderResponse {
     private List<OrderItemResponse> items;
     private String customOrderText;
     private BigDecimal totalAmount;
+    
+    private BigDecimal subtotal;
+    private String couponCode;
+    private BigDecimal couponDiscount;
+    private String taxName;
+    private BigDecimal taxAmount;
+    private String serviceChargeName;
+    private BigDecimal serviceChargeAmount;
+    
     private OrderStatus status;
     private String customerNote;
     private List<StatusChange> statusHistory;

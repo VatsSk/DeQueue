@@ -203,6 +203,15 @@ public class OrderServiceImpl implements OrderService {
         if (request.getMetadata() != null) {
             order.setMetadata(request.getMetadata());
         }
+        
+        // Map new payment breakdown fields
+        order.setSubtotal(request.getSubtotal());
+        order.setCouponCode(request.getCouponCode());
+        order.setCouponDiscount(request.getCouponDiscount());
+        order.setTaxName(request.getTaxName());
+        order.setTaxAmount(request.getTaxAmount());
+        order.setServiceChargeName(request.getServiceChargeName());
+        order.setServiceChargeAmount(request.getServiceChargeAmount());
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> items = new ArrayList<>();
@@ -263,7 +272,30 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setOrderItems(items);
-        order.setTotalAmount(totalAmount);
+        
+        // Compute final total from subtotal (which is total of items), tax, charge, and discount
+        BigDecimal subtotalComputed = totalAmount; // This is the sum of orderItem.getTotalPrice()
+        if (order.getSubtotal() == null) {
+            order.setSubtotal(subtotalComputed);
+        }
+        
+        BigDecimal finalTotal = subtotalComputed;
+        if (order.getCouponDiscount() != null) {
+            finalTotal = finalTotal.subtract(order.getCouponDiscount());
+        }
+        if (order.getTaxAmount() != null) {
+            finalTotal = finalTotal.add(order.getTaxAmount());
+        }
+        if (order.getServiceChargeAmount() != null) {
+            finalTotal = finalTotal.add(order.getServiceChargeAmount());
+        }
+        
+        // Ensure finalTotal doesn't go below zero
+        if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
+            finalTotal = BigDecimal.ZERO;
+        }
+        
+        order.setTotalAmount(finalTotal);
 
         order = orderRepository.save(order);
         eventPublisher.publishOrderEvent(new OrderEvent(vendor.getId(), order.getId(),

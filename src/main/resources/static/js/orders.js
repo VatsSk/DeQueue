@@ -50,7 +50,7 @@ class Orders {
     // Determine tabs based on action permissions
     let tabs = [{ id: 'ALL', label: 'All Active' }];
 
-    if (isPlatformAdmin || permissions.includes('order.accept')) {
+    if (isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending')) {
       tabs.push({ id: 'PENDING', label: 'Pending' });
     }
     if (isPlatformAdmin || permissions.includes('order.prepare')) {
@@ -145,10 +145,11 @@ class Orders {
     const user = userStr ? JSON.parse(userStr) : null;
     const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
     const isPlatformAdmin = user ? user.platformAdmin === true : false;
-    
+    const hasPriceAccess = isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending') || permissions.includes('order.complete');
+
     const isKitchen = user && (
-      (user.roleName && user.roleName.toUpperCase() === 'KITCHEN') || 
-      (user.role && typeof user.role === 'string' && user.role.toUpperCase() === 'KITCHEN') || 
+      (user.roleName && user.roleName.toUpperCase() === 'KITCHEN') ||
+      (user.role && typeof user.role === 'string' && user.role.toUpperCase() === 'KITCHEN') ||
       (user.role && user.role.name && user.role.name.toUpperCase() === 'KITCHEN') ||
       (user.roles && Array.isArray(user.roles) && user.roles.some(r => (typeof r === 'string' && r.toUpperCase() === 'KITCHEN') || (r.name && r.name.toUpperCase() === 'KITCHEN')))
     );
@@ -161,7 +162,7 @@ class Orders {
 
       if (order.status === 'PENDING') {
         badgeClass = 'badge-pending';
-        if (isPlatformAdmin || permissions.includes('order.accept')) {
+        if (isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending')) {
           actionsHtml = `
               <button class="btn btn-danger flex-1" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')"><i data-lucide="x" style="width:16px;height:16px;margin-right:4px;"></i> Reject</button>
               <button class="btn btn-primary flex-1" onclick="ordersApp.updateStatus('${order.id}', 'ACCEPTED')"><i data-lucide="check" style="width:16px;height:16px;margin-right:4px;"></i> Accept</button>
@@ -182,7 +183,10 @@ class Orders {
       } else if (order.status === 'READY') {
         borderColor = 'var(--success)';
         badgeClass = 'badge-ready';
-        if (isPlatformAdmin || permissions.includes('order.complete')) {
+        const canComplete = isPlatformAdmin || permissions.includes('order.complete');
+        const canPrint = isPlatformAdmin || permissions.includes('order.print');
+
+        if (canComplete && canPrint) {
           actionsHtml = `
             <button class="btn btn-secondary flex-1" onclick="ordersApp.printBill('${order.id}')" title="Print bill for customer">
               <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print
@@ -191,10 +195,18 @@ class Orders {
               <i data-lucide="check-circle-2" style="width:16px;height:16px;margin-right:4px;"></i> Complete
             </button>
           `;
-        } else {
-          actionsHtml = `<button class="btn btn-secondary w-full" onclick="ordersApp.printBill('${order.id}')">
-            <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print Bill
-          </button>`;
+        } else if (canComplete) {
+          actionsHtml = `
+            <button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">
+              <i data-lucide="check-circle-2" style="width:16px;height:16px;margin-right:4px;"></i> Complete
+            </button>
+          `;
+        } else if (canPrint) {
+          actionsHtml = `
+            <button class="btn btn-secondary w-full" onclick="ordersApp.printBill('${order.id}')">
+              <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print Bill
+            </button>
+          `;
         }
       } else {
          actionsHtml = `<button class="btn btn-secondary w-full" disabled>${order.status}</button>`;
@@ -209,59 +221,136 @@ class Orders {
         CANCELLED: 'Cancelled'
       };
 
-      let itemCount = order.items ? order.items.reduce((acc, it) => acc + it.quantity, 0) : 0;
+        let itemCount = order.items
+            ? order.items.reduce((acc, it) => acc + it.quantity, 0)
+            : 0;
 
-      if (isKitchen) {
-          html += `
-            <div class="card p-0 flex flex-col justify-between overflow-hidden transition-shadow hover:shadow-md" style="border-left: 4px solid ${borderColor}; min-height: 120px;">
-              <div class="p-4 flex-1 flex flex-col">
-                <div class="flex justify-between items-start mb-1 cursor-pointer hover:bg-surface-hover transition-colors rounded-md pb-1" onclick="ordersApp.showOrderDetails('${order.id}')" title="Click to view details">
-                  <div>
-                    <span class="font-extrabold text-2xl text-primary">#${order.queueNumber}</span>
-                    <div class="text-xs text-muted mt-1 flex items-center gap-1"><i data-lucide="clock" style="width:12px;height:12px;"></i> ${new Date(order.createdAt).toLocaleTimeString()}</div>
-                  </div>
-                  <div class="flex flex-col items-end gap-2">
-                      <span class="badge ${badgeClass} shadow-sm px-2 py-1">${statusLabels[order.status] || order.status}</span>
-                      <div class="text-xs font-medium text-muted flex items-center gap-1">${itemCount} Items</div>
-                  </div>
+        let itemsHtml = `
+            <div class="flex justify-between items-center mb-3 p-3 bg-primary/5 rounded-lg border border-primary/20 shadow-sm transition-all hover:bg-primary/10">
+                <div class="font-semibold text-sm flex items-center gap-2 text-primary">
+                    <i data-lucide="shopping-bag" style="width:18px;height:18px;"></i>
+                    <span class="text-base">${itemCount} Items</span>
                 </div>
-              </div>
-              
-              <div class="p-4 bg-surface-hover/50 border-t border-border mt-auto">
-                <div class="flex gap-2 w-full">
-                  ${actionsHtml}
-                </div>
-              </div>
+                <button class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm px-3" onclick="ordersApp.showOrderDetails('${order.id}')" title="View Full Order">
+                    <i data-lucide="eye" style="width:16px;height:16px;"></i>
+                    <span class="text-sm font-medium">View</span>
+                </button>
             </div>
-          `;
-      } else {
-          html += `
-            <div class="card p-0 flex flex-col justify-between overflow-hidden transition-shadow hover:shadow-md" style="border-left: 4px solid ${borderColor}; min-height: 120px;">
-              <div class="p-4 flex-1 flex flex-col">
-                <div class="flex justify-between items-start mb-1 cursor-pointer hover:bg-surface-hover transition-colors rounded-md pb-1" onclick="ordersApp.showOrderDetails('${order.id}')" title="Click to view details">
-                  <div>
-                    <span class="font-extrabold text-xl text-primary">#${order.queueNumber}</span>
-                    <div class="text-xs text-muted mt-0.5 flex items-center gap-1"><i data-lucide="clock" style="width:12px;height:12px;"></i> ${new Date(order.createdAt).toLocaleTimeString()}</div>
-                  </div>
-                  <div class="flex flex-col items-end gap-2">
-                    <span class="badge ${badgeClass} shadow-sm px-2 py-1">${statusLabels[order.status] || order.status}</span>
-                    <div class="text-xs font-medium text-muted flex items-center gap-1">${itemCount} Items</div>
-                  </div>
+        `;
+
+        if (order.customOrderText && (!order.items || order.items.length === 0)) {
+            itemsHtml += `
+        <div class="text-sm border p-3 rounded-lg bg-surface-hover mt-3 shadow-sm">
+            <strong class="flex items-center gap-1 mb-1 text-muted-foreground uppercase tracking-wider text-xs"><i data-lucide="pen-tool" style="width:14px;height:14px;"></i> Custom Request</strong>
+            <div class="text-foreground font-medium">${this._escHtml(order.customOrderText)}</div>
+        </div>
+    `;
+        }
+
+// Customer note
+        let noteHtml = order.customerNote
+            ? `
+        <div class="text-sm bg-warning/10 text-warning-foreground mt-3 p-3 rounded-lg border border-warning/20 flex flex-col gap-1.5 shadow-sm">
+            <strong class="flex items-center gap-1 text-xs uppercase tracking-wider opacity-80"><i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Customer Note</strong>
+            <span class="font-medium leading-snug">${this._escHtml(order.customerNote)}</span>
+        </div>
+      `
+            : '';
+
+// Metadata
+        let metadataHtml = '';
+
+        if (order.metadata && Object.keys(order.metadata).length > 0) {
+            metadataHtml = `
+        <div class="text-xs text-muted mt-3 grid grid-cols-2 gap-3 bg-surface p-3 rounded-lg border border-border shadow-sm">
+            ${Object.entries(order.metadata)
+                .map(([k, v]) => `
+                    <div class="flex flex-col gap-0.5">
+                        <span class="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">${this._escHtml(k)}</span>
+                        <span class="font-medium text-foreground text-sm">${this._escHtml(v)}</span>
+                    </div>
+                `)
+                .join('')}
+        </div>
+    `;
+        }
+
+// Payment status
+        let paymentHtml = hasPriceAccess
+            ? `
+        <div class="text-sm font-semibold text-danger mt-3 flex items-center justify-center gap-2 p-2.5 rounded-lg bg-danger/10 border border-danger/20 shadow-sm">
+            <i data-lucide="wallet" style="width:16px;height:16px;"></i>
+            Unpaid (Pay at counter)
+        </div>
+      `
+            : '';
+
+// Final card
+        html += `
+    <div class="card p-0 flex flex-col overflow-hidden transition-shadow hover:shadow-md"
+         style="border-left:4px solid ${borderColor}; min-height:220px;">
+
+        <!-- Header -->
+        <div class="p-4 flex-1">
+
+            <div class="flex justify-between items-start mb-3 pb-2 border-b border-border">
+
+                <div>
+                    <span class="font-extrabold ${isKitchen ? 'text-2xl' : 'text-xl'} text-primary">
+                        #${order.queueNumber}
+                    </span>
+
+                    <div class="text-xs text-muted mt-1 flex items-center gap-1">
+                        <i data-lucide="clock" style="width:12px;height:12px;"></i>
+                        ${new Date(order.createdAt).toLocaleTimeString()}
+                    </div>
                 </div>
-              </div>
-              
-              <div class="p-4 bg-surface-hover/50 border-t border-border mt-auto">
-                <div class="flex justify-between items-center mb-3 text-sm">
-                  <span class="font-medium text-muted">Total Amount</span>
-                  <span class="font-extrabold text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
+
+                <div class="flex flex-col items-end gap-2">
+                    <span class="badge ${badgeClass} shadow-sm px-2 py-1">
+                        ${statusLabels[order.status] || order.status}
+                    </span>
                 </div>
-                <div class="flex gap-2 w-full">
-                  ${actionsHtml}
-                </div>
-              </div>
             </div>
-          `;
-      }
+
+            <!-- Items -->
+            <div class="order-items-list overflow-y-auto"
+                 style="max-height:250px;">
+
+                ${itemsHtml}
+                ${noteHtml}
+                ${metadataHtml}
+                ${paymentHtml}
+
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 bg-surface-hover/50 border-t border-border">
+
+            ${
+            hasPriceAccess
+                ? `
+                        <div class="flex justify-between items-center mb-3 text-sm">
+                            <span class="font-medium text-muted">
+                                Total Amount
+                            </span>
+
+                            <span class="font-extrabold text-lg text-primary">
+                                ₹${order.totalAmount.toFixed(2)}
+                            </span>
+                        </div>
+                      `
+                : ''
+        }
+
+            <div class="flex gap-2 w-full">
+                ${actionsHtml}
+            </div>
+
+        </div>
+    </div>
+`;
     });
 
     grid.innerHTML = html;
@@ -284,19 +373,22 @@ class Orders {
     const phone = user.phone || '';
     const email = user.email || '';
     
-    // Calculate values
-    const subtotal = order.items ? order.items.reduce((sum, item) => sum + item.totalPrice, 0) : order.totalAmount;
+    // Read from order or fallback to settings
+    const subtotal = order.subtotal != null ? order.subtotal : (order.items ? order.items.reduce((sum, item) => sum + item.totalPrice, 0) : order.totalAmount);
     
-    // Read from settings
     const settings = user.settings || {};
-    const taxName = settings.taxName || 'Tax';
-    const taxPct = settings.taxPercentage || 0;
-    const chargeAmt = settings.additionalCharges || 0;
-    const chargeName = settings.additionalChargeName || 'Service Charge';
-    const gstNumber = settings.gstNumber || '';
+    const taxName = order.taxName || settings.taxName || 'Tax';
+    const taxValue = order.taxAmount != null ? order.taxAmount : ((subtotal * (settings.taxPercentage || 0)) / 100);
+    const taxPct = settings.taxPercentage || 0; // only used for label if fallback
     
-    const taxValue = (subtotal * taxPct) / 100;
-    let computedTotal = subtotal + taxValue + chargeAmt;
+    const chargeName = order.serviceChargeName || settings.additionalChargeName || 'Service Charge';
+    const chargeAmt = order.serviceChargeAmount != null ? order.serviceChargeAmount : (settings.additionalCharges || 0);
+    
+    const couponName = order.couponCode ? `Coupon (${order.couponCode})` : 'Coupon Discount';
+    const couponDiscount = order.couponDiscount || 0;
+    
+    let computedTotal = order.totalAmount != null ? order.totalAmount : (subtotal + taxValue + chargeAmt - couponDiscount);
+    const gstNumber = settings.gstNumber || '';
 
     const items = (order.items || []).map(i => `
       <tr>
@@ -351,8 +443,12 @@ class Orders {
             <td>Subtotal</td>
             <td style="text-align:right">₹${subtotal.toFixed(2)}</td>
         </tr>
-        ${taxPct > 0 ? `<tr>
-            <td>${this._escHtml(taxName)} (${taxPct}%)</td>
+        ${couponDiscount > 0 ? `<tr>
+            <td>${this._escHtml(couponName)}</td>
+            <td style="text-align:right">-₹${couponDiscount.toFixed(2)}</td>
+        </tr>` : ''}
+        ${taxValue > 0 ? `<tr>
+            <td>${this._escHtml(taxName)} ${order.taxAmount == null && taxPct > 0 ? '('+taxPct+'%)' : ''}</td>
             <td style="text-align:right">₹${taxValue.toFixed(2)}</td>
         </tr>` : ''}
         ${chargeAmt > 0 ? `<tr>
@@ -418,8 +514,8 @@ class Orders {
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : null;
     const isKitchen = user && (
-      (user.roleName && user.roleName.toUpperCase() === 'KITCHEN') || 
-      (user.role && typeof user.role === 'string' && user.role.toUpperCase() === 'KITCHEN') || 
+      (user.roleName && user.roleName.toUpperCase() === 'KITCHEN') ||
+      (user.role && typeof user.role === 'string' && user.role.toUpperCase() === 'KITCHEN') ||
       (user.role && user.role.name && user.role.name.toUpperCase() === 'KITCHEN') ||
       (user.roles && Array.isArray(user.roles) && user.roles.some(r => (typeof r === 'string' && r.toUpperCase() === 'KITCHEN') || (r.name && r.name.toUpperCase() === 'KITCHEN')))
     );
@@ -444,7 +540,7 @@ class Orders {
           if (item.specialInstructions) {
               customHtml += `<div class="text-xs text-warning mt-1 font-medium" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="message-square" style="width:12px;height:12px;"></i> "${this._escHtml(item.specialInstructions)}"</div>`;
           }
-          
+
           if (isKitchen) {
             itemsHtml += `
               <div class="flex justify-between items-start mb-3 pb-2 border-b border-border last:border-0 last:mb-0 last:pb-0 text-sm">
@@ -490,12 +586,29 @@ class Orders {
           ${Object.entries(order.metadata).map(([k, v]) => `<div><span class="font-medium">${this._escHtml(k)}:</span> ${this._escHtml(v)}</div>`).join('')}
         </div>`;
     }
-    
+
     let amountHtml = '';
     if (!isKitchen) {
-       amountHtml = `<div class="flex justify-between items-center mt-4 pt-3 border-t border-border text-sm">
-          <span class="font-medium">Total Amount</span>
-          <span class="font-extrabold text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
+       let breakdownHtml = '';
+       if (order.subtotal != null) {
+           breakdownHtml += `<div class="flex justify-between text-sm mb-1 text-muted"><span>Subtotal</span><span>₹${order.subtotal.toFixed(2)}</span></div>`;
+       }
+       if (order.couponDiscount != null && order.couponDiscount > 0) {
+           breakdownHtml += `<div class="flex justify-between text-sm mb-1 text-success font-medium"><span>Coupon Discount${order.couponCode ? ' ('+this._escHtml(order.couponCode)+')' : ''}</span><span>-₹${order.couponDiscount.toFixed(2)}</span></div>`;
+       }
+       if (order.taxAmount != null && order.taxAmount > 0) {
+           breakdownHtml += `<div class="flex justify-between text-sm mb-1 text-muted"><span>${this._escHtml(order.taxName || 'Tax')}</span><span>₹${order.taxAmount.toFixed(2)}</span></div>`;
+       }
+       if (order.serviceChargeAmount != null && order.serviceChargeAmount > 0) {
+           breakdownHtml += `<div class="flex justify-between text-sm mb-1 text-muted"><span>${this._escHtml(order.serviceChargeName || 'Service Charge')}</span><span>₹${order.serviceChargeAmount.toFixed(2)}</span></div>`;
+       }
+
+       amountHtml = `<div class="mt-4 pt-3 border-t border-border">
+          ${breakdownHtml}
+          <div class="flex justify-between items-center text-sm font-bold mt-2 pt-2 border-t border-border">
+             <span>Total Amount</span>
+             <span class="text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
+          </div>
        </div>
        <div class="flex items-center gap-1 text-xs font-semibold text-danger mt-1 mb-1"><i data-lucide="wallet" style="width:14px;height:14px;"></i> Unpaid (Pay at counter)</div>`;
     }

@@ -59,7 +59,28 @@ public class CustomUserDetailsService implements UserDetailsService {
         List<OrderStatus> orderVisibilityStatuses = new ArrayList<>();
 
         if (staff.getRoles() != null && !staff.getRoles().isEmpty()) {
-            List<RbacRole> roles = rbacRoleRepository.findByVendorIdAndNameIn(staff.getVendorId(), staff.getRoles());
+            List<String> roleNames = new ArrayList<>();
+            List<String> roleIds = new ArrayList<>();
+            for (String r : staff.getRoles()) {
+                if (r != null && r.length() == 24 && r.matches("^[0-9a-fA-F]{24}$")) {
+                    roleIds.add(r);
+                } else if (r != null) {
+                    roleNames.add(r);
+                }
+            }
+
+            List<RbacRole> roles = new ArrayList<>();
+            if (!roleNames.isEmpty()) {
+                roles.addAll(rbacRoleRepository.findByVendorIdAndNameIn(staff.getVendorId(), roleNames));
+            }
+            if (!roleIds.isEmpty()) {
+                rbacRoleRepository.findAllById(roleIds).forEach(role -> {
+                    if (role != null && staff.getVendorId().equals(role.getVendorId())) {
+                        roles.add(role);
+                    }
+                });
+            }
+
             java.util.Set<String> permissionKeys = new java.util.LinkedHashSet<>();
             java.util.Set<OrderStatus> visibilityStatuses = new java.util.LinkedHashSet<>();
 
@@ -71,6 +92,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                     visibilityStatuses.addAll(role.getOrderVisibility().getStatuses());
                 }
             }
+
             effectivePermissions = new ArrayList<>(permissionKeys);
             orderVisibilityStatuses = new ArrayList<>(visibilityStatuses);
         }

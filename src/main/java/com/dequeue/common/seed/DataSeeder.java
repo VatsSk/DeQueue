@@ -71,19 +71,19 @@ public class DataSeeder implements CommandLineRunner {
 
         // ── 4. Seed Roles ─────────────────────────────────────────────────
         saveRole(vendorId, "ROLE_VENDOR_ADMIN", "Full access for the vendor administrator",
-                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "report.view"),
+                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"),
                 Arrays.asList(OrderStatus.values()));
 
         saveRole(vendorId, "ROLE_VENDOR_MANAGER", "Full access for the vendor manager",
-                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "report.view"),
+                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"),
                 Arrays.asList(OrderStatus.values()));
 
         saveRole(vendorId, "ROLE_VENDOR_KITCHEN", "Kitchen staff can see and progress orders",
-                List.of("order.view", "order.accept", "order.prepare", "order.ready"),
+                List.of("order.view", "order.prepare", "order.ready"),
                 List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY));
 
         saveRole(vendorId, "ROLE_VENDOR_COUNTER", "Counter staff can complete ready orders",
-                List.of("order.view", "order.complete", "order.cancel"),
+                List.of("order.view", "order.complete", "order.cancel", "order.print"),
                 List.of(OrderStatus.READY));
 
         logger.info("Seeded static roles in database for vendor: {}", vendorId);

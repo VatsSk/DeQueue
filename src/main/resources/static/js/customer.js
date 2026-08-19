@@ -293,12 +293,12 @@ class CustomerApp {
             if (group.required && inputs.length === 0) {
                 missingRequired = true;
             }
-            inputs.forEach(input => {
+             inputs.forEach(input => {
                 customizations.push({
-                    groupId: group.id,
                     optionName: input.value,
                     additionalPrice: parseFloat(input.dataset.price || 0),
-                    groupName: input.dataset.groupName
+                    groupName: input.dataset.groupName,
+                    groupId: group.id
                 });
             });
         });
@@ -378,15 +378,68 @@ class CustomerApp {
     if (!cartBtn) return;
 
     const totalItems = this.cart.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPrice = this.cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    const subtotal = this.cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    
+    let finalTotal = subtotal;
+    const settings = this.vendor?.settings || {};
+    
+    // Tax
+    if (settings.taxPercentage && settings.taxPercentage > 0) {
+        finalTotal += (subtotal * settings.taxPercentage) / 100;
+    }
+    // Additional charge
+    if (settings.additionalCharges && settings.additionalCharges > 0) {
+        finalTotal += settings.additionalCharges;
+    }
+    // Coupon
+    if (this.appliedCoupon) {
+        let discount = 0;
+        if (this.appliedCoupon.type === 'PERCENTAGE') {
+            discount = (subtotal * this.appliedCoupon.value) / 100;
+        } else {
+            discount = this.appliedCoupon.value;
+        }
+        finalTotal -= discount;
+    }
+    if (finalTotal < 0) finalTotal = 0;
 
     if (totalItems > 0) {
       document.getElementById('cart-count').innerText = `${totalItems} Item${totalItems > 1 ? 's' : ''}`;
-      document.getElementById('cart-total').innerText = this.formatPrice(totalPrice);
+      document.getElementById('cart-total').innerText = this.formatPrice(finalTotal);
       cartBtn.classList.add('visible');
     } else {
       cartBtn.classList.remove('visible');
     }
+  }
+
+  applyCoupon() {
+    const input = document.getElementById('cart-coupon-input');
+    if (!input) return;
+    const code = input.value.trim().toUpperCase();
+    if (!code) return;
+    
+    const settings = this.vendor?.settings || {};
+    if (!settings.coupons) {
+        if (typeof showToast === 'function') showToast('Invalid coupon code', 'error');
+        return;
+    }
+    
+    const coupon = settings.coupons.find(c => c.code.toUpperCase() === code);
+    if (!coupon) {
+        if (typeof showToast === 'function') showToast('Invalid coupon code', 'error');
+        return;
+    }
+    
+    this.appliedCoupon = coupon;
+    this.updateCartUI();
+    this.renderCartModal();
+    if (typeof showToast === 'function') showToast('Coupon applied', 'success');
+  }
+
+  removeCoupon() {
+    this.appliedCoupon = null;
+    this.updateCartUI();
+    this.renderCartModal();
   }
 
   renderCartModal() {
@@ -404,6 +457,82 @@ class CustomerApp {
     }
 
     const total = this.cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    let finalTotal = total;
+    let taxHtml = '';
+    let chargeHtml = '';
+    let couponHtml = '';
+    let couponInputHtml = '';
+    
+    // Tax and Additional Charges
+    const settings = this.vendor?.settings || {};
+    const taxPct = settings.taxPercentage || 0;
+    const taxName = settings.taxName || 'Tax';
+    const chargeAmt = settings.additionalCharges || 0;
+    const chargeName = settings.additionalChargeName || 'Service Charge';
+    
+    let taxAmount = 0;
+    if (taxPct > 0) {
+        taxAmount = (total * taxPct) / 100;
+        taxHtml = `<div class="flex justify-between text-sm mb-1 text-muted">
+          <span>${this._escHtml(taxName)} (${taxPct}%)</span>
+          <span>${this.formatPrice(taxAmount)}</span>
+        </div>`;
+    }
+    
+    if (chargeAmt > 0) {
+        chargeHtml = `<div class="flex justify-between text-sm mb-1 text-muted">
+          <span>${this._escHtml(chargeName)}</span>
+          <span>${this.formatPrice(chargeAmt)}</span>
+        </div>`;
+    }
+    
+    // Coupons
+    let couponDiscount = 0;
+    if (settings.coupons && settings.coupons.length > 0) {
+        // Render Coupon Input
+        couponInputHtml = `
+          <div class="mb-3">
+             <div class="flex gap-2">
+                 <input type="text" id="cart-coupon-input" class="form-control" placeholder="Enter coupon code" style="text-transform:uppercase" ${this.appliedCoupon ? 'disabled value="'+this._escHtml(this.appliedCoupon.code)+'"' : ''}>
+                 ${this.appliedCoupon ? 
+                   `<button class="btn btn-secondary" onclick="customerApp.removeCoupon()">Remove</button>` : 
+                   `<button class="btn btn-secondary" onclick="customerApp.applyCoupon()">Apply</button>`}
+             </div>
+             ${this.appliedCoupon ? `<div class="text-xs text-success mt-1"><i data-lucide="check" style="width:12px;height:12px;display:inline"></i> Coupon applied</div>` : ''}
+          </div>
+        `;
+        
+        if (this.appliedCoupon) {
+            if (this.appliedCoupon.type === 'PERCENTAGE') {
+                couponDiscount = (total * this.appliedCoupon.value) / 100;
+            } else {
+                couponDiscount = this.appliedCoupon.value;
+            }
+            if (couponDiscount > total) couponDiscount = total;
+            
+            couponHtml = `<div class="flex justify-between text-sm mb-1 text-success font-medium">
+              <span>Coupon (${this._escHtml(this.appliedCoupon.code)})</span>
+              <span>-${this.formatPrice(couponDiscount)}</span>
+            </div>`;
+        }
+    } else {
+        // If vendor has no coupons enabled, clear any applied coupon
+        this.appliedCoupon = null;
+    }
+    
+    finalTotal = total - couponDiscount + taxAmount + chargeAmt;
+    if (finalTotal < 0) finalTotal = 0;
+    
+    // Save computed payment values to instance so placeOrder can use them
+    this._currentCheckout = {
+        subtotal: total,
+        taxAmount: taxAmount,
+        taxName: taxPct > 0 ? taxName : null,
+        serviceChargeAmount: chargeAmt > 0 ? chargeAmt : null,
+        serviceChargeName: chargeAmt > 0 ? chargeName : null,
+        couponCode: this.appliedCoupon ? this.appliedCoupon.code : null,
+        couponDiscount: couponDiscount > 0 ? couponDiscount : null
+    };
 
     let cfHtml = '';
     if (this.vendor?.settings?.customFields && this.vendor.settings.customFields.length > 0) {
@@ -472,16 +601,27 @@ class CustomerApp {
         }).join('')}
       </div>
 
-      <div class="cart-total-row">
-        <span>Total</span>
-        <span>${this.formatPrice(total)}</span>
+      <div class="border-t border-border pt-3 mb-3">
+        <div class="flex justify-between text-sm mb-1">
+          <span>Subtotal</span>
+          <span>${this.formatPrice(total)}</span>
+        </div>
+        ${couponHtml}
+        ${taxHtml}
+        ${chargeHtml}
+        <div class="flex justify-between font-bold text-lg mt-2 pt-2 border-t border-border">
+          <span>Total</span>
+          <span>${this.formatPrice(finalTotal)}</span>
+        </div>
       </div>
+      
+      ${couponInputHtml}
 
       <!-- Payment Method Section -->
       <div class="card mt-3 mb-3" style="padding:1rem;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);">
         <div class="flex justify-between items-center mb-2">
           <span class="font-bold" style="font-size:.9rem;">Amount to Pay</span>
-          <span class="font-bold text-primary" style="font-size:1.2rem;">${this.formatPrice(total)}</span>
+          <span class="font-bold text-primary" style="font-size:1.2rem;">${this.formatPrice(finalTotal)}</span>
         </div>
         <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:.75rem;">Payment Method (select at counter)</div>
         <label class="flex items-center gap-2" style="font-size:.9rem;">
@@ -504,7 +644,7 @@ class CustomerApp {
       <button id="place-order-btn" class="btn btn-primary w-full" onclick="customerApp.placeOrder()"
         style="padding: 1rem; font-size: 1rem; font-weight: 600; letter-spacing: 0.02em;">
         <i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i>
-        Place Order — ${this.formatPrice(total)}
+        Place Order — ${this.formatPrice(finalTotal)}
       </button>
     `;
     
@@ -570,7 +710,7 @@ class CustomerApp {
                 groupedCusts[c.groupId].selectedOptionNames.push(c.optionName);
             }
         });
-        
+
         return {
           menuItemId: item.menuItemId,
           quantity: item.quantity,
@@ -578,7 +718,8 @@ class CustomerApp {
         };
       }),
       customerNote: note,
-      metadata: metadata
+      metadata: metadata,
+      ...(this._currentCheckout || {})
     };
 
     try {
@@ -1206,16 +1347,23 @@ class CustomerApp {
     const phone = this.vendor?.phone || '';
     const email = this.vendor?.email || '';
 
+    // Fallback to settings if not populated on order
     const settings = this.vendor?.settings || {};
-    const taxPct = settings.taxPercentage || 0;
-    const taxName = settings.taxName || 'Tax';
-    const chargeAmt = settings.additionalCharges || 0;
-    const chargeName = settings.additionalChargeName || 'Service Charge';
+    
+    const subtotal = order.subtotal != null ? order.subtotal : (order.items ? order.items.reduce((sum, item) => sum + item.totalPrice, 0) : order.totalAmount);
+    
+    const taxName = order.taxName || settings.taxName || 'Tax';
+    const taxValue = order.taxAmount != null ? order.taxAmount : ((subtotal * (settings.taxPercentage || 0)) / 100);
+    const taxPct = settings.taxPercentage || 0; // used for fallback label
+    
+    const chargeName = order.serviceChargeName || settings.additionalChargeName || 'Service Charge';
+    const chargeAmt = order.serviceChargeAmount != null ? order.serviceChargeAmount : (settings.additionalCharges || 0);
+    
+    const couponName = order.couponCode ? `Coupon (${order.couponCode})` : 'Coupon Discount';
+    const couponDiscount = order.couponDiscount || 0;
+    
+    const computedTotal = order.totalAmount != null ? order.totalAmount : (subtotal + taxValue + chargeAmt - couponDiscount);
     const gstNumber = settings.gstNumber || '';
-
-    const subtotal = order.items ? order.items.reduce((sum, item) => sum + item.totalPrice, 0) : order.totalAmount;
-    const taxValue = (subtotal * taxPct) / 100;
-    let computedTotal = subtotal + taxValue + chargeAmt;
 
     const items = (order.items || []).map(i => `
       <tr>
@@ -1287,8 +1435,12 @@ class CustomerApp {
             <td>Subtotal</td>
             <td style="text-align:right">₹${subtotal.toFixed(2)}</td>
         </tr>
-        ${taxPct > 0 ? `<tr>
-            <td>${this._escHtml(taxName)} (${taxPct}%)</td>
+        ${couponDiscount > 0 ? `<tr>
+            <td>${this._escHtml(couponName)}</td>
+            <td style="text-align:right">-₹${couponDiscount.toFixed(2)}</td>
+        </tr>` : ''}
+        ${taxValue > 0 ? `<tr>
+            <td>${this._escHtml(taxName)} ${order.taxAmount == null && taxPct > 0 ? '('+taxPct+'%)' : ''}</td>
             <td style="text-align:right">₹${taxValue.toFixed(2)}</td>
         </tr>` : ''}
         ${chargeAmt > 0 ? `<tr>

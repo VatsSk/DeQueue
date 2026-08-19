@@ -106,7 +106,7 @@ public class AuthServiceImpl implements AuthService {
                 .vendorId(vendor.getId())
                 .name("ROLE_VENDOR_ADMIN")
                 .description("Full access for the vendor administrator")
-                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "report.view"))
+                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"))
                 .orderVisibility(OrderVisibility.builder().statuses(Arrays.asList(OrderStatus.values())).build())
                 .active(true)
                 .build());
@@ -116,7 +116,7 @@ public class AuthServiceImpl implements AuthService {
                 .vendorId(vendor.getId())
                 .name("ROLE_VENDOR_MANAGER")
                 .description("Full access for the vendor manager")
-                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "report.view"))
+                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"))
                 .orderVisibility(OrderVisibility.builder().statuses(Arrays.asList(OrderStatus.values())).build())
                 .active(true)
                 .build());
@@ -126,7 +126,7 @@ public class AuthServiceImpl implements AuthService {
                 .vendorId(vendor.getId())
                 .name("ROLE_VENDOR_KITCHEN")
                 .description("Kitchen staff can see and progress orders")
-                .permissions(List.of("order.view", "order.accept", "order.prepare", "order.ready"))
+                .permissions(List.of("order.view", "order.prepare", "order.ready"))
                 .orderVisibility(OrderVisibility.builder().statuses(List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY)).build())
                 .active(true)
                 .build());
@@ -136,7 +136,7 @@ public class AuthServiceImpl implements AuthService {
                 .vendorId(vendor.getId())
                 .name("ROLE_VENDOR_COUNTER")
                 .description("Counter staff can complete ready orders")
-                .permissions(List.of("order.view", "order.complete", "order.cancel"))
+                .permissions(List.of("order.view", "order.complete", "order.cancel", "order.print"))
                 .orderVisibility(OrderVisibility.builder().statuses(List.of(OrderStatus.READY)).build())
                 .active(true)
                 .build());
@@ -215,7 +215,28 @@ public class AuthServiceImpl implements AuthService {
         List<OrderStatus> visibilityStatuses = new ArrayList<>();
 
         if (staff.getRoles() != null && !staff.getRoles().isEmpty()) {
-            List<RbacRole> roles = rbacRoleRepository.findByVendorIdAndNameIn(staff.getVendorId(), staff.getRoles());
+            List<String> roleNames = new ArrayList<>();
+            List<String> roleIds = new ArrayList<>();
+            for (String r : staff.getRoles()) {
+                if (r != null && r.length() == 24 && r.matches("^[0-9a-fA-F]{24}$")) {
+                    roleIds.add(r);
+                } else if (r != null) {
+                    roleNames.add(r);
+                }
+            }
+
+            List<RbacRole> roles = new ArrayList<>();
+            if (!roleNames.isEmpty()) {
+                roles.addAll(rbacRoleRepository.findByVendorIdAndNameIn(staff.getVendorId(), roleNames));
+            }
+            if (!roleIds.isEmpty()) {
+                rbacRoleRepository.findAllById(roleIds).forEach(role -> {
+                    if (role != null && staff.getVendorId().equals(role.getVendorId())) {
+                        roles.add(role);
+                    }
+                });
+            }
+
             java.util.Set<String> keys = new java.util.LinkedHashSet<>();
             java.util.Set<OrderStatus> statuses = new java.util.LinkedHashSet<>();
 
@@ -227,6 +248,7 @@ public class AuthServiceImpl implements AuthService {
                     statuses.addAll(role.getOrderVisibility().getStatuses());
                 }
             }
+
             permissionKeys = new ArrayList<>(keys);
             visibilityStatuses = new ArrayList<>(statuses);
         }
