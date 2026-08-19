@@ -62,4 +62,7 @@ Order {
     private Instant completedAt;
     private Instant estimatedReadyTime;
     private Instant preparationStartedAt;
+    
+    private Integer rating;
+    private String feedback;
 }

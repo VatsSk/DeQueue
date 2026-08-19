@@ -561,39 +561,40 @@ class CustomerApp {
     }
 
     body.innerHTML = `
-      <div class="cart-items" style="margin-bottom: 1rem;">
+      <div class="cart-items" style="margin-bottom: 1.5rem;">
         ${this.cart.map(item => {
           // thumbnail: Cloudinary image or food emoji placeholder
           const thumb = item.image
             ? `<img src="${item.image}" alt="${item.menuItemName}"
-                style="width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0;">`
-            : `<div style="width:52px;height:52px;border-radius:10px;background:var(--surface-hover);
-                display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.5rem;">
+                style="width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0;box-shadow:0 2px 4px rgba(0,0,0,0.05);">`
+            : `<div style="width:64px;height:64px;border-radius:12px;background:var(--surface);border:1px solid var(--border);
+                display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.8rem;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
                 🍽️
                </div>`;
 
           // customization summary
           const custLines = item.customizations && item.customizations.length > 0
-            ? item.customizations.map(c => `<span class="cart-cust-chip">${c.optionName || c.groupName || ''}</span>`).join('')
+            ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${item.customizations.map(c => `<span style="background:var(--primary); background-opacity:0.1; color:var(--primary); border:1px solid var(--primary); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">+ ${c.optionName || c.groupName}</span>`).join('')}</div>`
             : '';
 
           return `
-          <div class="cart-item-row" data-cart-id="${item.cartId}">
+          <div class="cart-item-row" data-cart-id="${item.cartId}" style="display:flex; gap:12px; padding:12px; background:var(--surface-hover); border-radius:12px; margin-bottom:12px; border:1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
             ${thumb}
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.menuItemName}</div>
-              ${custLines ? `<div class="cart-cust-chips">${custLines}</div>` : ''}
-              <div style="font-size:0.85rem;color:var(--text-muted);">${this.formatPrice(item.unitPrice)} each</div>
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:center; min-width:0;">
+              <div style="font-weight:700; font-size:1rem; line-height:1.2; color:var(--foreground); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.menuItemName}</div>
+              <div style="font-size:0.8rem; color:var(--text-muted); font-weight:500;">${this.formatPrice(item.unitPrice)} each</div>
+              ${custLines}
+              ${item.instruction ? `<div style="font-size:11px; color:#d97706; margin-top:6px; background:#fef3c7; padding:4px 8px; border-radius:4px; display:inline-block; border-left:2px solid #f59e0b;"><i data-lucide="pen-tool" style="width:10px;height:10px;display:inline;"></i> ${this._escHtml(item.instruction)}</div>` : ''}
             </div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem;flex-shrink:0;">
-              <span style="font-weight:700;color:var(--primary);">${this.formatPrice(item.unitPrice * item.quantity)}</span>
-              <div class="cart-qty-ctrl">
-                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, -1)" style="padding:2px;width:26px;height:26px;min-height:26px;">
-                  <i data-lucide="minus" style="width:12px;height:12px;"></i>
+            <div style="display:flex; flex-direction:column; justify-content:space-between; align-items:flex-end; min-width:90px;">
+              <div style="font-weight:800; font-size:1.05rem; color:var(--primary);">${this.formatPrice(item.unitPrice * item.quantity)}</div>
+              <div style="display:flex; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:2px; margin-top:8px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                <button onclick="customerApp.updateQuantity(${item.cartId}, -1)" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; cursor:pointer; color:var(--danger);">
+                  <i data-lucide="${item.quantity === 1 ? 'trash-2' : 'minus'}" style="width:14px; height:14px;"></i>
                 </button>
-                <span style="font-weight:600;min-width:1.25rem;text-align:center;">${item.quantity}</span>
-                <button class="btn-icon" onclick="customerApp.updateQuantity(${item.cartId}, 1)" style="padding:2px;width:26px;height:26px;min-height:26px;">
-                  <i data-lucide="plus" style="width:12px;height:12px;"></i>
+                <span style="font-weight:700; font-size:14px; min-width:32px; text-align:center; color:var(--foreground);">${item.quantity}</span>
+                <button onclick="customerApp.updateQuantity(${item.cartId}, 1)" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; cursor:pointer; color:var(--success);">
+                  <i data-lucide="plus" style="width:14px; height:14px;"></i>
                 </button>
               </div>
             </div>
@@ -797,7 +798,7 @@ class CustomerApp {
 
       if (data.success) {
         this.activeOrder = data.data;
-        if (data.data.status === 'COLLECTED' || data.data.status === 'CANCELLED') {
+        if (data.data.status === 'COMPLETED' || data.data.status === 'CANCELLED') {
           localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
           await this.loadVendor();
           
@@ -811,9 +812,11 @@ class CustomerApp {
               document.getElementById('thank-you-icon').setAttribute('class', 'text-warning');
           } else {
               document.getElementById('thank-you-title').textContent = 'Thank You!';
-              document.getElementById('thank-you-message').textContent = 'Your order has been successfully collected. Please visit us again!';
+              document.getElementById('thank-you-message').textContent = 'Your order has been successfully completed. Please visit us again!';
               document.getElementById('thank-you-icon').setAttribute('data-lucide', 'heart');
               document.getElementById('thank-you-icon').setAttribute('class', 'text-danger');
+              // Save completed order for feedback
+              this.completedOrder = data.data;
           }
           if (typeof lucide !== 'undefined') lucide.createIcons();
           
@@ -1073,23 +1076,19 @@ class CustomerApp {
       const notifications = {
         READY: {
           title: 'Order Ready! 🍔',
-          body: `Your order #${this.activeOrder?.queueNumber || ''} is ready for collection.`,
-          icon: '/images/icon-192.png'
+          body: `Your order #${this.activeOrder?.queueNumber || ''} is ready for collection.`
         },
         PREPARING: {
           title: 'Order Preparing 👨‍🍳',
-          body: `Your order #${this.activeOrder?.queueNumber || ''} is now being prepared.`,
-          icon: '/images/icon-192.png'
+          body: `Your order #${this.activeOrder?.queueNumber || ''} is now being prepared.`
         },
         CANCELLED: {
           title: 'Order Cancelled',
-          body: `Your order #${this.activeOrder?.queueNumber || ''} has been cancelled.`,
-          icon: '/images/icon-192.png'
+          body: `Your order #${this.activeOrder?.queueNumber || ''} has been cancelled.`
         },
         COLLECTED: {
           title: 'Order Collected',
-          body: 'Thank you! Your order has been collected.',
-          icon: '/images/icon-192.png'
+          body: 'Thank you! Your order has been collected.'
         }
       };
     
@@ -1100,7 +1099,6 @@ class CustomerApp {
       try {
         const options = {
           body: notification.body,
-          icon: notification.icon,
           tag: `dequeue-order-${this.activeOrder?.id || this.activeOrder?.queueNumber}`,
           renotify: true
         };
@@ -1121,10 +1119,50 @@ class CustomerApp {
       }
   }
 
-  submitFeedback() {
-      const text = document.getElementById('feedback-text')?.value;
-      if (text) {
+  setRating(val) {
+      this.currentRating = val;
+      const stars = document.querySelectorAll('#star-rating .star-icon');
+      stars.forEach((star, index) => {
+          if (index < val) {
+              star.classList.remove('text-muted');
+              star.classList.add('fill-warning', 'text-warning');
+          } else {
+              star.classList.add('text-muted');
+              star.classList.remove('fill-warning', 'text-warning');
+          }
+      });
+  }
+
+  async submitFeedback() {
+      const text = document.getElementById('feedback-text')?.value || '';
+      const rating = this.currentRating || 0;
+      
+      if (!rating && !text) {
+          if (typeof showToast === 'function') showToast('Please provide a rating or some text.', 'warning');
+          return;
+      }
+      
+      if (this.completedOrder && this.completedOrder.queueNumber) {
+          try {
+              const res = await fetch(`/api/v1/public/orders/${this.vendorCode}/feedback/${this.completedOrder.queueNumber}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ rating: rating, feedback: text })
+              });
+              const data = await res.json();
+              if (data.success) {
+                  if (typeof showToast === 'function') showToast('Thank you for your feedback!', 'success');
+              } else {
+                  if (typeof showToast === 'function') showToast('Feedback submitted.', 'info');
+              }
+          } catch(e) {
+              console.error('Failed to submit feedback', e);
+          }
+      } else {
           if (typeof showToast === 'function') showToast('Thank you for your feedback!', 'success');
+      }
+      
+      if (document.getElementById('feedback-text')) {
           document.getElementById('feedback-text').value = '';
       }
       this.startNewOrder();

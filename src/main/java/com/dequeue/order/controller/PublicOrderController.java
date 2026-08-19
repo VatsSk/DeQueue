@@ -59,4 +59,12 @@ public class PublicOrderController {
             @RequestHeader(value = "X-Session-Token", required = false) String sessionToken) {
         return ApiResponse.success(orderService.cancelOrder(vendorCode, queueNumber, sessionToken));
     }
+
+    @PostMapping("/{vendorCode}/feedback/{queueNumber}")
+    public ApiResponse<OrderResponse> submitFeedback(
+            @PathVariable String vendorCode,
+            @PathVariable String queueNumber,
+            @RequestBody com.dequeue.order.dto.FeedbackRequest request) {
+        return ApiResponse.success(orderService.submitFeedback(vendorCode, queueNumber, request));
+    }
 }

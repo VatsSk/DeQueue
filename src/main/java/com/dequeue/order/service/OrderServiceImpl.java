@@ -388,6 +388,29 @@ public class OrderServiceImpl implements OrderService {
         return performTransition(order, OrderStatus.CANCELLED, "customer", "Customer", null);
     }
 
+    @Override
+    public OrderResponse submitFeedback(String vendorCode, String queueNumber, FeedbackRequest request) {
+        Vendor vendor = vendorRepository.findByVendorCode(vendorCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+
+        Order order = orderRepository.findByVendorIdAndQueueNumber(vendor.getId(), queueNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        if (order.getStatus() != OrderStatus.COMPLETED) {
+            throw new BadRequestException("Feedback can only be submitted for completed orders");
+        }
+
+        if (request.getRating() != null) {
+            order.setRating(request.getRating());
+        }
+        if (request.getFeedback() != null) {
+            order.setFeedback(request.getFeedback());
+        }
+
+        order = orderRepository.save(order);
+        return orderMapper.toResponse(order);
+    }
+
     // ────────────────── private helpers ──────────────────
 
     private Order getVendorOrder(String vendorId, String orderId) {

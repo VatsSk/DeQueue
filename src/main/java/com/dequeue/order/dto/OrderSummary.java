@@ -16,4 +16,6 @@ public class OrderSummary {
     private Instant completedAt;
     private Instant estimatedReadyTime;
     private java.util.Map<String, String> metadata;
+    private Integer rating;
+    private String feedback;
 }

@@ -37,4 +37,5 @@ public interface OrderService {
     OrderResponse placeCustomOrder(String vendorCode, CustomOrderRequest request);
     String getCurrentlyServing(String vendorCode);
     OrderResponse cancelOrder(String vendorCode, String queueNumber, String sessionToken);
+    OrderResponse submitFeedback(String vendorCode, String queueNumber, FeedbackRequest request);
 }

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class RedisOrderEventPublisher {
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
 
     @Value("${dequeue.notification.channel:dequeue:order-status}")
@@ -22,7 +22,7 @@ public class RedisOrderEventPublisher {
     public void publishOrderStatusEvent(OrderStatusEvent event) {
         try {
             String message = objectMapper.writeValueAsString(event);
-            redisTemplate.convertAndSend(channel, message);
+            stringRedisTemplate.convertAndSend(channel, message);
             log.debug("Published order status event to Redis: orderId={}, status={}", event.getOrderId(), event.getStatus());
         } catch (Exception e) {
             log.error("Failed to publish order status event to Redis", e);

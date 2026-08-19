@@ -34,5 +34,7 @@ public class OrderResponse {
     private String sessionId;
     private String customerSessionToken;
     private java.util.Map<String, String> metadata;
+    private Integer rating;
+    private String feedback;
 }
 

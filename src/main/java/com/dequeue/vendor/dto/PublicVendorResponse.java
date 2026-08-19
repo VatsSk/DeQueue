@@ -27,5 +27,6 @@ public class PublicVendorResponse {
         private String taxName;
         private Double additionalCharges;
         private String additionalChargeName;
+        private java.util.List<com.dequeue.vendor.entity.Coupon> coupons;
     }
 }

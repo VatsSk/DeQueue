@@ -46,20 +46,31 @@ class Orders {
     const user = userStr ? JSON.parse(userStr) : null;
     const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
     const isPlatformAdmin = user ? user.platformAdmin === true : false;
+    const isVendorAdmin = user && (
+      (user.roleNames && Array.isArray(user.roleNames) && user.roleNames.some(r => typeof r === 'string' && (r.toUpperCase() === 'ROLE_VENDOR_ADMIN' || r.toUpperCase() === 'VENDOR_ADMIN'))) ||
+      (user.roleName && typeof user.roleName === 'string' && (user.roleName.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.roleName.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.role && typeof user.role === 'string' && (user.role.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.role.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.role && user.role.name && (user.role.name.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.role.name.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.roles && Array.isArray(user.roles) && user.roles.some(r => {
+        const rName = typeof r === 'string' ? r : (r.name || '');
+        return rName.toUpperCase() === 'ROLE_VENDOR_ADMIN' || rName.toUpperCase() === 'VENDOR_ADMIN';
+      }))
+    );
+    const hasAdminAccess = isPlatformAdmin || isVendorAdmin;
 
     // Determine tabs based on action permissions
     let tabs = [{ id: 'ALL', label: 'All Active' }];
 
-    if (isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending')) {
+    if (hasAdminAccess || permissions.includes('order.accept') || permissions.includes('order.pending')) {
       tabs.push({ id: 'PENDING', label: 'Pending' });
     }
-    if (isPlatformAdmin || permissions.includes('order.prepare')) {
+    if (hasAdminAccess || permissions.includes('order.prepare')) {
       tabs.push({ id: 'ACCEPTED', label: 'Accepted' });
     }
-    if (isPlatformAdmin || permissions.includes('order.ready')) {
+    if (hasAdminAccess || permissions.includes('order.ready')) {
       tabs.push({ id: 'PREPARING', label: 'Preparing' });
     }
-    if (isPlatformAdmin || permissions.includes('order.complete')) {
+    if (hasAdminAccess || permissions.includes('order.complete')) {
       tabs.push({ id: 'READY', label: 'Ready' });
     }
 
@@ -145,7 +156,28 @@ class Orders {
     const user = userStr ? JSON.parse(userStr) : null;
     const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
     const isPlatformAdmin = user ? user.platformAdmin === true : false;
-    const hasPriceAccess = isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending') || permissions.includes('order.complete');
+    const isVendorAdmin = user && (
+      (user.roleNames && Array.isArray(user.roleNames) && user.roleNames.some(r => typeof r === 'string' && (r.toUpperCase() === 'ROLE_VENDOR_ADMIN' || r.toUpperCase() === 'VENDOR_ADMIN'))) ||
+      (user.roleName && typeof user.roleName === 'string' && (user.roleName.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.roleName.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.role && typeof user.role === 'string' && (user.role.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.role.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.role && user.role.name && (user.role.name.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.role.name.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.roles && Array.isArray(user.roles) && user.roles.some(r => {
+        const rName = typeof r === 'string' ? r : (r.name || '');
+        return rName.toUpperCase() === 'ROLE_VENDOR_ADMIN' || rName.toUpperCase() === 'VENDOR_ADMIN';
+      }))
+    );
+    const isCounterStaff = user && (
+      (user.roleNames && Array.isArray(user.roleNames) && user.roleNames.some(r => typeof r === 'string' && (r.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || r.toUpperCase() === 'VENDORCOUNTER_STAFF'))) ||
+      (user.roleName && typeof user.roleName === 'string' && (user.roleName.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || user.roleName.toUpperCase() === 'VENDORCOUNTER_STAFF')) ||
+      (user.role && typeof user.role === 'string' && (user.role.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || user.role.toUpperCase() === 'VENDORCOUNTER_STAFF')) ||
+      (user.role && user.role.name && (user.role.name.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || user.role.name.toUpperCase() === 'VENDORCOUNTER_STAFF')) ||
+      (user.roles && Array.isArray(user.roles) && user.roles.some(r => {
+        const rName = typeof r === 'string' ? r : (r.name || '');
+        return rName.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || rName.toUpperCase() === 'VENDORCOUNTER_STAFF';
+      }))
+    );
+    const hasAdminAccess = isPlatformAdmin || isVendorAdmin;
+    const hasPriceAccess = hasAdminAccess || permissions.includes('order.accept') || permissions.includes('order.pending') || permissions.includes('order.complete');
 
     const isKitchen = user && (
       (user.roleName && user.roleName.toUpperCase() === 'KITCHEN') ||
@@ -162,7 +194,7 @@ class Orders {
 
       if (order.status === 'PENDING') {
         badgeClass = 'badge-pending';
-        if (isPlatformAdmin || permissions.includes('order.accept') || permissions.includes('order.pending')) {
+        if (hasAdminAccess || permissions.includes('order.accept') || permissions.includes('order.pending')) {
           actionsHtml = `
               <button class="btn btn-danger flex-1" onclick="ordersApp.updateStatus('${order.id}', 'CANCELLED')"><i data-lucide="x" style="width:16px;height:16px;margin-right:4px;"></i> Reject</button>
               <button class="btn btn-primary flex-1" onclick="ordersApp.updateStatus('${order.id}', 'ACCEPTED')"><i data-lucide="check" style="width:16px;height:16px;margin-right:4px;"></i> Accept</button>
@@ -171,40 +203,24 @@ class Orders {
       } else if (order.status === 'ACCEPTED') {
         borderColor = 'var(--warning)';
         badgeClass = 'badge-accepted';
-        if (isPlatformAdmin || permissions.includes('order.prepare')) {
+        if (hasAdminAccess || permissions.includes('order.prepare')) {
           actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'PREPARING')"><i data-lucide="chef-hat" style="width:16px;height:16px;margin-right:4px;"></i> Start Preparing</button>`;
         }
       } else if (order.status === 'PREPARING') {
         borderColor = 'var(--info)';
         badgeClass = 'badge-preparing';
-        if (isPlatformAdmin || permissions.includes('order.ready')) {
+        if (hasAdminAccess || permissions.includes('order.ready')) {
           actionsHtml = `<button class="btn btn-primary w-full" onclick="ordersApp.updateStatus('${order.id}', 'READY')"><i data-lucide="bell-ring" style="width:16px;height:16px;margin-right:4px;"></i> Mark Ready</button>`;
         }
       } else if (order.status === 'READY') {
         borderColor = 'var(--success)';
         badgeClass = 'badge-ready';
-        const canComplete = isPlatformAdmin || permissions.includes('order.complete');
-        const canPrint = isPlatformAdmin || permissions.includes('order.print');
+        const canComplete = hasAdminAccess || permissions.includes('order.complete');
 
-        if (canComplete && canPrint) {
-          actionsHtml = `
-            <button class="btn btn-secondary flex-1" onclick="ordersApp.printBill('${order.id}')" title="Print bill for customer">
-              <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print
-            </button>
-            <button class="btn btn-success flex-1" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">
-              <i data-lucide="check-circle-2" style="width:16px;height:16px;margin-right:4px;"></i> Complete
-            </button>
-          `;
-        } else if (canComplete) {
+        if (canComplete) {
           actionsHtml = `
             <button class="btn btn-success w-full" onclick="ordersApp.updateStatus('${order.id}', 'COMPLETED')">
               <i data-lucide="check-circle-2" style="width:16px;height:16px;margin-right:4px;"></i> Complete
-            </button>
-          `;
-        } else if (canPrint) {
-          actionsHtml = `
-            <button class="btn btn-secondary w-full" onclick="ordersApp.printBill('${order.id}')">
-              <i data-lucide="printer" style="width:16px;height:16px;margin-right:4px;"></i> Print Bill
             </button>
           `;
         }
@@ -226,48 +242,54 @@ class Orders {
             : 0;
 
         let itemsHtml = `
-            <div class="flex justify-between items-center mb-3 p-3 bg-primary/5 rounded-lg border border-primary/20 shadow-sm transition-all hover:bg-primary/10">
-                <div class="font-semibold text-sm flex items-center gap-2 text-primary">
-                    <i data-lucide="shopping-bag" style="width:18px;height:18px;"></i>
-                    <span class="text-base">${itemCount} Items</span>
+            <div class="flex justify-between items-center pb-3 border-b border-border mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="bg-primary/10 text-primary p-2 rounded-md">
+                        <i data-lucide="shopping-bag" style="width:20px;height:20px;"></i>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-muted-foreground uppercase tracking-wider font-bold mb-0.5">Order Items</span>
+                        <span class="font-extrabold text-base text-foreground leading-none">${itemCount} Items</span>
+                    </div>
                 </div>
-                <button class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm px-3" onclick="ordersApp.showOrderDetails('${order.id}')" title="View Full Order">
-                    <i data-lucide="eye" style="width:16px;height:16px;"></i>
-                    <span class="text-sm font-medium">View</span>
+                <button class="btn btn-sm flex items-center gap-1.5 shadow-sm rounded-md px-3 py-1.5 transition" style="background-color: var(--info); color: white; border: none;" onclick="ordersApp.showOrderDetails('${order.id}')" title="View Full Order">
+                    <i data-lucide="eye" style="width:14px;height:14px;"></i>
+                    <span class="font-medium text-xs">View Items</span>
                 </button>
             </div>
         `;
 
         if (order.customOrderText && (!order.items || order.items.length === 0)) {
             itemsHtml += `
-        <div class="text-sm border p-3 rounded-lg bg-surface-hover mt-3 shadow-sm">
-            <strong class="flex items-center gap-1 mb-1 text-muted-foreground uppercase tracking-wider text-xs"><i data-lucide="pen-tool" style="width:14px;height:14px;"></i> Custom Request</strong>
-            <div class="text-foreground font-medium">${this._escHtml(order.customOrderText)}</div>
-        </div>
-    `;
+            <div class="mb-3 bg-surface border border-border p-3 rounded-md shadow-sm">
+                <span class="text-[10px] text-muted-foreground uppercase tracking-wider font-bold flex items-center gap-1 mb-1"><i data-lucide="pen-tool" style="width:12px;height:12px;"></i> Custom Request</span>
+                <span class="text-sm font-medium leading-relaxed block text-foreground">${this._escHtml(order.customOrderText)}</span>
+            </div>
+            `;
         }
 
 // Customer note
         let noteHtml = order.customerNote
             ? `
-        <div class="text-sm bg-warning/10 text-warning-foreground mt-3 p-3 rounded-lg border border-warning/20 flex flex-col gap-1.5 shadow-sm">
-            <strong class="flex items-center gap-1 text-xs uppercase tracking-wider opacity-80"><i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Customer Note</strong>
-            <span class="font-medium leading-snug">${this._escHtml(order.customerNote)}</span>
+        <div class="mb-3 bg-warning/10 border-l-4 border-warning p-3 rounded-md shadow-sm">
+            <span class="text-[10px] text-warning-foreground uppercase tracking-wider font-bold flex items-center gap-1 mb-1.5"><i data-lucide="user" style="width:12px;height:12px;"></i> User Message</span>
+            <div class="text-sm font-medium text-warning-foreground leading-snug">
+                ${this._escHtml(order.customerNote)}
+            </div>
         </div>
       `
             : '';
 
 // Metadata
         let metadataHtml = '';
-
         if (order.metadata && Object.keys(order.metadata).length > 0) {
             metadataHtml = `
-        <div class="text-xs text-muted mt-3 grid grid-cols-2 gap-3 bg-surface p-3 rounded-lg border border-border shadow-sm">
+        <div class="mb-3 grid grid-cols-2 gap-2 bg-surface-hover p-2.5 rounded-md border border-border/50">
             ${Object.entries(order.metadata)
                 .map(([k, v]) => `
-                    <div class="flex flex-col gap-0.5">
-                        <span class="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">${this._escHtml(k)}</span>
-                        <span class="font-medium text-foreground text-sm">${this._escHtml(v)}</span>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-muted-foreground uppercase tracking-wider font-bold mb-0.5">${this._escHtml(k)}</span>
+                        <span class="text-sm font-medium text-foreground leading-tight">${this._escHtml(v)}</span>
                     </div>
                 `)
                 .join('')}
@@ -278,31 +300,72 @@ class Orders {
 // Payment status
         let paymentHtml = hasPriceAccess
             ? `
-        <div class="text-sm font-semibold text-danger mt-3 flex items-center justify-center gap-2 p-2.5 rounded-lg bg-danger/10 border border-danger/20 shadow-sm">
-            <i data-lucide="wallet" style="width:16px;height:16px;"></i>
-            Unpaid (Pay at counter)
+        <div class="mt-2">
+            <div class="text-sm font-bold bg-danger/10 text-danger p-2 rounded-md border border-danger/20 flex items-center justify-center gap-2 shadow-sm">
+                <i data-lucide="wallet" style="width:16px;height:16px;"></i> Unpaid (Pay at Counter)
+            </div>
         </div>
       `
             : '';
 
+// Feedback 
+        let feedbackHtml = '';
+        if (order.status === 'COMPLETED' && (order.rating || order.feedback)) {
+            let stars = '';
+            const rating = order.rating || 0;
+            for(let i = 1; i <= 5; i++) {
+                stars += `<i data-lucide="star" style="width:12px;height:12px; margin-right:2px;" class="${i <= rating ? 'fill-warning text-warning' : 'text-muted/30'}"></i>`;
+            }
+            feedbackHtml = `
+            <div class="mt-3 p-3 bg-indigo-50 border border-indigo-100 rounded-md shadow-sm">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[10px] text-indigo-800 uppercase tracking-wider font-bold flex items-center gap-1"><i data-lucide="message-square-heart" style="width:12px;height:12px;"></i> Customer Feedback</span>
+                    <div class="flex items-center">${stars}</div>
+                </div>
+                ${order.feedback ? `<div class="text-sm font-medium text-indigo-900 mt-1 leading-snug">${this._escHtml(order.feedback)}</div>` : ''}
+            </div>
+            `;
+        }
+
+// Bill Icons (Always visible when Prepared or Completed)
+        let billIconsHtml = '';
+        if (order.status === 'READY' || order.status === 'COMPLETED') {
+            const canPrint = hasAdminAccess || isCounterStaff || permissions.includes('order.print');
+            if (canPrint) {
+                billIconsHtml = `
+                    <div class="absolute -bottom-4 right-4 bg-surface border border-border shadow-lg rounded-full flex items-center px-1.5 py-1 z-10">
+                        <button class="btn-icon p-1.5 text-primary hover:bg-primary/10 rounded-full transition-colors flex items-center gap-1 font-bold text-xs pr-2" onclick="ordersApp.printBill('${order.id}', 'view')" title="View Bill">
+                            <i data-lucide="receipt" style="width:14px;height:14px;"></i> Bill
+                        </button>
+                        <div class="w-px h-4 bg-border mx-0.5"></div>
+                        <button class="btn-icon p-1.5 text-primary hover:bg-primary/10 rounded-full transition-colors" onclick="ordersApp.printBill('${order.id}', 'download')" title="Download Bill">
+                            <i data-lucide="download" style="width:14px;height:14px;"></i>
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
 // Final card
         html += `
-    <div class="card p-0 flex flex-col overflow-hidden transition-shadow hover:shadow-md"
-         style="border-left:4px solid ${borderColor}; min-height:220px;">
+    <div class="card p-0 flex flex-col transition-shadow hover:shadow-md relative"
+         style="border-left:4px solid ${borderColor}; min-height:220px; height:fit-content; max-height:none; margin-bottom:16px;">
 
         <!-- Header -->
         <div class="p-4 flex-1">
 
             <div class="flex justify-between items-start mb-3 pb-2 border-b border-border">
 
-                <div>
-                    <span class="font-extrabold ${isKitchen ? 'text-2xl' : 'text-xl'} text-primary">
-                        #${order.queueNumber}
-                    </span>
+                <div class="flex items-center">
+                    <div>
+                        <span class="font-extrabold ${isKitchen ? 'text-2xl' : 'text-xl'} text-primary">
+                            #${order.queueNumber}
+                        </span>
 
-                    <div class="text-xs text-muted mt-1 flex items-center gap-1">
-                        <i data-lucide="clock" style="width:12px;height:12px;"></i>
-                        ${new Date(order.createdAt).toLocaleTimeString()}
+                        <div class="text-xs text-muted mt-1 flex items-center gap-1">
+                            <i data-lucide="clock" style="width:12px;height:12px;"></i>
+                            ${new Date(order.createdAt).toLocaleTimeString()}
+                        </div>
                     </div>
                 </div>
 
@@ -321,12 +384,13 @@ class Orders {
                 ${noteHtml}
                 ${metadataHtml}
                 ${paymentHtml}
+                ${feedbackHtml}
 
             </div>
         </div>
 
         <!-- Footer -->
-        <div class="p-4 bg-surface-hover/50 border-t border-border">
+        <div class="p-4 bg-surface-hover/50 border-t border-border rounded-b-xl">
 
             ${
             hasPriceAccess
@@ -349,6 +413,7 @@ class Orders {
             </div>
 
         </div>
+        ${billIconsHtml}
     </div>
 `;
     });
@@ -362,7 +427,7 @@ class Orders {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  printBill(orderId) {
+  printBill(orderId, action = 'download') {
     const order = this.orders.find(o => o.id === orderId);
     if (!order) return;
 
@@ -423,7 +488,6 @@ class Orders {
       <div class="order-meta">
         <div><strong>Order #:</strong> ${order.queueNumber}</div>
         <div><strong>Date:</strong> ${date}</div>
-        <div><strong>Payment:</strong> UNPAID (Pay at Counter)</div>
       </div>
       
       ${metadataHtml}
@@ -461,8 +525,6 @@ class Orders {
         </tr>
       </table>
       
-      ${order.customerNote ? `<div class="instruction"><strong>Instruction:</strong> ${this._escHtml(order.customerNote)}</div>` : ''}
-      
       <div class="divider"></div>
       
       <div class="footer">
@@ -499,12 +561,23 @@ class Orders {
       jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
     };
 
-    html2pdf().set(opt).from(tempDiv).save().then(() => {
-        if (window.showToast) showToast('PDF downloaded', 'success');
-    }).catch(err => {
-        console.error('PDF generation failed', err);
-        if (window.showToast) showToast('Failed to generate PDF', 'error');
-    });
+    const pdfWorker = html2pdf().set(opt).from(tempDiv);
+    
+    if (action === 'view') {
+        pdfWorker.output('bloburl').then((url) => {
+            window.open(url, '_blank');
+        }).catch(err => {
+            console.error('PDF view failed', err);
+            if (window.showToast) showToast('Failed to view PDF', 'error');
+        });
+    } else {
+        pdfWorker.save().then(() => {
+            if (window.showToast) showToast('PDF downloaded', 'success');
+        }).catch(err => {
+            console.error('PDF generation failed', err);
+            if (window.showToast) showToast('Failed to generate PDF', 'error');
+        });
+    }
   }
 
   showOrderDetails(orderId) {
@@ -513,6 +586,30 @@ class Orders {
 
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : null;
+    const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
+    const isPlatformAdmin = user ? user.platformAdmin === true : false;
+    const isVendorAdmin = user && (
+      (user.roleNames && Array.isArray(user.roleNames) && user.roleNames.some(r => typeof r === 'string' && (r.toUpperCase() === 'ROLE_VENDOR_ADMIN' || r.toUpperCase() === 'VENDOR_ADMIN'))) ||
+      (user.roleName && typeof user.roleName === 'string' && (user.roleName.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.roleName.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.role && typeof user.role === 'string' && (user.role.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.role.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.role && user.role.name && (user.role.name.toUpperCase() === 'ROLE_VENDOR_ADMIN' || user.role.name.toUpperCase() === 'VENDOR_ADMIN')) ||
+      (user.roles && Array.isArray(user.roles) && user.roles.some(r => {
+        const rName = typeof r === 'string' ? r : (r.name || '');
+        return rName.toUpperCase() === 'ROLE_VENDOR_ADMIN' || rName.toUpperCase() === 'VENDOR_ADMIN';
+      }))
+    );
+    const isCounterStaff = user && (
+      (user.roleNames && Array.isArray(user.roleNames) && user.roleNames.some(r => typeof r === 'string' && (r.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || r.toUpperCase() === 'VENDORCOUNTER_STAFF'))) ||
+      (user.roleName && typeof user.roleName === 'string' && (user.roleName.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || user.roleName.toUpperCase() === 'VENDORCOUNTER_STAFF')) ||
+      (user.role && typeof user.role === 'string' && (user.role.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || user.role.toUpperCase() === 'VENDORCOUNTER_STAFF')) ||
+      (user.role && user.role.name && (user.role.name.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || user.role.name.toUpperCase() === 'VENDORCOUNTER_STAFF')) ||
+      (user.roles && Array.isArray(user.roles) && user.roles.some(r => {
+        const rName = typeof r === 'string' ? r : (r.name || '');
+        return rName.toUpperCase() === 'ROLE_VENDORCOUNTER_STAFF' || rName.toUpperCase() === 'VENDORCOUNTER_STAFF';
+      }))
+    );
+    const hasAdminAccess = isPlatformAdmin || isVendorAdmin;
+    
     const isKitchen = user && (
       (user.roleName && user.roleName.toUpperCase() === 'KITCHEN') ||
       (user.role && typeof user.role === 'string' && user.role.toUpperCase() === 'KITCHEN') ||
@@ -520,9 +617,79 @@ class Orders {
       (user.roles && Array.isArray(user.roles) && user.roles.some(r => (typeof r === 'string' && r.toUpperCase() === 'KITCHEN') || (r.name && r.name.toUpperCase() === 'KITCHEN')))
     );
 
-    document.getElementById('order-modal-title').innerText = `Order #${order.queueNumber}`;
+    const canPrint = hasAdminAccess || isCounterStaff || permissions.includes('order.print');
+    let titleHtml = `Order #${order.queueNumber}`;
+    if (canPrint && (order.status === 'READY' || order.status === 'COMPLETED')) {
+        titleHtml = `
+            <div class="flex items-center gap-3">
+                <span>Order #${order.queueNumber}</span>
+                <div class="flex items-center gap-1 bg-primary/5 rounded-md border border-primary/20 px-1 py-0.5 shadow-sm">
+                    <button class="btn-icon p-1.5 text-primary hover:bg-primary/10 rounded-md transition-colors" onclick="ordersApp.printBill('${order.id}', 'view')" title="View Bill">
+                        <i data-lucide="file-text" style="width:16px;height:16px;"></i>
+                    </button>
+                    <button class="btn-icon p-1.5 text-primary hover:bg-primary/10 rounded-md transition-colors" onclick="ordersApp.printBill('${order.id}', 'download')" title="Download Bill">
+                        <i data-lucide="download" style="width:16px;height:16px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    document.getElementById('order-modal-title').innerHTML = titleHtml;
 
-    let itemsHtml = '';
+    let tableNumber = null;
+    let otherMetadata = {};
+    if (order.metadata) {
+        for (const [k, v] of Object.entries(order.metadata)) {
+            if (k.toLowerCase().includes('table')) {
+                tableNumber = v;
+            } else {
+                otherMetadata[k] = v;
+            }
+        }
+    }
+
+    let statusBadgeClass = 'badge-secondary';
+    if (order.status === 'PENDING') statusBadgeClass = 'badge-pending';
+    else if (order.status === 'ACCEPTED') statusBadgeClass = 'badge-accepted';
+    else if (order.status === 'PREPARING') statusBadgeClass = 'badge-preparing';
+    else if (order.status === 'READY') statusBadgeClass = 'badge-ready';
+
+    let topHtml = '';
+    const elapsedMinutes = Math.floor((new Date() - new Date(order.createdAt)) / 60000);
+    
+    if (tableNumber) {
+        topHtml = `
+          <div class="flex items-center justify-between bg-primary text-white p-4 rounded-xl shadow-md mb-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')]">
+             <div class="flex flex-col">
+                 <span class="text-[11px] uppercase font-bold text-primary-foreground/80 tracking-widest mb-0.5">Table Number</span>
+                 <span class="text-4xl font-black leading-none drop-shadow-sm">${this._escHtml(tableNumber)}</span>
+             </div>
+             <div class="flex flex-col text-right items-end gap-1.5">
+                 <span class="badge bg-white text-primary px-3 py-1 font-bold shadow-sm uppercase border-0">${order.status}</span>
+                 <span class="text-xs font-semibold flex items-center gap-1 opacity-90"><i data-lucide="clock" style="width:12px;height:12px;"></i> ${elapsedMinutes >= 0 ? elapsedMinutes : 0} mins ago</span>
+             </div>
+          </div>
+        `;
+    } else {
+        topHtml = `
+          <div class="flex items-center justify-between bg-surface p-4 rounded-xl border border-border shadow-sm mb-5">
+             <div class="flex flex-col">
+                 <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">Time Elapsed</span>
+                 <span class="text-sm font-bold text-foreground flex items-center gap-1.5"><i data-lucide="clock" style="width:14px;height:14px;"></i> ${elapsedMinutes >= 0 ? elapsedMinutes : 0} mins ago</span>
+             </div>
+             <div class="flex flex-col text-right items-end">
+                 <span class="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">Status</span>
+                 <span class="badge ${statusBadgeClass} px-3 py-1 text-xs shadow-sm uppercase">${order.status}</span>
+             </div>
+          </div>
+        `;
+    }
+
+    let itemsHtml = `<div class="mb-3 px-1">
+          <h3 class="font-extrabold text-lg text-foreground tracking-tight flex items-center gap-2"><i data-lucide="shopping-cart" style="width:18px;height:18px;" class="text-primary"></i> Order Items</h3>
+      </div>
+      <div class="flex flex-col gap-3 mb-6">`;
+
     if (order.items && order.items.length > 0) {
       order.items.forEach(item => {
           let customHtml = '';
@@ -534,56 +701,71 @@ class Orders {
                   }
               });
               if (optionsArr.length > 0) {
-                  customHtml += `<div class="text-xs text-muted mt-1" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="plus" style="width:12px;height:12px;"></i> ${optionsArr.join(', ')}</div>`;
+                  customHtml += `<div class="flex flex-wrap gap-1.5 mt-2">
+                      ${optionsArr.map(opt => `<span class="bg-surface text-muted-foreground border border-border px-2 py-0.5 rounded-md text-[11px] font-bold shadow-sm">+ ${this._escHtml(opt)}</span>`).join('')}
+                  </div>`;
               }
           }
           if (item.specialInstructions) {
-              customHtml += `<div class="text-xs text-warning mt-1 font-medium" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="message-square" style="width:12px;height:12px;"></i> "${this._escHtml(item.specialInstructions)}"</div>`;
+              customHtml += `<div class="mt-2 bg-warning/10 border-l-[3px] border-warning p-2 rounded-r-md text-xs font-bold text-warning-foreground flex items-start gap-1.5 shadow-sm">
+                  <i data-lucide="alert-triangle" style="width:14px;height:14px;margin-top:1px;flex-shrink:0;"></i>
+                  <span>${this._escHtml(item.specialInstructions)}</span>
+              </div>`;
           }
 
-          if (isKitchen) {
-            itemsHtml += `
-              <div class="flex justify-between items-start mb-3 pb-2 border-b border-border last:border-0 last:mb-0 last:pb-0 text-sm">
-                  <div class="flex-1">
-                      <div class="flex items-start gap-2">
-                          <span class="font-bold min-w-[20px] bg-surface-hover rounded px-1 text-center">${item.quantity}x</span> 
-                          <span class="font-semibold text-base">${this._escHtml(item.menuItemName)}</span>
-                      </div>
-                      ${customHtml}
-                  </div>
-              </div>
-            `;
-          } else {
-            itemsHtml += `
-                <div class="flex justify-between items-start mb-3 pb-2 border-b border-border last:border-0 last:mb-0 last:pb-0 text-sm">
-                    <div class="flex-1">
-                        <div class="flex items-start gap-2">
-                            <span class="font-bold min-w-[20px] bg-surface-hover rounded px-1 text-center">${item.quantity}x</span> 
-                            <span class="font-semibold">${this._escHtml(item.menuItemName)}</span>
-                        </div>
-                        ${customHtml}
-                    </div>
-                    <span class="font-medium whitespace-nowrap ml-3">₹${item.totalPrice.toFixed(2)}</span>
+          itemsHtml += `
+            <div class="flex gap-3.5 p-3.5 bg-surface rounded-xl border border-border shadow-sm items-start transition hover:border-primary/30">
+                <div class="flex-shrink-0 w-[42px] h-[42px] bg-primary/10 text-primary rounded-xl flex items-center justify-center font-black text-lg border border-primary/20 shadow-sm">
+                    ${item.quantity}x
                 </div>
-            `;
-          }
+                <div class="flex-1 min-w-0 flex flex-col justify-center min-h-[42px]">
+                    <div class="flex justify-between items-start gap-2">
+                        <h5 class="font-bold text-[15px] text-foreground leading-tight m-0 mt-0.5">${this._escHtml(item.menuItemName)}</h5>
+                        ${!isKitchen ? `<span class="font-extrabold text-[15px] text-primary whitespace-nowrap mt-0.5">₹${item.totalPrice.toFixed(2)}</span>` : ''}
+                    </div>
+                    ${customHtml}
+                </div>
+            </div>
+          `;
       });
     } else if (order.customOrderText) {
-        itemsHtml = `<div class="text-sm border p-3 rounded-md bg-surface-hover mb-2"><strong class="flex items-center gap-1 mb-1"><i data-lucide="pen-tool" style="width:14px;height:14px;"></i> Custom Text:</strong> ${this._escHtml(order.customOrderText)}</div>`;
+        itemsHtml += `
+        <div class="p-4 bg-primary/5 rounded-xl border border-primary/20 flex gap-3.5 items-start shadow-sm">
+            <div class="flex-shrink-0 w-[42px] h-[42px] bg-primary text-white rounded-xl flex items-center justify-center shadow-sm">
+                <i data-lucide="pen-tool" style="width:20px;height:20px;"></i>
+            </div>
+            <div>
+                <strong class="block mb-1 text-primary uppercase tracking-wider text-[11px] font-black">Custom Request</strong>
+                <span class="text-foreground font-semibold text-sm leading-relaxed">${this._escHtml(order.customOrderText)}</span>
+            </div>
+        </div>`;
     }
+    itemsHtml += `</div>`;
 
     let noteHtml = '';
     if (order.customerNote) {
-        noteHtml = `<div class="text-sm bg-warning/10 text-warning-foreground mt-3 p-2.5 rounded-md border border-warning/20">
-            <strong class="flex items-center gap-1 mb-0.5"><i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Customer Note:</strong> 
-            ${this._escHtml(order.customerNote)}
+        noteHtml = `
+        <div class="mb-6 bg-warning/10 rounded-xl border-l-4 border-warning p-4 shadow-sm flex gap-3 items-start">
+            <i data-lucide="message-square" class="text-warning-foreground mt-0.5" style="width:20px;height:20px;flex-shrink:0;"></i>
+            <div>
+                <strong class="block text-[11px] uppercase tracking-wider text-warning-foreground font-black mb-1">User Message</strong> 
+                <span class="font-bold text-warning-foreground text-sm leading-snug">${this._escHtml(order.customerNote)}</span>
+            </div>
         </div>`;
     }
 
     let metadataHtml = '';
-    if (order.metadata && Object.keys(order.metadata).length > 0) {
-        metadataHtml = `<div class="text-xs text-muted mt-3 grid grid-cols-2 gap-1 bg-surface-hover p-2 rounded-md">
-          ${Object.entries(order.metadata).map(([k, v]) => `<div><span class="font-medium">${this._escHtml(k)}:</span> ${this._escHtml(v)}</div>`).join('')}
+    if (Object.keys(otherMetadata).length > 0) {
+        metadataHtml = `<div class="mb-3 px-1">
+          <h3 class="font-extrabold text-lg text-foreground tracking-tight flex items-center gap-2"><i data-lucide="info" style="width:18px;height:18px;" class="text-primary"></i> Order Information</h3>
+      </div>`;
+        metadataHtml += `<div class="grid grid-cols-2 gap-3 bg-surface p-4 rounded-xl border border-border shadow-sm mb-6">
+          ${Object.entries(otherMetadata).map(([k, v]) => `
+            <div class="flex flex-col gap-1">
+                <span class="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">${this._escHtml(k)}</span>
+                <span class="font-semibold text-foreground text-sm">${this._escHtml(v)}</span>
+            </div>
+          `).join('')}
         </div>`;
     }
 
@@ -591,37 +773,38 @@ class Orders {
     if (!isKitchen) {
        let breakdownHtml = '';
        if (order.subtotal != null) {
-           breakdownHtml += `<div class="flex justify-between text-sm mb-1 text-muted"><span>Subtotal</span><span>₹${order.subtotal.toFixed(2)}</span></div>`;
+           breakdownHtml += `<div class="flex justify-between text-sm mb-2.5 text-muted-foreground"><span>Subtotal</span><span class="font-semibold text-foreground">₹${order.subtotal.toFixed(2)}</span></div>`;
        }
        if (order.couponDiscount != null && order.couponDiscount > 0) {
-           breakdownHtml += `<div class="flex justify-between text-sm mb-1 text-success font-medium"><span>Coupon Discount${order.couponCode ? ' ('+this._escHtml(order.couponCode)+')' : ''}</span><span>-₹${order.couponDiscount.toFixed(2)}</span></div>`;
+           breakdownHtml += `<div class="flex justify-between text-sm mb-2.5 text-success font-semibold"><span>Coupon Discount${order.couponCode ? ' ('+this._escHtml(order.couponCode)+')' : ''}</span><span>-₹${order.couponDiscount.toFixed(2)}</span></div>`;
        }
        if (order.taxAmount != null && order.taxAmount > 0) {
-           breakdownHtml += `<div class="flex justify-between text-sm mb-1 text-muted"><span>${this._escHtml(order.taxName || 'Tax')}</span><span>₹${order.taxAmount.toFixed(2)}</span></div>`;
+           breakdownHtml += `<div class="flex justify-between text-sm mb-2.5 text-muted-foreground"><span>${this._escHtml(order.taxName || 'Tax')}</span><span class="font-semibold text-foreground">₹${order.taxAmount.toFixed(2)}</span></div>`;
        }
        if (order.serviceChargeAmount != null && order.serviceChargeAmount > 0) {
-           breakdownHtml += `<div class="flex justify-between text-sm mb-1 text-muted"><span>${this._escHtml(order.serviceChargeName || 'Service Charge')}</span><span>₹${order.serviceChargeAmount.toFixed(2)}</span></div>`;
+           breakdownHtml += `<div class="flex justify-between text-sm mb-2.5 text-muted-foreground"><span>${this._escHtml(order.serviceChargeName || 'Service Charge')}</span><span class="font-semibold text-foreground">₹${order.serviceChargeAmount.toFixed(2)}</span></div>`;
        }
 
-       amountHtml = `<div class="mt-4 pt-3 border-t border-border">
+       amountHtml = `
+       <div class="mt-2 bg-surface p-5 rounded-xl border border-border shadow-sm">
           ${breakdownHtml}
-          <div class="flex justify-between items-center text-sm font-bold mt-2 pt-2 border-t border-border">
-             <span>Total Amount</span>
-             <span class="text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
+          <div class="flex justify-between items-center mt-3 pt-3 border-t border-dashed border-border/80">
+             <span class="font-black text-muted-foreground uppercase tracking-widest text-[11px]">Total Amount</span>
+             <span class="text-2xl font-black text-primary">₹${order.totalAmount.toFixed(2)}</span>
           </div>
-       </div>
-       <div class="flex items-center gap-1 text-xs font-semibold text-danger mt-1 mb-1"><i data-lucide="wallet" style="width:14px;height:14px;"></i> Unpaid (Pay at counter)</div>`;
+       </div>`;
+       
+       if (order.paymentStatus !== 'PAID') {
+           amountHtml += `
+           <div class="flex items-center justify-center gap-2 text-sm font-bold text-danger mt-3 bg-danger/10 p-3.5 rounded-xl border border-danger/20 shadow-sm uppercase tracking-wider">
+               <i data-lucide="wallet" style="width:16px;height:16px;"></i> Unpaid (Pay at counter)
+           </div>`;
+       }
     }
 
     document.getElementById('order-modal-body').innerHTML = `
-      <div class="mb-4 text-sm text-muted">
-         <div><strong>Status:</strong> ${order.status}</div>
-         <div><strong>Time:</strong> ${new Date(order.createdAt).toLocaleString()}</div>
-      </div>
-      <div class="mb-2"><strong>Items:</strong></div>
-      <div class="border rounded-md p-3 bg-surface">
-         ${itemsHtml}
-      </div>
+      ${topHtml}
+      ${itemsHtml}
       ${noteHtml}
       ${metadataHtml}
       ${amountHtml}

@@ -21,6 +21,13 @@ public interface VendorMapper {
         dto.setShowPreparationTime(settings.isShowPreparationTime());
         dto.setCurrency(settings.getCurrency());
         dto.setEnableGeofence(settings.isEnableGeofence());
+        dto.setCustomFields(settings.getCustomFields());
+        dto.setGstNumber(settings.getGstNumber());
+        dto.setTaxPercentage(settings.getTaxPercentage());
+        dto.setTaxName(settings.getTaxName());
+        dto.setAdditionalCharges(settings.getAdditionalCharges());
+        dto.setAdditionalChargeName(settings.getAdditionalChargeName());
+        dto.setCoupons(settings.getCoupons());
         return dto;
     }
 }
