@@ -6,11 +6,11 @@ import java.util.ArrayList;
 
 public enum Role {
     ROLE_VENDOR_ADMIN(
-        List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"),
+        List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"),
         List.of(OrderStatus.values())
     ),
     ROLE_VENDOR_MANAGER(
-        List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"),
+        List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"),
         List.of(OrderStatus.values())
     ),
     ROLE_VENDOR_KITCHEN(

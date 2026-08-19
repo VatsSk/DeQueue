@@ -16,14 +16,14 @@ public class GeofenceController {
 
     private final GeofenceService geofenceService;
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @GetMapping("/")
+    @PreAuthorize("hasPermission(null, 'staff.view')")
+    @GetMapping
     public ApiResponse<GeofenceResponse> getGeofenceSettings() {
         return ApiResponse.success(geofenceService.getGeofenceSettings(SecurityUtils.getCurrentVendorId()));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @PutMapping("/")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
+    @PutMapping
     public ApiResponse<GeofenceResponse> updateGeofenceSettings(@Valid @RequestBody UpdateGeofenceRequest request) {
         return ApiResponse.success(geofenceService.updateGeofenceSettings(SecurityUtils.getCurrentVendorId(), request));
     }

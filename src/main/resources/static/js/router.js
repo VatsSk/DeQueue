@@ -11,7 +11,7 @@ class Router {
             { path: 'departments.html', icon: 'briefcase', label: 'Departments', permissions: ['staff.view'] },
             { path: 'staff.html', icon: 'users', label: 'Staff', permissions: ['staff.view'] },
             { path: 'reports.html', icon: 'bar-chart-3', label: 'Reports', permissions: ['report.view'] },
-            { path: 'qr.html', icon: 'qr-code', label: 'QR Code', permissions: ['order.view', 'menu.view'] },
+            { path: 'qr.html', icon: 'qr-code', label: 'QR Code', permissions: ['qr.view'] },
             { path: 'profile.html', icon: 'store', label: 'Shop Profile', permissions: ['staff.view'] },
             { path: 'settings.html', icon: 'settings', label: 'Settings', permissions: ['staff.view'] },
 //            { path: 'customer.html', icon: 'smartphone', label: 'Customer View', permissions: ['order.view', 'menu.view'] },

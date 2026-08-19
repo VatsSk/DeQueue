@@ -106,7 +106,7 @@ public class AuthServiceImpl implements AuthService {
                 .vendorId(vendor.getId())
                 .name("ROLE_VENDOR_ADMIN")
                 .description("Full access for the vendor administrator")
-                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"))
+                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"))
                 .orderVisibility(OrderVisibility.builder().statuses(Arrays.asList(OrderStatus.values())).build())
                 .active(true)
                 .build());
@@ -116,7 +116,7 @@ public class AuthServiceImpl implements AuthService {
                 .vendorId(vendor.getId())
                 .name("ROLE_VENDOR_MANAGER")
                 .description("Full access for the vendor manager")
-                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"))
+                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"))
                 .orderVisibility(OrderVisibility.builder().statuses(Arrays.asList(OrderStatus.values())).build())
                 .active(true)
                 .build());

@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize("hasPermission(null, 'report.view')")
 public class ReportsController {
     private final ReportService reportService;
 

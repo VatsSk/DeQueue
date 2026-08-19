@@ -4,6 +4,7 @@ import com.dequeue.qr.dto.QrGenerateRequest;
 import com.dequeue.qr.dto.QrResponse;
 import com.dequeue.qr.service.QrService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -13,16 +14,19 @@ public class QrController {
     private final QrService service;
     
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'qr.view')")
     public ApiResponse<QrResponse> get() {
         return ApiResponse.success(service.getQrMetadata());
     }
     
     @PostMapping("/generate")
+    @PreAuthorize("hasPermission(null, 'qr.view')")
     public ApiResponse<QrResponse> generate(@RequestBody QrGenerateRequest request) {
         return ApiResponse.success(service.generateQr(request));
     }
     
     @GetMapping("/download")
+    @PreAuthorize("hasPermission(null, 'qr.view')")
     public byte[] download() {
         return service.downloadQr();
     }

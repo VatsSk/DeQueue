@@ -13,27 +13,30 @@ import com.dequeue.common.security.SecurityUtils;
 @RestController
 @RequestMapping("/api/v1/profile")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
 public class ProfileController {
 
     private final ProfileService profileService;
 
     @GetMapping({"", "/"})
+    @PreAuthorize("hasPermission(null, 'staff.view')")
     public ApiResponse<ProfileResponse> getProfile() {
         return ApiResponse.success(profileService.getProfile(SecurityUtils.getCurrentVendorId()));
     }
 
     @PutMapping({"", "/"})
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<ProfileResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
         return ApiResponse.success(profileService.updateProfile(SecurityUtils.getCurrentVendorId(), request));
     }
 
     @PatchMapping("/logo")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<ProfileResponse> uploadLogo(@RequestParam("file") MultipartFile file) {
         return ApiResponse.success(profileService.uploadLogo(SecurityUtils.getCurrentVendorId(), file));
     }
 
     @PatchMapping("/banner")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<ProfileResponse> uploadBanner(@RequestParam("file") MultipartFile file) {
         return ApiResponse.success(profileService.uploadBanner(SecurityUtils.getCurrentVendorId(), file));
     }

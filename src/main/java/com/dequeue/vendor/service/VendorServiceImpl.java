@@ -22,7 +22,13 @@ public class VendorServiceImpl implements VendorService {
     public VendorResponse getCurrentVendor(String userId) {
         Vendor vendor = vendorRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
-        return vendorMapper.toResponse(vendor);
+        VendorResponse response = vendorMapper.toResponse(vendor);
+        if (!com.dequeue.common.security.SecurityUtils.hasPermission("staff.view") && !com.dequeue.common.security.SecurityUtils.isPlatformAdmin()) {
+            response.setGeoLocation(null);
+            response.setGeoRadius(null);
+            response.setSettings(null);
+        }
+        return response;
     }
 
     @Override
