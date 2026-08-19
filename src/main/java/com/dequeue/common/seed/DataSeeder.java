@@ -71,11 +71,11 @@ public class DataSeeder implements CommandLineRunner {
 
         // ── 4. Seed Roles ─────────────────────────────────────────────────
         saveRole(vendorId, "ROLE_VENDOR_ADMIN", "Full access for the vendor administrator",
-                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"),
+                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"),
                 Arrays.asList(OrderStatus.values()));
 
         saveRole(vendorId, "ROLE_VENDOR_MANAGER", "Full access for the vendor manager",
-                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view"),
+                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"),
                 Arrays.asList(OrderStatus.values()));
 
         saveRole(vendorId, "ROLE_VENDOR_KITCHEN", "Kitchen staff can see and progress orders",

@@ -54,6 +54,7 @@ public class AuthController {
                 .userId(summary.getId())
                 .roles(summary.getRoleNames())
                 .permissions(summary.getEffectivePermissions())
+                .orderVisibilityStatuses(summary.getOrderVisibilityStatuses())
                 .build());
     }
 }
