@@ -11,6 +11,7 @@ public class OrderItemRequest {
     private String menuItemId;
     @Min(1)
     private int quantity;
+    @jakarta.validation.Valid
     private List<CustomizationRequest> customizations;
     private String specialInstructions;
 }

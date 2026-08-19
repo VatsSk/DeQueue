@@ -145,6 +145,13 @@ class Orders {
     const user = userStr ? JSON.parse(userStr) : null;
     const permissions = user && user.effectivePermissions ? user.effectivePermissions : [];
     const isPlatformAdmin = user ? user.platformAdmin === true : false;
+    
+    const isKitchen = user && (
+      (user.roleName && user.roleName.toUpperCase() === 'KITCHEN') || 
+      (user.role && typeof user.role === 'string' && user.role.toUpperCase() === 'KITCHEN') || 
+      (user.role && user.role.name && user.role.name.toUpperCase() === 'KITCHEN') ||
+      (user.roles && Array.isArray(user.roles) && user.roles.some(r => (typeof r === 'string' && r.toUpperCase() === 'KITCHEN') || (r.name && r.name.toUpperCase() === 'KITCHEN')))
+    );
 
     let html = '';
     filtered.forEach(order => {
@@ -202,88 +209,59 @@ class Orders {
         CANCELLED: 'Cancelled'
       };
 
-      let itemsHtml = '';
-      if (order.items && order.items.length > 0) {
-        order.items.forEach(item => {
-            let customHtml = '';
-            if (item.selectedCustomizations && item.selectedCustomizations.length > 0) {
-                let optionsArr = [];
-                item.selectedCustomizations.forEach(c => {
-                    if (c.selectedOptions) {
-                        c.selectedOptions.forEach(opt => optionsArr.push(opt.name));
-                    }
-                });
-                if (optionsArr.length > 0) {
-                    customHtml += `<div class="text-xs text-muted mt-1" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="plus" style="width:12px;height:12px;"></i> ${optionsArr.join(', ')}</div>`;
-                }
-            }
-            if (item.specialInstructions) {
-                customHtml += `<div class="text-xs text-warning mt-1 font-medium" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="message-square" style="width:12px;height:12px;"></i> "${this._escHtml(item.specialInstructions)}"</div>`;
-            }
-            itemsHtml += `
-                <div class="flex justify-between items-start mb-3 pb-2 border-b border-border last:border-0 last:mb-0 last:pb-0 text-sm">
-                    <div class="flex-1">
-                        <div class="flex items-start gap-2">
-                            <span class="font-bold min-w-[20px] bg-surface-hover rounded px-1 text-center">${item.quantity}x</span> 
-                            <span class="font-semibold">${this._escHtml(item.menuItemName)}</span>
-                        </div>
-                        ${customHtml}
-                    </div>
-                    <span class="font-medium whitespace-nowrap ml-3">₹${item.totalPrice.toFixed(2)}</span>
+      let itemCount = order.items ? order.items.reduce((acc, it) => acc + it.quantity, 0) : 0;
+
+      if (isKitchen) {
+          html += `
+            <div class="card p-0 flex flex-col justify-between overflow-hidden transition-shadow hover:shadow-md" style="border-left: 4px solid ${borderColor}; min-height: 120px;">
+              <div class="p-4 flex-1 flex flex-col">
+                <div class="flex justify-between items-start mb-1 cursor-pointer hover:bg-surface-hover transition-colors rounded-md pb-1" onclick="ordersApp.showOrderDetails('${order.id}')" title="Click to view details">
+                  <div>
+                    <span class="font-extrabold text-2xl text-primary">#${order.queueNumber}</span>
+                    <div class="text-xs text-muted mt-1 flex items-center gap-1"><i data-lucide="clock" style="width:12px;height:12px;"></i> ${new Date(order.createdAt).toLocaleTimeString()}</div>
+                  </div>
+                  <div class="flex flex-col items-end gap-2">
+                      <span class="badge ${badgeClass} shadow-sm px-2 py-1">${statusLabels[order.status] || order.status}</span>
+                      <div class="text-xs font-medium text-muted flex items-center gap-1">${itemCount} Items</div>
+                  </div>
                 </div>
-            `;
-        });
-      } else if (order.customOrderText) {
-          itemsHtml = `<div class="text-sm border p-3 rounded-md bg-surface-hover mb-2"><strong class="flex items-center gap-1 mb-1"><i data-lucide="pen-tool" style="width:14px;height:14px;"></i> Custom:</strong> ${this._escHtml(order.customOrderText)}</div>`;
-      }
-
-      let noteHtml = '';
-      if (order.customerNote) {
-          noteHtml = `<div class="text-sm bg-warning/10 text-warning-foreground mt-3 p-2.5 rounded-md border border-warning/20">
-              <strong class="flex items-center gap-1 mb-0.5"><i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Order Note:</strong> 
-              ${this._escHtml(order.customerNote)}
-          </div>`;
-      }
-
-      let metadataHtml = '';
-      if (order.metadata && Object.keys(order.metadata).length > 0) {
-          metadataHtml = `<div class="text-xs text-muted mt-3 grid grid-cols-2 gap-1 bg-surface-hover p-2 rounded-md">
-            ${Object.entries(order.metadata).map(([k, v]) => `<div><span class="font-medium">${this._escHtml(k)}:</span> ${this._escHtml(v)}</div>`).join('')}
-          </div>`;
-      }
-
-      let paymentHtml = `<div class="flex items-center gap-1 text-xs font-semibold text-danger mt-3 mb-1"><i data-lucide="wallet" style="width:14px;height:14px;"></i> Unpaid (Pay at counter)</div>`;
-
-      html += `
-        <div class="card p-0 flex flex-col justify-between overflow-hidden transition-shadow hover:shadow-md" style="border-left: 4px solid ${borderColor}; min-height: 250px;">
-          <div class="p-4 flex-1 flex flex-col">
-            <div class="flex justify-between items-start mb-4 pb-3 border-b border-border">
-              <div>
-                <span class="font-extrabold text-xl">#${order.queueNumber}</span>
-                <div class="text-xs text-muted mt-0.5 flex items-center gap-1"><i data-lucide="clock" style="width:12px;height:12px;"></i> ${new Date(order.createdAt).toLocaleTimeString()}</div>
               </div>
-              <span class="badge ${badgeClass} shadow-sm">${statusLabels[order.status] || order.status}</span>
+              
+              <div class="p-4 bg-surface-hover/50 border-t border-border mt-auto">
+                <div class="flex gap-2 w-full">
+                  ${actionsHtml}
+                </div>
+              </div>
             </div>
-            
-            <div class="order-items-list flex-1 overflow-y-auto pr-1" style="max-height: 250px;">
-              ${itemsHtml}
-              ${noteHtml}
-              ${metadataHtml}
+          `;
+      } else {
+          html += `
+            <div class="card p-0 flex flex-col justify-between overflow-hidden transition-shadow hover:shadow-md" style="border-left: 4px solid ${borderColor}; min-height: 120px;">
+              <div class="p-4 flex-1 flex flex-col">
+                <div class="flex justify-between items-start mb-1 cursor-pointer hover:bg-surface-hover transition-colors rounded-md pb-1" onclick="ordersApp.showOrderDetails('${order.id}')" title="Click to view details">
+                  <div>
+                    <span class="font-extrabold text-xl text-primary">#${order.queueNumber}</span>
+                    <div class="text-xs text-muted mt-0.5 flex items-center gap-1"><i data-lucide="clock" style="width:12px;height:12px;"></i> ${new Date(order.createdAt).toLocaleTimeString()}</div>
+                  </div>
+                  <div class="flex flex-col items-end gap-2">
+                    <span class="badge ${badgeClass} shadow-sm px-2 py-1">${statusLabels[order.status] || order.status}</span>
+                    <div class="text-xs font-medium text-muted flex items-center gap-1">${itemCount} Items</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="p-4 bg-surface-hover/50 border-t border-border mt-auto">
+                <div class="flex justify-between items-center mb-3 text-sm">
+                  <span class="font-medium text-muted">Total Amount</span>
+                  <span class="font-extrabold text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
+                </div>
+                <div class="flex gap-2 w-full">
+                  ${actionsHtml}
+                </div>
+              </div>
             </div>
-            ${paymentHtml}
-          </div>
-          
-          <div class="p-4 bg-surface-hover/50 border-t border-border mt-auto">
-            <div class="flex justify-between items-center mb-3 text-sm">
-              <span class="font-medium text-muted">Total Amount</span>
-              <span class="font-extrabold text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
-            </div>
-            <div class="flex gap-2 w-full">
-              ${actionsHtml}
-            </div>
-          </div>
-        </div>
-      `;
+          `;
+      }
     });
 
     grid.innerHTML = html;
@@ -431,6 +409,113 @@ class Orders {
         console.error('PDF generation failed', err);
         if (window.showToast) showToast('Failed to generate PDF', 'error');
     });
+  }
+
+  showOrderDetails(orderId) {
+    const order = this.orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const isKitchen = user && (
+      (user.roleName && user.roleName.toUpperCase() === 'KITCHEN') || 
+      (user.role && typeof user.role === 'string' && user.role.toUpperCase() === 'KITCHEN') || 
+      (user.role && user.role.name && user.role.name.toUpperCase() === 'KITCHEN') ||
+      (user.roles && Array.isArray(user.roles) && user.roles.some(r => (typeof r === 'string' && r.toUpperCase() === 'KITCHEN') || (r.name && r.name.toUpperCase() === 'KITCHEN')))
+    );
+
+    document.getElementById('order-modal-title').innerText = `Order #${order.queueNumber}`;
+
+    let itemsHtml = '';
+    if (order.items && order.items.length > 0) {
+      order.items.forEach(item => {
+          let customHtml = '';
+          if (item.selectedCustomizations && item.selectedCustomizations.length > 0) {
+              let optionsArr = [];
+              item.selectedCustomizations.forEach(c => {
+                  if (c.selectedOptions) {
+                      c.selectedOptions.forEach(opt => optionsArr.push(opt.name));
+                  }
+              });
+              if (optionsArr.length > 0) {
+                  customHtml += `<div class="text-xs text-muted mt-1" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="plus" style="width:12px;height:12px;"></i> ${optionsArr.join(', ')}</div>`;
+              }
+          }
+          if (item.specialInstructions) {
+              customHtml += `<div class="text-xs text-warning mt-1 font-medium" style="margin-left: 1.5rem; display: flex; gap: 4px;"><i data-lucide="message-square" style="width:12px;height:12px;"></i> "${this._escHtml(item.specialInstructions)}"</div>`;
+          }
+          
+          if (isKitchen) {
+            itemsHtml += `
+              <div class="flex justify-between items-start mb-3 pb-2 border-b border-border last:border-0 last:mb-0 last:pb-0 text-sm">
+                  <div class="flex-1">
+                      <div class="flex items-start gap-2">
+                          <span class="font-bold min-w-[20px] bg-surface-hover rounded px-1 text-center">${item.quantity}x</span> 
+                          <span class="font-semibold text-base">${this._escHtml(item.menuItemName)}</span>
+                      </div>
+                      ${customHtml}
+                  </div>
+              </div>
+            `;
+          } else {
+            itemsHtml += `
+                <div class="flex justify-between items-start mb-3 pb-2 border-b border-border last:border-0 last:mb-0 last:pb-0 text-sm">
+                    <div class="flex-1">
+                        <div class="flex items-start gap-2">
+                            <span class="font-bold min-w-[20px] bg-surface-hover rounded px-1 text-center">${item.quantity}x</span> 
+                            <span class="font-semibold">${this._escHtml(item.menuItemName)}</span>
+                        </div>
+                        ${customHtml}
+                    </div>
+                    <span class="font-medium whitespace-nowrap ml-3">₹${item.totalPrice.toFixed(2)}</span>
+                </div>
+            `;
+          }
+      });
+    } else if (order.customOrderText) {
+        itemsHtml = `<div class="text-sm border p-3 rounded-md bg-surface-hover mb-2"><strong class="flex items-center gap-1 mb-1"><i data-lucide="pen-tool" style="width:14px;height:14px;"></i> Custom Text:</strong> ${this._escHtml(order.customOrderText)}</div>`;
+    }
+
+    let noteHtml = '';
+    if (order.customerNote) {
+        noteHtml = `<div class="text-sm bg-warning/10 text-warning-foreground mt-3 p-2.5 rounded-md border border-warning/20">
+            <strong class="flex items-center gap-1 mb-0.5"><i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Customer Note:</strong> 
+            ${this._escHtml(order.customerNote)}
+        </div>`;
+    }
+
+    let metadataHtml = '';
+    if (order.metadata && Object.keys(order.metadata).length > 0) {
+        metadataHtml = `<div class="text-xs text-muted mt-3 grid grid-cols-2 gap-1 bg-surface-hover p-2 rounded-md">
+          ${Object.entries(order.metadata).map(([k, v]) => `<div><span class="font-medium">${this._escHtml(k)}:</span> ${this._escHtml(v)}</div>`).join('')}
+        </div>`;
+    }
+    
+    let amountHtml = '';
+    if (!isKitchen) {
+       amountHtml = `<div class="flex justify-between items-center mt-4 pt-3 border-t border-border text-sm">
+          <span class="font-medium">Total Amount</span>
+          <span class="font-extrabold text-lg text-primary">₹${order.totalAmount.toFixed(2)}</span>
+       </div>
+       <div class="flex items-center gap-1 text-xs font-semibold text-danger mt-1 mb-1"><i data-lucide="wallet" style="width:14px;height:14px;"></i> Unpaid (Pay at counter)</div>`;
+    }
+
+    document.getElementById('order-modal-body').innerHTML = `
+      <div class="mb-4 text-sm text-muted">
+         <div><strong>Status:</strong> ${order.status}</div>
+         <div><strong>Time:</strong> ${new Date(order.createdAt).toLocaleString()}</div>
+      </div>
+      <div class="mb-2"><strong>Items:</strong></div>
+      <div class="border rounded-md p-3 bg-surface">
+         ${itemsHtml}
+      </div>
+      ${noteHtml}
+      ${metadataHtml}
+      ${amountHtml}
+    `;
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (window.openModal) openModal('order-modal');
   }
 
   async updateStatus(orderId, newStatus) {

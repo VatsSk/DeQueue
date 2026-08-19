@@ -295,6 +295,7 @@ class CustomerApp {
             }
             inputs.forEach(input => {
                 customizations.push({
+                    groupId: group.id,
                     optionName: input.value,
                     additionalPrice: parseFloat(input.dataset.price || 0),
                     groupName: input.dataset.groupName
@@ -559,11 +560,23 @@ class CustomerApp {
 
     const orderData = {
       sessionId: this.sessionId,
-      items: this.cart.map(item => ({
-        menuItemId: item.menuItemId,
-        quantity: item.quantity,
-        customizations: item.customizations || []
-      })),
+      items: this.cart.map(item => {
+        const groupedCusts = {};
+        (item.customizations || []).forEach(c => {
+            if (c.groupId) {
+                if (!groupedCusts[c.groupId]) {
+                    groupedCusts[c.groupId] = { groupId: c.groupId, selectedOptionNames: [] };
+                }
+                groupedCusts[c.groupId].selectedOptionNames.push(c.optionName);
+            }
+        });
+        
+        return {
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          customizations: Object.values(groupedCusts)
+        };
+      }),
       customerNote: note,
       metadata: metadata
     };

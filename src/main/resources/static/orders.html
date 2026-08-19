@@ -54,6 +54,24 @@
         </main>
     </div>
 
+    <!-- Order Details Modal -->
+    <div class="modal-overlay" id="order-modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="order-modal-title">Order Details</h3>
+                <button class="btn-icon" onclick="closeModal('order-modal')">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="order-modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary w-full" onclick="closeModal('order-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <script src="js/api.js"></script>

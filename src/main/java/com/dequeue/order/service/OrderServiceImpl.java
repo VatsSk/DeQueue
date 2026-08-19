@@ -197,6 +197,8 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.PENDING);
         order.setCreatedAt(Instant.now());
         order.setSessionId(request.getSessionId());
+        order.setCustomerNote(request.getCustomerNote());
+        order.setCustomOrderText(request.getCustomOrderText());
         
         if (request.getMetadata() != null) {
             order.setMetadata(request.getMetadata());

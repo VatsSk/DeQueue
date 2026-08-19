@@ -6,6 +6,12 @@ services:
     container_name: dequeue-app
     ports:
       - "8080:8080"
+    volumes:
+      - ./build/libs:/app/libs:ro
+    entrypoint:
+      - sh
+      - -c
+      - JAR_FILE=$$(find /app/libs -name '*.jar' ! -name '*-plain.jar' | head -n 1) && java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar $$JAR_FILE
     depends_on:
       mongo:
         condition: service_healthy
