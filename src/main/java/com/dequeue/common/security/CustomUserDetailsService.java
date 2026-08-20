@@ -70,15 +70,12 @@ public class CustomUserDetailsService implements UserDetailsService {
             }
 
             List<RbacRole> roles = new ArrayList<>();
-            if (!roleNames.isEmpty()) {
-                roles.addAll(rbacRoleRepository.findByVendorIdAndNameIn(staff.getVendorId(), roleNames));
-            }
             if (!roleIds.isEmpty()) {
-                rbacRoleRepository.findAllById(roleIds).forEach(role -> {
-                    if (role != null && staff.getVendorId().equals(role.getVendorId())) {
-                        roles.add(role);
-                    }
-                });
+                rbacRoleRepository.findAllById(roleIds).forEach(roles::add);
+            }
+            // Legacy fallback: staff.roles stored as name strings
+            if (!roleNames.isEmpty()) {
+                rbacRoleRepository.findByNameIn(roleNames).forEach(roles::add);
             }
 
             java.util.Set<String> permissionKeys = new java.util.LinkedHashSet<>();

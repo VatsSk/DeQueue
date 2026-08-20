@@ -10,7 +10,6 @@ import java.util.List;
 public class RoleResponse {
 
     private String id;
-    private String vendorId;
     private String name;
     private String description;
 

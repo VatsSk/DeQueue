@@ -9,10 +9,7 @@ import com.dequeue.common.exception.UnauthorizedException;
 import com.dequeue.common.security.JwtTokenProvider;
 import com.dequeue.common.security.UserPrincipal;
 import com.dequeue.order.entity.OrderStatus;
-import com.dequeue.rbac.entity.OrderVisibility;
-import com.dequeue.rbac.entity.RbacPermission;
 import com.dequeue.rbac.entity.RbacRole;
-import com.dequeue.rbac.repository.RbacPermissionRepository;
 import com.dequeue.rbac.repository.RbacRoleRepository;
 import com.dequeue.staff.entity.Staff;
 import com.dequeue.staff.entity.StaffStatus;
@@ -41,7 +38,6 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final RbacRoleRepository rbacRoleRepository;
-    private final RbacPermissionRepository rbacPermissionRepository;
 
     @Override
     public AuthResponse login(LoginRequest request) {
@@ -100,57 +96,22 @@ public class AuthServiceImpl implements AuthService {
         vendor.setActive(true);
         vendor = vendorRepository.save(vendor);
 
-        // Seed static roles for the new vendor in DB
-        // ROLE_VENDOR_ADMIN
-        rbacRoleRepository.save(RbacRole.builder()
-                .vendorId(vendor.getId())
-                .name("ROLE_VENDOR_ADMIN")
-                .description("Full access for the vendor administrator")
-                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"))
-                .orderVisibility(OrderVisibility.builder().statuses(Arrays.asList(OrderStatus.values())).build())
-                .active(true)
-                .build());
-
-        // ROLE_VENDOR_MANAGER
-        rbacRoleRepository.save(RbacRole.builder()
-                .vendorId(vendor.getId())
-                .name("ROLE_VENDOR_MANAGER")
-                .description("Full access for the vendor manager")
-                .permissions(List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"))
-                .orderVisibility(OrderVisibility.builder().statuses(Arrays.asList(OrderStatus.values())).build())
-                .active(true)
-                .build());
-
-        // ROLE_VENDOR_KITCHEN
-        rbacRoleRepository.save(RbacRole.builder()
-                .vendorId(vendor.getId())
-                .name("ROLE_VENDOR_KITCHEN")
-                .description("Kitchen staff can see and progress orders")
-                .permissions(List.of("order.view", "order.prepare", "order.ready"))
-                .orderVisibility(OrderVisibility.builder().statuses(List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY)).build())
-                .active(true)
-                .build());
-
-        // ROLE_VENDOR_COUNTER
-        rbacRoleRepository.save(RbacRole.builder()
-                .vendorId(vendor.getId())
-                .name("ROLE_VENDOR_COUNTER")
-                .description("Counter staff can complete ready orders")
-                .permissions(List.of("order.view", "order.complete", "order.cancel", "order.print"))
-                .orderVisibility(OrderVisibility.builder().statuses(List.of(OrderStatus.READY)).build())
-                .active(true)
-                .build());
-
         Staff staff = new Staff();
         staff.setName(request.getOwnerName());
         staff.setEmail(request.getEmail());
         staff.setPassword(passwordEncoder.encode(request.getPassword()));
         staff.setPhone(request.getPhone());
-        staff.setRoles(List.of("ROLE_VENDOR_ADMIN"));
         staff.setDepartmentIds(new ArrayList<>());
         staff.setStatus(StaffStatus.ACTIVE);
         staff.setVendorId(vendor.getId());
-        staff = staffRepository.save(staff);
+
+        // Assign the global ROLE_VENDOR_ADMIN role by its ID
+        rbacRoleRepository.findByName("ROLE_VENDOR_ADMIN").ifPresentOrElse(
+                adminRole -> staff.setRoles(List.of(adminRole.getId())),
+                () -> staff.setRoles(new ArrayList<>())
+        );
+
+        staffRepository.save(staff);
 
         ResolvedPermissions resolved = resolvePermissions(staff);
         UserPrincipal principal = UserPrincipal.create(staff, resolved.permissionKeys, resolved.visibilityStatuses);
@@ -226,15 +187,12 @@ public class AuthServiceImpl implements AuthService {
             }
 
             List<RbacRole> roles = new ArrayList<>();
-            if (!roleNames.isEmpty()) {
-                roles.addAll(rbacRoleRepository.findByVendorIdAndNameIn(staff.getVendorId(), roleNames));
-            }
             if (!roleIds.isEmpty()) {
-                rbacRoleRepository.findAllById(roleIds).forEach(role -> {
-                    if (role != null && staff.getVendorId().equals(role.getVendorId())) {
-                        roles.add(role);
-                    }
-                });
+                rbacRoleRepository.findAllById(roleIds).forEach(roles::add);
+            }
+            // Legacy fallback: staff.roles stored as name strings
+            if (!roleNames.isEmpty()) {
+                rbacRoleRepository.findByNameIn(roleNames).forEach(roles::add);
             }
 
             java.util.Set<String> keys = new java.util.LinkedHashSet<>();

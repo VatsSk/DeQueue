@@ -6,6 +6,7 @@ import com.dequeue.profile.entity.VendorProfile;
 import com.dequeue.rbac.entity.OrderVisibility;
 import com.dequeue.rbac.entity.RbacPermission;
 import com.dequeue.rbac.entity.RbacRole;
+import com.dequeue.rbac.repository.RbacRoleRepository;
 import com.dequeue.staff.entity.*;
 import com.dequeue.vendor.entity.*;
 import org.bson.Document;
@@ -13,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -23,14 +25,17 @@ import java.util.stream.Collectors;
 
 @Component
 @Profile("dev")
+@Order(2)
 public class DataSeeder implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(DataSeeder.class);
     private final MongoTemplate mongoTemplate;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final RbacRoleRepository roleRepository;
 
-    public DataSeeder(MongoTemplate mongoTemplate) {
+    public DataSeeder(MongoTemplate mongoTemplate, RbacRoleRepository roleRepository) {
         this.mongoTemplate = mongoTemplate;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -69,29 +74,18 @@ public class DataSeeder implements CommandLineRunner {
         Department kitchenDept = saveDept(vendorId, "Kitchen");
         Department counterDept = saveDept(vendorId, "Counter");
 
-        // ── 4. Seed Roles ─────────────────────────────────────────────────
-        saveRole(vendorId, "ROLE_VENDOR_ADMIN", "Full access for the vendor administrator",
-                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"),
-                Arrays.asList(OrderStatus.values()));
+        // ── 4. Look up Global Role IDs (seeded by GlobalRoleSeeder) ──────
+        String adminRoleId  = roleRepository.findByName("ROLE_VENDOR_ADMIN")
+                .map(RbacRole::getId).orElseThrow(() -> new IllegalStateException("ROLE_VENDOR_ADMIN not found"));
+        String kitchenRoleId = roleRepository.findByName("ROLE_VENDOR_KITCHEN")
+                .map(RbacRole::getId).orElseThrow(() -> new IllegalStateException("ROLE_VENDOR_KITCHEN not found"));
+        String counterRoleId = roleRepository.findByName("ROLE_VENDOR_COUNTER")
+                .map(RbacRole::getId).orElseThrow(() -> new IllegalStateException("ROLE_VENDOR_COUNTER not found"));
 
-        saveRole(vendorId, "ROLE_VENDOR_MANAGER", "Full access for the vendor manager",
-                List.of("menu.view", "menu.edit", "staff.view", "staff.edit", "order.view", "order.accept", "order.prepare", "order.ready", "order.complete", "order.cancel", "order.print", "report.view", "qr.view"),
-                Arrays.asList(OrderStatus.values()));
-
-        saveRole(vendorId, "ROLE_VENDOR_KITCHEN", "Kitchen staff can see and progress orders",
-                List.of("order.view", "order.prepare", "order.ready"),
-                List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY));
-
-        saveRole(vendorId, "ROLE_VENDOR_COUNTER", "Counter staff can complete ready orders",
-                List.of("order.view", "order.complete", "order.cancel", "order.print"),
-                List.of(OrderStatus.READY));
-
-        logger.info("Seeded static roles in database for vendor: {}", vendorId);
-
-        // ── 5. Create Staff ───────────────────────────────────────────────
-        saveStaff(vendorId, "Admin User",        "admin@dequeue.com",     "admin123",   adminDept,   "ROLE_VENDOR_ADMIN", true);
-        saveStaff(vendorId, "Kitchen Staff 1",   "kitchen@chaicorner.com","kitchen123", kitchenDept, "ROLE_VENDOR_KITCHEN", false);
-        saveStaff(vendorId, "Counter Staff 1",   "counter@chaicorner.com","counter123", counterDept, "ROLE_VENDOR_COUNTER", false);
+        // ── 5. Create Staff (roles stored as role IDs) ────────────────────
+        saveStaff(vendorId, "Admin User",        "admin@dequeue.com",     "admin123",   adminDept,   adminRoleId,   true);
+        saveStaff(vendorId, "Kitchen Staff 1",   "kitchen@chaicorner.com","kitchen123", kitchenDept, kitchenRoleId, false);
+        saveStaff(vendorId, "Counter Staff 1",   "counter@chaicorner.com","counter123", counterDept, counterRoleId, false);
 
         // ── 6. Create Categories ──────────────────────────────────────────
         Category hotBev  = saveCategory(vendorId, "Hot Beverages",  1);
@@ -215,28 +209,6 @@ public class DataSeeder implements CommandLineRunner {
         return result;
     }
 
-    // ─── Role helpers ─────────────────────────────────────────────────────────
-
-    private RbacRole saveRole(String vendorId, String name, String description,
-                               List<String> permissions, List<OrderStatus> visibilityStatuses) {
-        RbacRole role = RbacRole.builder()
-                .vendorId(vendorId)
-                .name(name)
-                .description(description)
-                .permissions(permissions)
-                .orderVisibility(OrderVisibility.builder().statuses(visibilityStatuses).build())
-                .active(true)
-                .build();
-        return mongoTemplate.save(role);
-    }
-
-    private List<String> permIds(Map<String, RbacPermission> permMap, String... keys) {
-        List<String> ids = new ArrayList<>();
-        for (String key : keys) {
-            if (permMap.containsKey(key)) ids.add(permMap.get(key).getId());
-        }
-        return ids;
-    }
 
     // ─── Staff helper ─────────────────────────────────────────────────────────
 
