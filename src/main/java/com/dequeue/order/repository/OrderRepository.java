@@ -27,8 +27,13 @@ public interface OrderRepository extends MongoRepository<Order, String> {
 
     // Settlement-related queries
     List<Order> findByVendorIdAndStatus(String vendorId, OrderStatus status);
+    List<Order> findBySettlementId(String settlementId);
     List<Order> findByVendorIdAndSettlementId(String vendorId, String settlementId);
     List<Order> findByVendorIdAndSettlementStatus(
             String vendorId, SettlementStatus settlementStatus);
+    List<Order> findByVendorIdAndStatusAndSettlementStatus(
+            String vendorId, OrderStatus status, SettlementStatus settlementStatus);
+    List<Order> findByVendorIdAndStatusAndCreatedAtBetween(
+            String vendorId, OrderStatus status, Instant start, Instant end);
 }
 

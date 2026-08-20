@@ -56,13 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Use auth token for download - simple approach via fetch and blob
-        apiCall(`/vendor/financial-report/export?from=${from}&to=${to}`)
-            .then(blob => {
-                // Not standard JSON response, need to handle as text/blob
-            }).catch(e => console.error(e));
-            
-        // Better approach for file download with auth
+        // Use auth token for download with fetch and blob
+        const token = localStorage.getItem('token');
         fetch(`${API_BASE_URL}/vendor/financial-report/export?from=${from}&to=${to}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -93,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadSummaryDashboard() {
         try {
-            const res = await apiCall('/vendor/settlements/summary');
+            const res = await api.get('/vendor/settlements/summary');
             if (res.success && res.data) {
                 const d = res.data;
                 document.getElementById('dashTotalSales').textContent = formatCurrency(d.totalSales);
@@ -127,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (from) url += `&from=${from}`;
             if (to) url += `&to=${to}`;
 
-            const res = await apiCall(url);
+            const res = await api.get(url);
             const tbody = document.getElementById('ledgerTableBody');
             tbody.innerHTML = '';
             
@@ -167,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadHistory() {
         try {
-            const res = await apiCall('/vendor/settlements');
+            const res = await api.get('/vendor/settlements');
             const tbody = document.getElementById('historyTableBody');
             tbody.innerHTML = '';
             
@@ -201,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadPending() {
         try {
-            const res = await apiCall('/vendor/settlements/pending');
+            const res = await api.get('/vendor/settlements/pending');
             const tbody = document.getElementById('pendingTableBody');
             tbody.innerHTML = '';
             
@@ -243,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Exported to window for onclick handlers
     window.viewSettlementDetail = async function(id) {
         try {
-            const res = await apiCall(`/vendor/settlements/${id}`);
+            const res = await api.get(`/vendor/settlements/${id}`);
             if (res.success && res.data) {
                 const s = res.data;
                 document.getElementById('modalSettlementRef').textContent = `Settlement ${s.settlementRef}`;

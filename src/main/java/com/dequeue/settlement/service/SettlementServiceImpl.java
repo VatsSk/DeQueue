@@ -8,7 +8,6 @@ import com.dequeue.order.entity.OrderStatus;
 import com.dequeue.order.repository.OrderRepository;
 import com.dequeue.settlement.dto.*;
 import com.dequeue.settlement.entity.*;
-import com.dequeue.settlement.repository.PaymentTransactionRepository;
 import com.dequeue.settlement.repository.VendorSettlementRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +68,6 @@ public class SettlementServiceImpl implements SettlementService {
     private static final BigDecimal DEFAULT_CASHFREE_TAX_PERCENTAGE = new BigDecimal("18.00");
 
     private final OrderRepository orderRepository;
-    private final PaymentTransactionRepository transactionRepository;
     private final VendorSettlementRepository settlementRepository;
     private final com.dequeue.vendor.repository.VendorRepository vendorRepository;
 
@@ -79,22 +77,23 @@ public class SettlementServiceImpl implements SettlementService {
 
     @Override
     public SettlementSummaryResponse getSummary(String vendorId) {
-        List<PaymentTransaction> allTransactions = transactionRepository.findByVendorId(vendorId);
+        // Get all COMPLETED orders for this vendor
+        List<Order> allOrders = orderRepository.findByVendorIdAndStatus(vendorId, OrderStatus.COMPLETED);
 
-        // Separate completed (eligible) transactions
-        List<PaymentTransaction> eligible = allTransactions.stream()
-                .filter(t -> t.getPaymentStatus() == PaymentStatus.COMPLETED)
+        // Filter orders that have payment recorded
+        List<Order> paidOrders = allOrders.stream()
+                .filter(o -> o.getPaymentSource() != null)
                 .collect(Collectors.toList());
 
-        BigDecimal cashfreeSales = sum(eligible, t -> t.getPaymentSource() == PaymentSource.CASHFREE ? t.getAmount() : BigDecimal.ZERO);
-        BigDecimal cashSales = sum(eligible, t -> t.getPaymentSource() == PaymentSource.CASH ? t.getAmount() : BigDecimal.ZERO);
-        BigDecimal offlineSales = sum(eligible, t -> t.getPaymentSource() == PaymentSource.OFFLINE ? t.getAmount() : BigDecimal.ZERO);
+        BigDecimal cashfreeSales = sumOrders(paidOrders, o -> o.getPaymentSource() == PaymentSource.CASHFREE ? o.getTotalAmount() : BigDecimal.ZERO);
+        BigDecimal cashSales = sumOrders(paidOrders, o -> o.getPaymentSource() == PaymentSource.CASH ? o.getTotalAmount() : BigDecimal.ZERO);
+        BigDecimal offlineSales = sumOrders(paidOrders, o -> (o.getPaymentSource() == PaymentSource.OFFLINE || o.getPaymentSource() == PaymentSource.OTHER) ? o.getTotalAmount() : BigDecimal.ZERO);
         BigDecimal totalSales = cashfreeSales.add(cashSales).add(offlineSales);
 
-        BigDecimal totalCashfreeFees = sum(eligible, PaymentTransaction::getCashfreeFee);
-        BigDecimal totalCashfreeTax = sum(eligible, PaymentTransaction::getCashfreeTax);
-        BigDecimal totalPlatformCharges = sum(eligible, PaymentTransaction::getPlatformFeeAmount);
-        BigDecimal totalRefunds = sum(eligible, PaymentTransaction::getRefundAmount);
+        BigDecimal totalCashfreeFees = sumOrders(paidOrders, Order::getCashfreeFee);
+        BigDecimal totalCashfreeTax = sumOrders(paidOrders, Order::getCashfreeTax);
+        BigDecimal totalPlatformCharges = sumOrders(paidOrders, Order::getPlatformFeeAmount);
+        BigDecimal totalRefunds = sumOrders(paidOrders, Order::getRefundAmount);
 
         BigDecimal totalVendorEarnings = totalSales
                 .subtract(totalCashfreeFees)
@@ -122,32 +121,24 @@ public class SettlementServiceImpl implements SettlementService {
         LocalDate pendingFrom = null;
         if (settledTill != null) {
             pendingFrom = settledTill.plusDays(1);
-        } else {
-            // No settlements — pending from the first eligible transaction
-            eligible.stream()
-                    .map(PaymentTransaction::getRecordedAt)
-                    .min(Instant::compareTo)
-                    .ifPresent(t -> {
-                        // pendingFrom is set below — work around lambda effectively-final
-                    });
         }
 
-        // Find pending from date from first pending transaction
+        // Find pending from date from first pending order
         if (pendingFrom == null) {
-            List<PaymentTransaction> pending = eligible.stream()
-                    .filter(t -> t.getSettlementStatus() == SettlementStatus.PENDING)
+            List<Order> pending = paidOrders.stream()
+                    .filter(o -> o.getSettlementStatus() == SettlementStatus.PENDING)
                     .collect(Collectors.toList());
             pendingFrom = pending.stream()
-                    .map(PaymentTransaction::getRecordedAt)
+                    .map(Order::getCreatedAt)
                     .min(Instant::compareTo)
                     .map(i -> i.atZone(ZoneId.systemDefault()).toLocalDate())
                     .orElse(null);
         }
 
-        long settledOrderCount = eligible.stream()
-                .filter(t -> t.getSettlementStatus() == SettlementStatus.SETTLED)
+        long settledOrderCount = paidOrders.stream()
+                .filter(o -> o.getSettlementStatus() == SettlementStatus.SETTLED)
                 .count();
-        long pendingOrderCount = eligible.stream()
+        long pendingOrderCount = paidOrders.stream()
                 .filter(t -> t.getSettlementStatus() == SettlementStatus.PENDING)
                 .count();
 
@@ -168,7 +159,7 @@ public class SettlementServiceImpl implements SettlementService {
                 .lastSettlementAmount(lastSettled.map(VendorSettlement::getNetSettlementAmount).orElse(null))
                 .lastSettlementDate(lastSettled.map(VendorSettlement::getSettledAt).orElse(null))
                 .pendingFrom(pendingFrom)
-                .totalOrders(eligible.size())
+                .totalOrders(paidOrders.size())
                 .settledOrders((int) settledOrderCount)
                 .pendingOrders((int) pendingOrderCount)
                 .build();
@@ -193,7 +184,7 @@ public class SettlementServiceImpl implements SettlementService {
                 .filter(s -> s.getVendorId().equals(vendorId))
                 .orElseThrow(() -> new ResourceNotFoundException("Settlement not found: " + settlementId));
 
-        List<PaymentTransaction> txns = transactionRepository.findBySettlementId(settlementId);
+        List<Order> orders = orderRepository.findBySettlementId(settlementId);
 
         return SettlementDetailResponse.builder()
                 .id(settlement.getId())
@@ -213,7 +204,7 @@ public class SettlementServiceImpl implements SettlementService {
                 .settledAt(settlement.getSettledAt())
                 .createdAt(settlement.getCreatedAt())
                 .adminNotes(settlement.getAdminNotes())
-                .transactions(txns.stream().map(this::toLedgerEntry).collect(Collectors.toList()))
+                .transactions(orders.stream().map(this::toLedgerEntry).collect(Collectors.toList()))
                 .build();
     }
 
@@ -221,20 +212,21 @@ public class SettlementServiceImpl implements SettlementService {
     public PageResponse<TransactionLedgerEntry> getTransactionLedger(
             String vendorId, LocalDate from, LocalDate to, int page, int size) {
 
-        Page<PaymentTransaction> pageResult;
         if (from != null && to != null) {
-            // Filter by date range using a pageable query via MongoRepository derived method
-            // We use a full list + manual slice here because MongoRepository doesn't support
-            // pageable + date range with a single derived method without @Query.
-            // For production at scale, add a @Query or use MongoTemplate.
-            List<PaymentTransaction> filtered = transactionRepository.findByVendorIdAndRecordedAtBetween(
-                    vendorId, toStartOfDay(from), toEndOfDay(to));
-            return toManualPage(filtered.stream().map(this::toLedgerEntry).collect(Collectors.toList()),
-                    page, size, filtered.size());
+            // Filter by date range - get COMPLETED orders with payment recorded
+            List<Order> filtered = orderRepository.findByVendorIdAndStatusAndCreatedAtBetween(
+                    vendorId, OrderStatus.COMPLETED, toStartOfDay(from), toEndOfDay(to));
+            List<Order> paidOrders = filtered.stream()
+                    .filter(o -> o.getPaymentSource() != null)
+                    .collect(Collectors.toList());
+            return toManualPage(paidOrders.stream().map(this::toLedgerEntry).collect(Collectors.toList()),
+                    page, size, paidOrders.size());
         } else {
-            pageResult = transactionRepository.findByVendorId(
-                    vendorId, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "recordedAt")));
+            // Get all COMPLETED orders with pagination
+            Page<Order> pageResult = orderRepository.findByVendorIdAndStatus(
+                    vendorId, OrderStatus.COMPLETED, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
             List<TransactionLedgerEntry> content = pageResult.getContent().stream()
+                    .filter(o -> o.getPaymentSource() != null)
                     .map(this::toLedgerEntry).collect(Collectors.toList());
             return new PageResponse<>(content, pageResult.getNumber(), pageResult.getSize(),
                     pageResult.getTotalElements(), pageResult.getTotalPages(), pageResult.isLast());
@@ -243,41 +235,42 @@ public class SettlementServiceImpl implements SettlementService {
 
     @Override
     public TransactionLedgerEntry getTransaction(String vendorId, String transactionId) {
-        PaymentTransaction txn = transactionRepository.findById(transactionId)
-                .filter(t -> t.getVendorId().equals(vendorId))
+        // transactionId is actually orderId since we don't have separate transactions
+        Order order = orderRepository.findById(transactionId)
+                .filter(o -> o.getVendorId().equals(vendorId))
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + transactionId));
-        return toLedgerEntry(txn);
+        return toLedgerEntry(order);
     }
 
     @Override
     public FinancialReportResponse getFinancialReport(String vendorId, LocalDate from, LocalDate to) {
-        List<PaymentTransaction> txns = transactionRepository.findByVendorIdAndRecordedAtBetween(
-                vendorId, toStartOfDay(from), toEndOfDay(to));
+        List<Order> orders = orderRepository.findByVendorIdAndStatusAndCreatedAtBetween(
+                vendorId, OrderStatus.COMPLETED, toStartOfDay(from), toEndOfDay(to));
 
-        List<PaymentTransaction> eligible = txns.stream()
-                .filter(t -> t.getPaymentStatus() == PaymentStatus.COMPLETED)
-                .collect(Collectors.toList());
-
-        List<PaymentTransaction> cashfreeTxns = eligible.stream()
-                .filter(t -> t.getPaymentSource() == PaymentSource.CASHFREE)
-                .collect(Collectors.toList());
-        List<PaymentTransaction> cashTxns = eligible.stream()
-                .filter(t -> t.getPaymentSource() == PaymentSource.CASH)
-                .collect(Collectors.toList());
-        List<PaymentTransaction> offlineTxns = eligible.stream()
-                .filter(t -> t.getPaymentSource() == PaymentSource.OFFLINE
-                        || t.getPaymentSource() == PaymentSource.OTHER)
+        List<Order> paidOrders = orders.stream()
+                .filter(o -> o.getPaymentSource() != null)
                 .collect(Collectors.toList());
 
-        BigDecimal cashfreeSales = sum(cashfreeTxns, PaymentTransaction::getAmount);
-        BigDecimal cashSales = sum(cashTxns, PaymentTransaction::getAmount);
-        BigDecimal offlineSales = sum(offlineTxns, PaymentTransaction::getAmount);
+        List<Order> cashfreeOrders = paidOrders.stream()
+                .filter(o -> o.getPaymentSource() == PaymentSource.CASHFREE)
+                .collect(Collectors.toList());
+        List<Order> cashOrders = paidOrders.stream()
+                .filter(o -> o.getPaymentSource() == PaymentSource.CASH)
+                .collect(Collectors.toList());
+        List<Order> offlineOrders = paidOrders.stream()
+                .filter(o -> o.getPaymentSource() == PaymentSource.OFFLINE
+                        || o.getPaymentSource() == PaymentSource.OTHER)
+                .collect(Collectors.toList());
+
+        BigDecimal cashfreeSales = sumOrders(cashfreeOrders, Order::getTotalAmount);
+        BigDecimal cashSales = sumOrders(cashOrders, Order::getTotalAmount);
+        BigDecimal offlineSales = sumOrders(offlineOrders, Order::getTotalAmount);
         BigDecimal totalSales = cashfreeSales.add(cashSales).add(offlineSales);
 
-        BigDecimal cashfreeFees = sum(eligible, PaymentTransaction::getCashfreeFee);
-        BigDecimal cashfreeTax = sum(eligible, PaymentTransaction::getCashfreeTax);
-        BigDecimal platformCharges = sum(eligible, PaymentTransaction::getPlatformFeeAmount);
-        BigDecimal refunds = sum(eligible, PaymentTransaction::getRefundAmount);
+        BigDecimal cashfreeFees = sumOrders(paidOrders, Order::getCashfreeFee);
+        BigDecimal cashfreeTax = sumOrders(paidOrders, Order::getCashfreeTax);
+        BigDecimal platformCharges = sumOrders(paidOrders, Order::getPlatformFeeAmount);
+        BigDecimal refunds = sumOrders(paidOrders, Order::getRefundAmount);
 
         BigDecimal vendorNetPayable = totalSales
                 .subtract(cashfreeFees)
@@ -286,45 +279,45 @@ public class SettlementServiceImpl implements SettlementService {
                 .subtract(refunds);
 
         // Settlement info for period
-        BigDecimal periodSettled = eligible.stream()
-                .filter(t -> t.getSettlementStatus() == SettlementStatus.SETTLED)
-                .map(PaymentTransaction::getVendorNetAmount)
+        BigDecimal periodSettled = paidOrders.stream()
+                .filter(o -> o.getSettlementStatus() == SettlementStatus.SETTLED)
+                .map(Order::getVendorNetAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal periodPending = eligible.stream()
-                .filter(t -> t.getSettlementStatus() == SettlementStatus.PENDING)
-                .map(PaymentTransaction::getVendorNetAmount)
+        BigDecimal periodPending = paidOrders.stream()
+                .filter(o -> o.getSettlementStatus() == SettlementStatus.PENDING)
+                .map(Order::getVendorNetAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // Online breakdown
         OnlinePaymentSummary online = OnlinePaymentSummary.builder()
-                .orderCount(cashfreeTxns.size())
+                .orderCount(cashfreeOrders.size())
                 .grossAmount(cashfreeSales)
-                .cashfreeFees(sum(cashfreeTxns, PaymentTransaction::getCashfreeFee))
-                .cashfreeTax(sum(cashfreeTxns, PaymentTransaction::getCashfreeTax))
-                .platformFees(sum(cashfreeTxns, PaymentTransaction::getPlatformFeeAmount))
-                .refunds(sum(cashfreeTxns, PaymentTransaction::getRefundAmount))
-                .vendorNetAmount(sum(cashfreeTxns, PaymentTransaction::getVendorNetAmount))
+                .cashfreeFees(sumOrders(cashfreeOrders, Order::getCashfreeFee))
+                .cashfreeTax(sumOrders(cashfreeOrders, Order::getCashfreeTax))
+                .platformFees(sumOrders(cashfreeOrders, Order::getPlatformFeeAmount))
+                .refunds(sumOrders(cashfreeOrders, Order::getRefundAmount))
+                .vendorNetAmount(sumOrders(cashfreeOrders, Order::getVendorNetAmount))
                 .build();
 
         // Offline breakdown
         OfflinePaymentSummary offline = OfflinePaymentSummary.builder()
-                .cashOrderCount(cashTxns.size())
-                .offlineOrderCount(offlineTxns.size())
+                .cashOrderCount(cashOrders.size())
+                .offlineOrderCount(offlineOrders.size())
                 .cashAmount(cashSales)
                 .offlineAmount(offlineSales)
                 .grossAmount(cashSales.add(offlineSales))
                 .cashfreeFees(BigDecimal.ZERO) // Explicitly zero — never charged on offline
-                .platformFees(sum(cashTxns, PaymentTransaction::getPlatformFeeAmount)
-                        .add(sum(offlineTxns, PaymentTransaction::getPlatformFeeAmount)))
-                .refunds(sum(cashTxns, PaymentTransaction::getRefundAmount)
-                        .add(sum(offlineTxns, PaymentTransaction::getRefundAmount)))
-                .vendorNetAmount(sum(cashTxns, PaymentTransaction::getVendorNetAmount)
-                        .add(sum(offlineTxns, PaymentTransaction::getVendorNetAmount)))
+                .platformFees(sumOrders(cashOrders, Order::getPlatformFeeAmount)
+                        .add(sumOrders(offlineOrders, Order::getPlatformFeeAmount)))
+                .refunds(sumOrders(cashOrders, Order::getRefundAmount)
+                        .add(sumOrders(offlineOrders, Order::getRefundAmount)))
+                .vendorNetAmount(sumOrders(cashOrders, Order::getVendorNetAmount)
+                        .add(sumOrders(offlineOrders, Order::getVendorNetAmount)))
                 .build();
 
         // Reconciliation
         ReconciliationResponse reconciliation = ReconciliationResponse.builder()
-                .totalEligibleOrders(eligible.size())
+                .totalEligibleOrders(paidOrders.size())
                 .totalEligibleRevenue(totalSales)
                 .totalCashfreeFees(cashfreeFees)
                 .totalCashfreeTax(cashfreeTax)
@@ -352,41 +345,41 @@ public class SettlementServiceImpl implements SettlementService {
                 .onlineBreakdown(online)
                 .offlineBreakdown(offline)
                 .reconciliation(reconciliation)
-                .totalTransactions(eligible.size())
-                .transactions(eligible.stream().map(this::toLedgerEntry).collect(Collectors.toList()))
+                .totalTransactions(paidOrders.size())
+                .transactions(paidOrders.stream().map(this::toLedgerEntry).collect(Collectors.toList()))
                 .build();
     }
 
     @Override
     public PendingSettlementResponse getPendingSettlement(String vendorId) {
-        List<PaymentTransaction> pending = transactionRepository
-                .findByVendorIdAndSettlementStatus(vendorId, SettlementStatus.PENDING)
+        List<Order> pendingOrders = orderRepository
+                .findByVendorIdAndStatusAndSettlementStatus(vendorId, OrderStatus.COMPLETED, SettlementStatus.PENDING)
                 .stream()
-                .filter(t -> t.getPaymentStatus() == PaymentStatus.COMPLETED)
+                .filter(o -> o.getPaymentSource() != null)
                 .collect(Collectors.toList());
 
-        BigDecimal cashfreeSales = sum(pending, t -> t.getPaymentSource() == PaymentSource.CASHFREE
-                ? t.getAmount() : BigDecimal.ZERO);
-        BigDecimal offlineSales = sum(pending, t -> t.getPaymentSource() != PaymentSource.CASHFREE
-                ? t.getAmount() : BigDecimal.ZERO);
+        BigDecimal cashfreeSales = sumOrders(pendingOrders, o -> o.getPaymentSource() == PaymentSource.CASHFREE
+                ? o.getTotalAmount() : BigDecimal.ZERO);
+        BigDecimal offlineSales = sumOrders(pendingOrders, o -> o.getPaymentSource() != PaymentSource.CASHFREE
+                ? o.getTotalAmount() : BigDecimal.ZERO);
         BigDecimal grossSales = cashfreeSales.add(offlineSales);
 
-        BigDecimal cashreeFees = sum(pending, PaymentTransaction::getCashfreeFee);
-        BigDecimal cashreeTax = sum(pending, PaymentTransaction::getCashfreeTax);
-        BigDecimal platformCharges = sum(pending, PaymentTransaction::getPlatformFeeAmount);
-        BigDecimal refunds = sum(pending, PaymentTransaction::getRefundAmount);
-        BigDecimal pendingAmount = sum(pending, PaymentTransaction::getVendorNetAmount);
+        BigDecimal cashreeFees = sumOrders(pendingOrders, Order::getCashfreeFee);
+        BigDecimal cashreeTax = sumOrders(pendingOrders, Order::getCashfreeTax);
+        BigDecimal platformCharges = sumOrders(pendingOrders, Order::getPlatformFeeAmount);
+        BigDecimal refunds = sumOrders(pendingOrders, Order::getRefundAmount);
+        BigDecimal pendingAmount = sumOrders(pendingOrders, Order::getVendorNetAmount);
 
-        // Pending from = earliest pending transaction date
-        LocalDate pendingFrom = pending.stream()
-                .map(PaymentTransaction::getRecordedAt)
+        // Pending from = earliest pending order date
+        LocalDate pendingFrom = pendingOrders.stream()
+                .map(Order::getCreatedAt)
                 .min(Instant::compareTo)
                 .map(i -> i.atZone(ZoneId.systemDefault()).toLocalDate())
                 .orElse(null);
 
         return PendingSettlementResponse.builder()
                 .pendingFrom(pendingFrom)
-                .pendingOrderCount(pending.size())
+                .pendingOrderCount(pendingOrders.size())
                 .grossSales(grossSales)
                 .cashfreeSales(cashfreeSales)
                 .offlineSales(offlineSales)
@@ -395,7 +388,7 @@ public class SettlementServiceImpl implements SettlementService {
                 .platformCharges(platformCharges)
                 .refunds(refunds)
                 .pendingAmount(pendingAmount)
-                .pendingTransactions(pending.stream().map(this::toLedgerEntry).collect(Collectors.toList()))
+                .pendingTransactions(pendingOrders.stream().map(this::toLedgerEntry).collect(Collectors.toList()))
                 .build();
     }
 
@@ -417,13 +410,10 @@ public class SettlementServiceImpl implements SettlementService {
         }
 
         // 3. Reject duplicate payment attempts
-        if (order.getPaymentTransactionId() != null) {
+        if (order.getPaymentSource() != null) {
             throw new BadRequestException(
-                    "A payment transaction already exists for order " + orderId +
-                    ". Transaction ID: " + order.getPaymentTransactionId());
-        }
-        if (transactionRepository.existsByOrderIdAndPaymentStatus(orderId, PaymentStatus.COMPLETED)) {
-            throw new BadRequestException("Duplicate payment attempt. Order " + orderId + " already has a completed payment.");
+                    "A payment already exists for order " + orderId +
+                    ". Payment source: " + order.getPaymentSource());
         }
 
         // 4. Validate and parse payment source
@@ -459,34 +449,8 @@ public class SettlementServiceImpl implements SettlementService {
                 .subtract(platformFeeAmount)
                 .subtract(refundAmount);
 
-        // 6. Create PaymentTransaction
-        PaymentTransaction txn = PaymentTransaction.builder()
-                .orderId(orderId)
-                .vendorId(vendorId)
-                .paymentId(generateOfflinePaymentId(orderId))
-                .paymentSource(source)
-                .amount(amount)
-                .paymentStatus(PaymentStatus.COMPLETED)
-                .cashfreeFee(cashfreeFee)
-                .cashfreeTax(cashfreeTax)
-                .platformFeePercentage(platformFeePercentage)
-                .platformFeeAmount(platformFeeAmount)
-                .refundAmount(refundAmount)
-                .vendorNetAmount(vendorNetAmount)
-                .settlementStatus(SettlementStatus.PENDING)
-                .recordedBy(staffId)
-                .recordedByName(staffName)
-                .notes(request.getNotes())
-                .reference(request.getReference())
-                .build();
-
-        txn = transactionRepository.save(txn);
-        log.info("Recorded offline payment for order {} by staff {}: source={}, amount={}",
-                orderId, staffId, source, amount);
-
-        // 7. Snapshot financial fields on the Order (immutable after this point)
+        // 6. Update Order with payment information directly (no separate transaction entity)
         order.setPaymentSource(source);
-        order.setPaymentTransactionId(txn.getId());
         order.setPlatformFeePercentage(platformFeePercentage);
         order.setPlatformFeeAmount(platformFeeAmount);
         order.setCashfreeFee(cashfreeFee);
@@ -494,9 +458,24 @@ public class SettlementServiceImpl implements SettlementService {
         order.setRefundAmount(refundAmount);
         order.setVendorNetAmount(vendorNetAmount);
         order.setSettlementStatus(SettlementStatus.PENDING);
+        
+        // Add audit information via metadata
+        order.getMetadata().put("recordedBy", staffId);
+        order.getMetadata().put("recordedByName", staffName);
+        if (request.getNotes() != null) {
+            order.getMetadata().put("paymentNotes", request.getNotes());
+        }
+        if (request.getReference() != null) {
+            order.getMetadata().put("paymentReference", request.getReference());
+        }
+        order.getMetadata().put("recordedAt", Instant.now().toString());
+        
         orderRepository.save(order);
+        
+        log.info("Recorded offline payment for order {} by staff {}: source={}, amount={}",
+                orderId, staffId, source, amount);
 
-        return toLedgerEntry(txn);
+        return toLedgerEntry(order);
     }
 
     @Override
@@ -537,52 +516,47 @@ public class SettlementServiceImpl implements SettlementService {
     // Private helpers
     // ══════════════════════════════════════════════════════════════════════════
 
-    private TransactionLedgerEntry toLedgerEntry(PaymentTransaction t) {
+    private TransactionLedgerEntry toLedgerEntry(Order order) {
         // Look up settlement ref from settlement id if available
         String settlementRef = null;
-        if (t.getSettlementId() != null) {
-            settlementRef = settlementRepository.findById(t.getSettlementId())
+        if (order.getSettlementId() != null) {
+            settlementRef = settlementRepository.findById(order.getSettlementId())
                     .map(VendorSettlement::getSettlementRef)
                     .orElse(null);
         }
 
-        // Look up order date from order (orderId stored on transaction)
-        Instant orderDate = null;
-        String queueNumber = null;
-        try {
-            Optional<Order> order = orderRepository.findById(t.getOrderId());
-            if (order.isPresent()) {
-                orderDate = order.get().getCreatedAt();
-                queueNumber = order.get().getQueueNumber();
-            }
-        } catch (Exception ex) {
-            log.warn("Could not load order {} for ledger entry", t.getOrderId());
-        }
+        // Extract audit info from metadata
+        String recordedBy = order.getMetadata().get("recordedBy");
+        String recordedByName = order.getMetadata().get("recordedByName");
+        String notes = order.getMetadata().get("paymentNotes");
+        String reference = order.getMetadata().get("paymentReference");
+        String recordedAtStr = order.getMetadata().get("recordedAt");
+        Instant recordedAt = recordedAtStr != null ? Instant.parse(recordedAtStr) : order.getCreatedAt();
 
         return TransactionLedgerEntry.builder()
-                .transactionId(t.getId())
-                .orderId(t.getOrderId())
-                .paymentId(t.getPaymentId())
-                .orderDate(orderDate)
-                .queueNumber(queueNumber)
-                .paymentSource(t.getPaymentSource())
-                .paymentStatus(t.getPaymentStatus())
-                .orderAmount(t.getAmount())
-                .cashfreeFee(t.getCashfreeFee())
-                .cashfreeTax(t.getCashfreeTax())
-                .platformFeePercentage(t.getPlatformFeePercentage())
-                .platformFeeAmount(t.getPlatformFeeAmount())
-                .refundAmount(t.getRefundAmount())
-                .vendorNetAmount(t.getVendorNetAmount())
-                .settlementStatus(t.getSettlementStatus())
-                .settlementId(t.getSettlementId())
+                .transactionId(order.getId()) // Order ID serves as transaction ID
+                .orderId(order.getId())
+                .paymentId(generateOfflinePaymentId(order.getId()))
+                .orderDate(order.getCreatedAt())
+                .queueNumber(order.getQueueNumber())
+                .paymentSource(order.getPaymentSource())
+                .paymentStatus(order.getStatus() == OrderStatus.COMPLETED ? PaymentStatus.COMPLETED : PaymentStatus.PENDING)
+                .orderAmount(order.getTotalAmount())
+                .cashfreeFee(order.getCashfreeFee())
+                .cashfreeTax(order.getCashfreeTax())
+                .platformFeePercentage(order.getPlatformFeePercentage())
+                .platformFeeAmount(order.getPlatformFeeAmount())
+                .refundAmount(order.getRefundAmount())
+                .vendorNetAmount(order.getVendorNetAmount())
+                .settlementStatus(order.getSettlementStatus())
+                .settlementId(order.getSettlementId())
                 .settlementRef(settlementRef)
-                .settledAt(t.getSettledAt())
-                .recordedBy(t.getRecordedBy())
-                .recordedByName(t.getRecordedByName())
-                .recordedAt(t.getRecordedAt())
-                .notes(t.getNotes())
-                .reference(t.getReference())
+                .settledAt(order.getSettledAt())
+                .recordedBy(recordedBy)
+                .recordedByName(recordedByName)
+                .recordedAt(recordedAt)
+                .notes(notes)
+                .reference(reference)
                 .build();
     }
 
@@ -611,6 +585,16 @@ public class SettlementServiceImpl implements SettlementService {
      * Sums a BigDecimal field across a list, treating null values as ZERO.
      */
     private <T> BigDecimal sum(List<T> list, java.util.function.Function<T, BigDecimal> extractor) {
+        return list.stream()
+                .map(extractor)
+                .map(v -> v != null ? v : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Sums a BigDecimal field across a list of Order entities, treating null values as ZERO.
+     */
+    private BigDecimal sumOrders(List<Order> list, java.util.function.Function<Order, BigDecimal> extractor) {
         return list.stream()
                 .map(extractor)
                 .map(v -> v != null ? v : BigDecimal.ZERO)

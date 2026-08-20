@@ -2,7 +2,9 @@ package com.dequeue.order.dto;
 
 import com.dequeue.order.entity.OrderStatus;
 import com.dequeue.order.entity.StatusChange;
+import com.dequeue.settlement.entity.PaymentSource;
 import lombok.Data;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -14,5 +16,9 @@ public class TrackOrderResponse {
     private int estimatedWaitTime;
     private List<StatusChange> statusHistory;
     private Instant createdAt;
+    
+    // Payment information for customer display
+    private PaymentSource paymentSource;
+    private BigDecimal totalAmount;
 }
 

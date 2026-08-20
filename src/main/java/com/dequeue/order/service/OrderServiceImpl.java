@@ -212,6 +212,11 @@ public class OrderServiceImpl implements OrderService {
         order.setTaxAmount(request.getTaxAmount());
         order.setServiceChargeName(request.getServiceChargeName());
         order.setServiceChargeAmount(request.getServiceChargeAmount());
+        
+        // Set payment source from request
+        if (request.getPaymentSource() != null) {
+            order.setPaymentSource(request.getPaymentSource());
+        }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> items = new ArrayList<>();
@@ -320,6 +325,8 @@ public class OrderServiceImpl implements OrderService {
         response.setQueueNumber(order.getQueueNumber());
         response.setStatus(order.getStatus());
         response.setCreatedAt(order.getCreatedAt());
+        response.setPaymentSource(order.getPaymentSource());
+        response.setTotalAmount(order.getTotalAmount());
         return response;
     }
 

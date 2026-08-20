@@ -1,5 +1,6 @@
 package com.dequeue.order.dto;
 
+import com.dequeue.settlement.entity.PaymentSource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
@@ -16,6 +17,9 @@ public class PlaceOrderRequest {
     private Double customerLongitude;
     private String sessionId;
     private java.util.Map<String, String> metadata;
+    
+    // Payment source - CASH, CASHFREE, OFFLINE, OTHER
+    private PaymentSource paymentSource;
     
     // new fields
     private java.math.BigDecimal subtotal;

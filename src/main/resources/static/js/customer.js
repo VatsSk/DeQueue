@@ -542,7 +542,8 @@ class CustomerApp {
         serviceChargeAmount: chargeAmt > 0 ? chargeAmt : null,
         serviceChargeName: chargeAmt > 0 ? chargeName : null,
         couponCode: this.appliedCoupon ? this.appliedCoupon.code : null,
-        couponDiscount: couponDiscount > 0 ? couponDiscount : null
+        couponDiscount: couponDiscount > 0 ? couponDiscount : null,
+        finalTotal: finalTotal  // ← Add final total including tax and charges
     };
 
     let cfHtml = '';
@@ -652,6 +653,15 @@ class CustomerApp {
           Place Order — ${this.formatPrice(finalTotal)}
         </button>
       </div>
+      
+      <!-- Payment info banner for cash orders -->
+      <div id="cash-payment-info" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.75rem;">
+        <i data-lucide="wallet" style="width:20px;height:20px;color:#f59e0b;flex-shrink:0;"></i>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:.95rem;color:#92400e;margin-bottom:.25rem;">Cash Payment at Counter</div>
+          <div style="font-size:.85rem;color:#78350f;">Please pay <strong style="font-size:1.1rem;color:#b45309;">${this.formatPrice(finalTotal)}</strong> when collecting your order</div>
+        </div>
+      </div>
     `;
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -659,26 +669,39 @@ class CustomerApp {
 
   _onPayMethodChange(value) {
     const qrPanel = document.getElementById('upi-qr-panel');
+    const cashInfo = document.getElementById('cash-payment-info');
+    
     if (qrPanel) {
       qrPanel.classList.toggle('hidden', value !== 'ONLINE');
+    }
+    
+    if (cashInfo) {
+      cashInfo.style.display = value === 'OFFLINE' ? 'flex' : 'none';
     }
   }
 
   async placeOrder(isFromPayment = false, pendingData = null) {
     if (this.cart.length === 0) return;
 
-    let paymentMethod = 'OFFLINE';
+    let paymentSource = 'CASH'; // Default payment source
     let note = '';
     let metadata = {};
 
     if (isFromPayment && pendingData) {
-        paymentMethod = 'ONLINE';
+        paymentSource = 'CASHFREE'; // Online payment confirmed
         note = pendingData.note;
         metadata = pendingData.metadata;
         this._currentCheckout = pendingData.checkout;
     } else {
         const paySelect = document.getElementById('pay-method-select');
-        paymentMethod = paySelect ? paySelect.value : 'OFFLINE';
+        const selectedMethod = paySelect ? paySelect.value : 'OFFLINE';
+        
+        // Map UI selection to payment source
+        if (selectedMethod === 'ONLINE') {
+            paymentSource = 'CASHFREE';
+        } else {
+            paymentSource = 'CASH'; // For counter payment
+        }
 
         const placeBtn = document.getElementById('place-order-btn');
         if (placeBtn) {
@@ -720,13 +743,14 @@ class CustomerApp {
             }
         }
 
-        metadata['paymentMethod'] = paymentMethod;
+        // Store payment source in metadata for order tracking
+        metadata['paymentSource'] = paymentSource;
         if (this._currentCheckout) {
-            this._currentCheckout.paymentMethod = paymentMethod;
+            this._currentCheckout.paymentSource = paymentSource;
         }
 
-        // Navigate to Cashfree simulated payment process
-        if (paymentMethod === 'ONLINE') {
+        // Navigate to Cashfree simulated payment process for online payment
+        if (paymentSource === 'CASHFREE') {
             const amount = (this._currentCheckout?.finalTotal || this.cart.reduce((s, c) => s + c.totalPrice, 0)).toFixed(2);
             sessionStorage.setItem('dequeue_pending_checkout_' + this.vendorCode, JSON.stringify({
                 metadata,
@@ -740,6 +764,7 @@ class CustomerApp {
 
     const orderData = {
       sessionId: this.sessionId,
+      paymentSource: paymentSource, // Explicitly set payment source
       items: this.cart.map(item => {
         const groupedCusts = {};
         (item.customizations || []).forEach(c => {

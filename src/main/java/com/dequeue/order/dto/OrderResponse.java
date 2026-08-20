@@ -2,6 +2,7 @@ package com.dequeue.order.dto;
 
 import com.dequeue.order.entity.OrderStatus;
 import com.dequeue.order.entity.StatusChange;
+import com.dequeue.settlement.entity.PaymentSource;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -24,6 +25,9 @@ public class OrderResponse {
     private String serviceChargeName;
     private BigDecimal serviceChargeAmount;
     
+    // Payment information
+    private PaymentSource paymentSource;
+    
     private OrderStatus status;
     private String customerNote;
     private List<StatusChange> statusHistory;
@@ -37,4 +41,3 @@ public class OrderResponse {
     private Integer rating;
     private String feedback;
 }
-
