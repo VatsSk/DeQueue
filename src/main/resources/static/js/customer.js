@@ -6,6 +6,8 @@ class CustomerApp {
     this.cart = storedCart ? JSON.parse(storedCart) : [];
     this.vendor = null;
     this.menu = null;
+    this.currentCategory = 'popular';
+    this.searchQuery = '';
     this.activeOrder = null;
     this.pollingInterval = null;
     this.notificationManager = null;
@@ -152,84 +154,65 @@ class CustomerApp {
 
       this.menu = data.data;
       this.renderCategories();
-      this.renderMenuItems();
+      this.renderHero();
+      this.renderMenuItems('popular');
     } catch (err) {
       this.showError('Unable to load menu. Please try again.');
       console.error(err);
     }
   }
 
-  renderCategories() {
-    const container = document.querySelector('.category-pills');
-    if (!container || !this.menu || !this.menu.categories) return;
-
-    container.innerHTML = `<button class="category-pill active" data-category="all">All</button>`;
-    this.menu.categories.forEach(cat => {
-      container.innerHTML += `<button class="category-pill" data-category="${cat.id}">${cat.name}</button>`;
-    });
-
-    container.querySelectorAll('.category-pill').forEach(pill => {
-      pill.addEventListener('click', (e) => {
-        container.querySelectorAll('.category-pill').forEach(p => p.classList.remove('active'));
-        e.target.classList.add('active');
-        this.filterByCategory(e.target.dataset.category);
-      });
-    });
+  renderHero() {
+    const hero = document.getElementById('menu-hero');
+    if (!hero || !this.vendor) return;
+    const allItems = [];
+    (this.menu?.categories || []).forEach(cat => (cat.items || []).forEach(item => { if (item.available !== false && item.visible !== false && item.image) allItems.push(item); }));
+    const image = allItems[0]?.image || this.vendor.logo || '';
+    hero.style.backgroundImage = image ? `linear-gradient(90deg, rgba(255,248,238,.98) 0%, rgba(255,248,238,.84) 42%, rgba(255,248,238,.10) 100%), url("${image}")` : '';
+    const title = hero.querySelector('[data-hero-title]'); const sub = hero.querySelector('[data-hero-subtitle]');
+    if (title) title.textContent = 'Good food, good mood! 😊'; if (sub) sub.textContent = `Freshly made at ${this.vendor.shopName}`;
   }
 
-  renderMenuItems(categoryId = 'all') {
-    const grid = document.querySelector('.menu-grid');
-    if (!grid || !this.menu) return;
-
-    let items = [];
-    if (this.menu.categories) {
-      this.menu.categories.forEach(cat => {
-        if (cat.items) {
-          cat.items.forEach(item => {
-            // Treat missing flags as true (robust against legacy DB entries)
-            const isAvailable = item.available !== false;
-            const isVisible = item.visible !== false;
-            if (isAvailable && isVisible) {
-              items.push({ ...item, categoryId: cat.id, categoryName: cat.name });
-            }
-          });
-        }
-      });
-    }
-
-    if (categoryId !== 'all') {
-      items = items.filter(i => i.categoryId === categoryId);
-    }
-
-    if (items.length === 0) {
-      grid.innerHTML = `<div class="text-center text-muted py-8" style="grid-column: 1/-1;">No items available</div>`;
-      return;
-    }
-
-    grid.innerHTML = items.map(item => `
-      <div class="menu-item-card" data-item-id="${item.id}">
-        <div class="item-info">
-          <div class="item-title">${item.name}</div>
-          <div class="item-desc">${item.description || ''}</div>
-          ${item.preparationTime ? `<div class="text-xs text-muted mt-1"><i data-lucide="clock" style="width:12px;height:12px;display:inline"></i> ~${item.preparationTime} min</div>` : ''}
-          <div class="flex items-center justify-between mt-auto pt-2">
-            <div class="item-price">${this.formatPrice(item.price)}</div>
-            <button class="btn btn-primary add-to-cart-btn" style="padding: 0.25rem 0.75rem; min-height: 32px; font-size: 0.85rem;"
-              onclick="customerApp.handleAddToCart('${item.id}')">Add</button>
-          </div>
-        </div>
-        ${item.image
-          ? `<img src="${item.image}" alt="${item.name}" class="item-image" loading="lazy">`
-          : `<div class="item-image-placeholder"><i data-lucide="utensils"></i></div>`}
-      </div>
-    `).join('');
-
+  renderCategories() {
+    const container = document.querySelector('.category-pills'); const sheet = document.getElementById('category-sheet-list'); const filterLabel = document.getElementById('category-filter-label');
+    if (!container || !sheet || !this.menu || !this.menu.categories) return;
+    const categories = [{ id: 'popular', name: 'Popular', icon: 'sparkles' }, ...this.menu.categories.map(cat => ({ id: cat.id, name: cat.name, icon: 'utensils' }))];
+    container.innerHTML = '';
+    sheet.innerHTML = categories.map(cat => `<button type="button" class="category-sheet-item ${cat.id === this.currentCategory ? 'active' : ''}" data-category="${this._escHtml(cat.id)}"><span class="category-sheet-icon"><i data-lucide="${cat.icon}"></i></span><span class="category-sheet-copy"><strong>${this._escHtml(cat.name)}</strong><small>${cat.id === 'popular' ? 'Customer favourites' : 'Browse this category'}</small></span><i data-lucide="check" class="category-sheet-check"></i></button>`).join('');
+    if (filterLabel) { const selected = categories.find(c => c.id === this.currentCategory) || categories[0]; filterLabel.textContent = selected.name; }
+    sheet.querySelectorAll('.category-sheet-item').forEach(btn => btn.addEventListener('click', () => { this.currentCategory = btn.dataset.category || 'popular'; this.renderCategories(); this.renderMenuItems(this.currentCategory); this.closeCategorySheet(); }));
     if (typeof lucide !== 'undefined') lucide.createIcons();
   }
-
-  filterByCategory(categoryId) {
-    this.renderMenuItems(categoryId);
+  renderMenuItems(categoryId = this.currentCategory || 'popular') {
+    const grid = document.querySelector('.menu-grid'); if (!grid || !this.menu) return;
+    this.currentCategory = categoryId || 'popular'; let items = [];
+    (this.menu.categories || []).forEach(cat => (cat.items || []).forEach(item => { if (item.available !== false && item.visible !== false) items.push({ ...item, categoryId: cat.id, categoryName: cat.name }); }));
+    if (this.currentCategory === 'popular') { const marked = items.filter(i => i.popular === true || i.isPopular === true || i.featured === true || i.recommended === true || i.bestSeller === true); if (marked.length) items = marked; }
+    else if (this.currentCategory !== 'all') items = items.filter(i => i.categoryId === this.currentCategory);
+    const query = (this.searchQuery || '').trim().toLowerCase(); if (query) items = items.filter(i => String(i.name || '').toLowerCase().includes(query) || String(i.description || '').toLowerCase().includes(query) || String(i.categoryName || '').toLowerCase().includes(query));
+    const title = document.getElementById('menu-section-title'); const subtitle = document.getElementById('menu-section-subtitle'); const selectedCategory = this.getCurrentCategoryName();
+    if (title) title.innerHTML = `${this._escHtml(selectedCategory)} <span class="section-sparkle">✦</span>`;
+    if (subtitle) subtitle.textContent = query ? `${items.length} result${items.length === 1 ? '' : 's'} for “${this._escHtml(query)}”` : (this.currentCategory === 'popular' ? 'Our most loved picks for you' : `Explore ${selectedCategory.toLowerCase()}`);
+    if (!items.length) { grid.innerHTML = `<div class="empty-menu-state"><div class="empty-menu-icon"><i data-lucide="search-x"></i></div><h3>No items found</h3><p>Try another search or choose a different category.</p><button class="btn-soft" type="button" onclick="customerApp.clearMenuSearch()">Clear search</button></div>`; if (typeof lucide !== 'undefined') lucide.createIcons(); return; }
+    grid.innerHTML = items.map((item, index) => {
+      const qty = this.getMenuItemQuantity(item.id); const marked = item.popular === true || item.isPopular === true || item.featured === true || item.recommended === true || item.bestSeller === true; const simple = !item.customizationGroups || item.customizationGroups.length === 0;
+      const media = item.image ? `<img src="${this._escHtml(item.image)}" alt="${this._escHtml(item.name)}" class="item-image" loading="lazy">` : `<div class="item-image-placeholder"><i data-lucide="utensils"></i></div>`;
+      const controls = simple && qty > 0 ? `<div class="menu-quantity-control" onclick="event.stopPropagation()"><button type="button" onclick="customerApp.changeMenuItemQuantity('${this._escHtml(item.id)}', -1)"><i data-lucide="${qty === 1 ? 'trash-2' : 'minus'}"></i></button><strong>${qty}</strong><button type="button" onclick="customerApp.changeMenuItemQuantity('${this._escHtml(item.id)}', 1)"><i data-lucide="plus"></i></button></div>` : `<button class="menu-add-btn" type="button" onclick="event.stopPropagation(); customerApp.handleAddToCart('${this._escHtml(item.id)}')"><i data-lucide="plus"></i><span>${simple ? 'Add' : 'Customize'}</span></button>`;
+      return `<article class="menu-item-card ${index === 0 && this.currentCategory === 'popular' ? 'featured-card' : ''}" data-item-id="${this._escHtml(item.id)}"><div class="item-media-wrap">${media}${marked || (index === 0 && this.currentCategory === 'popular') ? `<span class="bestseller-badge"><i data-lucide="star"></i> Bestseller</span>` : ''}<button class="favorite-btn" type="button" onclick="event.stopPropagation(); customerApp.toggleFavorite('${this._escHtml(item.id)}', this)"><i data-lucide="heart"></i></button></div><div class="item-info"><div class="item-category-label">${this._escHtml(item.categoryName || '')}</div><h3 class="item-title">${this._escHtml(item.name)}</h3><p class="item-desc">${this._escHtml(item.description || 'Freshly prepared for you.')}</p><div class="item-meta-row"><div><div class="item-price">${this.formatPrice(item.price)}</div>${item.preparationTime ? `<div class="prep-time"><i data-lucide="clock"></i> ${this._escHtml(item.preparationTime)} min</div>` : ''}</div>${controls}</div></div></article>`;
+    }).join('');
+    this.syncFavoriteButtons(); if (typeof lucide !== 'undefined') lucide.createIcons();
   }
+  getCurrentCategoryName() { if (this.currentCategory === 'popular') return 'Popular'; const cat = this.menu?.categories?.find(c => c.id === this.currentCategory); return cat?.name || 'Popular'; }
+  getMenuItemQuantity(itemId) { return this.cart.filter(item => item.menuItemId === itemId).reduce((sum, item) => sum + item.quantity, 0); }
+  changeMenuItemQuantity(itemId, delta) { if (delta > 0) return this.handleAddToCart(itemId); const matches = this.cart.filter(item => item.menuItemId === itemId).sort((a,b)=>b.cartId-a.cartId); if (matches.length) this.updateQuantity(matches[0].cartId, -1); }
+  clearMenuSearch() { this.searchQuery=''; const input=document.getElementById('menu-search'); const clear=document.getElementById('clear-search-btn'); if(input) input.value=''; if(clear) clear.classList.add('hidden'); this.renderMenuItems(this.currentCategory); }
+  filterMenu(query) { this.searchQuery=query||''; const clear=document.getElementById('clear-search-btn'); if(clear) clear.classList.toggle('hidden', !this.searchQuery); this.renderMenuItems(this.currentCategory); }
+  toggleFavorite(itemId, button) { const key=`dequeue_favorites_${this.vendorCode}`; let favorites=[]; try{favorites=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){} const exists=favorites.includes(itemId); favorites=exists?favorites.filter(id=>id!==itemId):[...favorites,itemId]; localStorage.setItem(key,JSON.stringify(favorites)); if(button) button.classList.toggle('is-favorite',!exists); if(typeof lucide!=='undefined') lucide.createIcons(); }
+  syncFavoriteButtons() { let favorites=[]; try{favorites=JSON.parse(localStorage.getItem(`dequeue_favorites_${this.vendorCode}`)||'[]')}catch(e){} document.querySelectorAll('.favorite-btn').forEach(btn=>{const card=btn.closest('.menu-item-card'); if(card) btn.classList.toggle('is-favorite',favorites.includes(card.dataset.itemId));}); }
+  openCategorySheet() { document.getElementById('category-sheet-overlay')?.classList.add('is-open'); document.body.classList.add('sheet-open'); }
+  closeCategorySheet() { document.getElementById('category-sheet-overlay')?.classList.remove('is-open'); document.body.classList.remove('sheet-open'); }
+
+  filterByCategory(categoryId) { this.currentCategory=categoryId||'popular'; this.renderCategories(); this.renderMenuItems(this.currentCategory); }
 
   getItemById(itemId) {
     if (!this.menu || !this.menu.categories) return null;
@@ -255,77 +238,12 @@ class CustomerApp {
   }
 
   showCustomizationModal(item) {
-    const title = document.getElementById('cust-modal-title');
-    const body = document.getElementById('cust-modal-body');
-    const addBtn = document.getElementById('cust-modal-add-btn');
-    if (!title || !body || !addBtn) return;
-
-    title.innerText = `Customize ${item.name}`;
-    
-    let html = '';
-    
-    // Add image if requested
-    if (item.image) {
-        html += `<div style="margin-bottom: 1rem;"><img src="${item.image}" alt="${item.name}" style="width: 100%; height: 160px; object-fit: cover; border-radius: var(--radius-md);"></div>`;
-    } else {
-        html += `<div style="width: 100%; height: 160px; background: var(--surface); display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); margin-bottom: 1rem;"><i data-lucide="utensils" style="opacity: 0.3; width: 48px; height: 48px;"></i></div>`;
-    }
-    (item.customizationGroups || []).forEach((group, gIdx) => {
-        html += `<div class="mb-4">
-            <h4 class="font-bold mb-2">${group.name} ${group.required ? '<span class="text-danger">*</span>' : ''}</h4>
-            <div class="flex flex-col gap-2">`;
-        
-        (group.options || []).forEach((opt, oIdx) => {
-            const inputType = group.selectionType === 'SINGLE' || group.maxSelection === 1 ? 'radio' : 'checkbox';
-            const inputName = `cust_${group.id}`;
-            const inputId = `cust_${group.id}_${oIdx}`;
-            const additionalPrice = opt.additionalPrice || 0;
-            
-            html += `<label class="flex items-center justify-between p-2 border border-border rounded-md" for="${inputId}">
-                <div class="flex items-center gap-2">
-                    <input type="${inputType}" name="${inputName}" id="${inputId}" value="${opt.name}" data-price="${additionalPrice}" data-group-name="${group.name}">
-                    <span>${opt.name}</span>
-                </div>
-                ${additionalPrice > 0 ? `<span class="text-muted text-sm">+₹${additionalPrice}</span>` : ''}
-            </label>`;
-        });
-        
-        html += `</div></div>`;
-    });
-    
-    body.innerHTML = html;
-    
-    addBtn.onclick = () => {
-        const customizations = [];
-        let missingRequired = false;
-        
-        (item.customizationGroups || []).forEach(group => {
-            const inputs = body.querySelectorAll(`input[name="cust_${group.id}"]:checked`);
-            if (group.required && inputs.length === 0) {
-                missingRequired = true;
-            }
-             inputs.forEach(input => {
-                customizations.push({
-                    optionName: input.value,
-                    additionalPrice: parseFloat(input.dataset.price || 0),
-                    groupName: input.dataset.groupName,
-                    groupId: group.id
-                });
-            });
-        });
-        
-        if (missingRequired) {
-            if (window.showToast) showToast('Please select all required options', 'error');
-            return;
-        }
-        
-        this.addToCart(item, customizations);
-        if (window.closeModal) closeModal('cust-modal');
-    };
-    
-    if (window.openModal) openModal('cust-modal');
+    const title=document.getElementById('cust-modal-title'), body=document.getElementById('cust-modal-body'), addBtn=document.getElementById('cust-modal-add-btn'); if(!title||!body||!addBtn)return;
+    title.innerText=`Customize ${item.name}`; let html=`<div class="customize-item-intro">${item.image?`<img src="${this._escHtml(item.image)}" alt="${this._escHtml(item.name)}">`:`<div class="customize-placeholder"><i data-lucide="utensils"></i></div>`}<div><span class="section-kicker">YOUR CHOICE</span><h4>${this._escHtml(item.name)}</h4><strong>${this.formatPrice(item.price)}</strong></div></div>`;
+    (item.customizationGroups||[]).forEach(group=>{const required=group.required?'<span class="required-dot">Required</span>':'<span class="optional-dot">Optional</span>'; html+=`<section class="customize-group"><div class="customize-group-head"><div><h4>${this._escHtml(group.name)}</h4><small>${group.selectionType==='SINGLE'||group.maxSelection===1?'Choose one':'Choose any'}</small></div>${required}</div><div class="customize-options">`; (group.options||[]).forEach((opt,oIdx)=>{const inputType=group.selectionType==='SINGLE'||group.maxSelection===1?'radio':'checkbox', inputName=`cust_${group.id}`, inputId=`cust_${group.id}_${oIdx}`, price=Number(opt.additionalPrice||0); html+=`<label class="customize-option" for="${inputId}"><span class="customize-option-left"><input type="${inputType}" name="${inputName}" id="${inputId}" value="${this._escHtml(opt.name)}" data-price="${price}" data-group-name="${this._escHtml(group.name)}"><span class="custom-radio-check"></span><span>${this._escHtml(opt.name)}</span></span><strong>${price>0?`+${this.formatPrice(price)}`:'Included'}</strong></label>`;}); html+=`</div></section>`;});
+    body.innerHTML=html; const updateButton=()=>{let extra=0;body.querySelectorAll('input[type="radio"]:checked,input[type="checkbox"]:checked').forEach(i=>extra+=Number(i.dataset.price||0));const priceEl=addBtn.querySelector('strong');if(priceEl)priceEl.textContent=this.formatPrice(item.price+extra);}; body.querySelectorAll('input').forEach(i=>i.addEventListener('change',updateButton)); updateButton();
+    addBtn.onclick=()=>{const customizations=[];let missingRequired=false;(item.customizationGroups||[]).forEach(group=>{const inputs=body.querySelectorAll(`input[name="cust_${group.id}"]:checked`);if(group.required&&inputs.length===0)missingRequired=true;inputs.forEach(input=>customizations.push({optionName:input.value,additionalPrice:parseFloat(input.dataset.price||0),groupName:input.dataset.groupName,groupId:group.id}));});if(missingRequired){if(window.showToast)showToast('Please select all required options','error');return;}this.addToCart(item,customizations);if(window.closeModal)closeModal('cust-modal');}; if(window.openModal)openModal('cust-modal'); if(typeof lucide!=='undefined')lucide.createIcons();
   }
-
   addToCart(item, customizations = []) {
     const extraPrice = customizations.reduce((sum, c) => sum + (c.additionalPrice || 0), 0);
     const unitPrice = item.price + extraPrice;
@@ -384,45 +302,8 @@ class CustomerApp {
   }
 
   updateCartUI() {
-    this.saveCart();
-    const cartBtn = document.getElementById('floating-cart');
-    if (!cartBtn) return;
-
-    const totalItems = this.cart.reduce((sum, item) => sum + item.quantity, 0);
-    const subtotal = this.cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-    
-    let finalTotal = subtotal;
-    const settings = this.vendor?.settings || {};
-    
-    // Tax
-    if (settings.taxPercentage && settings.taxPercentage > 0) {
-        finalTotal += (subtotal * settings.taxPercentage) / 100;
-    }
-    // Additional charge
-    if (settings.additionalCharges && settings.additionalCharges > 0) {
-        finalTotal += settings.additionalCharges;
-    }
-    // Coupon
-    if (this.appliedCoupon) {
-        let discount = 0;
-        if (this.appliedCoupon.type === 'PERCENTAGE') {
-            discount = (subtotal * this.appliedCoupon.value) / 100;
-        } else {
-            discount = this.appliedCoupon.value;
-        }
-        finalTotal -= discount;
-    }
-    if (finalTotal < 0) finalTotal = 0;
-
-    if (totalItems > 0) {
-      document.getElementById('cart-count').innerText = `${totalItems} Item${totalItems > 1 ? 's' : ''}`;
-      document.getElementById('cart-total').innerText = this.formatPrice(finalTotal);
-      cartBtn.classList.add('visible');
-    } else {
-      cartBtn.classList.remove('visible');
-    }
+    this.saveCart();const cartBtn=document.getElementById('floating-cart');if(!cartBtn)return;const totalItems=this.cart.reduce((sum,item)=>sum+item.quantity,0),subtotal=this.cart.reduce((sum,item)=>sum+item.unitPrice*item.quantity,0),settings=this.vendor?.settings||{};let finalTotal=subtotal;if(settings.taxPercentage&&settings.taxPercentage>0)finalTotal+=subtotal*settings.taxPercentage/100;if(settings.additionalCharges&&settings.additionalCharges>0)finalTotal+=settings.additionalCharges;if(this.appliedCoupon)finalTotal-=this.appliedCoupon.type==='PERCENTAGE'?subtotal*this.appliedCoupon.value/100:this.appliedCoupon.value;if(finalTotal<0)finalTotal=0;if(totalItems>0){const count=document.getElementById('cart-count'),total=document.getElementById('cart-total'),badge=document.getElementById('cart-badge');if(count)count.innerHTML=`<strong>${totalItems}</strong> item${totalItems>1?'s':''}`;if(total)total.textContent=this.formatPrice(finalTotal);if(badge)badge.textContent=totalItems;cartBtn.classList.add('visible');}else cartBtn.classList.remove('visible');
   }
-
   applyCoupon() {
     const input = document.getElementById('cart-coupon-input');
     if (!input) return;
@@ -454,232 +335,22 @@ class CustomerApp {
   }
 
   renderCartModal() {
-    const body = document.querySelector('#cart-modal-overlay .modal-body');
-    if (!body) return;
-
-    if (this.cart.length === 0) {
-      body.innerHTML = `
-        <div class="text-center py-8 text-muted">
-          <i data-lucide="shopping-cart" style="width:40px;height:40px;opacity:0.3;margin:0 auto 0.75rem;display:block;"></i>
-          <p>Your cart is empty</p>
-        </div>`;
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-      return;
-    }
-
-    const total = this.cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-    let finalTotal = total;
-    let taxHtml = '';
-    let chargeHtml = '';
-    let couponHtml = '';
-    let couponInputHtml = '';
-    
-    // Tax and Additional Charges
-    const settings = this.vendor?.settings || {};
-    const taxPct = settings.taxPercentage || 0;
-    const taxName = settings.taxName || 'Tax';
-    const chargeAmt = settings.additionalCharges || 0;
-    const chargeName = settings.additionalChargeName || 'Service Charge';
-    
-    let taxAmount = 0;
-    if (taxPct > 0) {
-        taxAmount = (total * taxPct) / 100;
-        taxHtml = `<div class="flex justify-between text-sm mb-1 text-muted">
-          <span>${this._escHtml(taxName)} (${taxPct}%)</span>
-          <span>${this.formatPrice(taxAmount)}</span>
-        </div>`;
-    }
-    
-    if (chargeAmt > 0) {
-        chargeHtml = `<div class="flex justify-between text-sm mb-1 text-muted">
-          <span>${this._escHtml(chargeName)}</span>
-          <span>${this.formatPrice(chargeAmt)}</span>
-        </div>`;
-    }
-    
-    // Coupons
-    let couponDiscount = 0;
-    if (settings.coupons && settings.coupons.length > 0) {
-        // Render Coupon Input
-        couponInputHtml = `
-          <div class="mb-3">
-             <div class="flex gap-2">
-                 <input type="text" id="cart-coupon-input" class="form-control" placeholder="Enter coupon code" style="text-transform:uppercase" ${this.appliedCoupon ? 'disabled value="'+this._escHtml(this.appliedCoupon.code)+'"' : ''}>
-                 ${this.appliedCoupon ? 
-                   `<button class="btn btn-secondary" onclick="customerApp.removeCoupon()">Remove</button>` : 
-                   `<button class="btn btn-secondary" onclick="customerApp.applyCoupon()">Apply</button>`}
-             </div>
-             ${this.appliedCoupon ? `<div class="text-xs text-success mt-1"><i data-lucide="check" style="width:12px;height:12px;display:inline"></i> Coupon applied</div>` : ''}
-          </div>
-        `;
-        
-        if (this.appliedCoupon) {
-            if (this.appliedCoupon.type === 'PERCENTAGE') {
-                couponDiscount = (total * this.appliedCoupon.value) / 100;
-            } else {
-                couponDiscount = this.appliedCoupon.value;
-            }
-            if (couponDiscount > total) couponDiscount = total;
-            
-            couponHtml = `<div class="flex justify-between text-sm mb-1 text-success font-medium">
-              <span>Coupon (${this._escHtml(this.appliedCoupon.code)})</span>
-              <span>-${this.formatPrice(couponDiscount)}</span>
-            </div>`;
-        }
-    } else {
-        // If vendor has no coupons enabled, clear any applied coupon
-        this.appliedCoupon = null;
-    }
-    
-    finalTotal = total - couponDiscount + taxAmount + chargeAmt;
-    if (finalTotal < 0) finalTotal = 0;
-    
-    // Save computed payment values to instance so placeOrder can use them
-    this._currentCheckout = {
-        subtotal: total,
-        taxAmount: taxAmount,
-        taxName: taxPct > 0 ? taxName : null,
-        serviceChargeAmount: chargeAmt > 0 ? chargeAmt : null,
-        serviceChargeName: chargeAmt > 0 ? chargeName : null,
-        couponCode: this.appliedCoupon ? this.appliedCoupon.code : null,
-        couponDiscount: couponDiscount > 0 ? couponDiscount : null,
-        finalTotal: finalTotal  // ← Add final total including tax and charges
-    };
-
-    let cfHtml = '';
-    if (this.vendor?.settings?.customFields && this.vendor.settings.customFields.length > 0) {
-        this.vendor.settings.customFields.forEach((cf, idx) => {
-            cfHtml += `<div class="mb-3">
-                <label class="text-sm font-bold mb-1 block">${this._escHtml(cf.name)} ${cf.required ? '<span class="text-danger">*</span>' : ''}</label>`;
-            
-            if (cf.type === 'TEXT') {
-                cfHtml += `<input type="text" id="cf-${idx}" class="form-control" placeholder="Enter ${this._escHtml(cf.name)}">`;
-            } else if (cf.type === 'DROPDOWN') {
-                cfHtml += `<select id="cf-${idx}" class="form-control">
-                    <option value="">Select...</option>
-                    ${cf.options.map(o => `<option value="${this._escHtml(o)}">${this._escHtml(o)}</option>`).join('')}
-                </select>`;
-            } else if (cf.type === 'CHECKBOX') {
-                cfHtml += `<div class="flex flex-col gap-1">
-                    ${cf.options.map((o, oidx) => `
-                        <label class="flex items-center gap-2">
-                            <input type="checkbox" name="cf-${idx}" value="${this._escHtml(o)}"> <span class="text-sm">${this._escHtml(o)}</span>
-                        </label>
-                    `).join('')}
-                </div>`;
-            }
-            cfHtml += `</div>`;
-        });
-    }
-
-    body.innerHTML = `
-      <div class="cart-items" style="margin-bottom: 1.5rem;">
-        ${this.cart.map(item => {
-          // thumbnail: Cloudinary image or food emoji placeholder
-          const thumb = item.image
-            ? `<img src="${item.image}" alt="${item.menuItemName}"
-                style="width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0;box-shadow:0 2px 4px rgba(0,0,0,0.05);">`
-            : `<div style="width:64px;height:64px;border-radius:12px;background:var(--surface);border:1px solid var(--border);
-                display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.8rem;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                🍽️
-               </div>`;
-
-          // customization summary
-          const custLines = item.customizations && item.customizations.length > 0
-            ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${item.customizations.map(c => `<span style="background:var(--primary); background-opacity:0.1; color:var(--primary); border:1px solid var(--primary); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">+ ${c.optionName || c.groupName}</span>`).join('')}</div>`
-            : '';
-
-          return `
-          <div class="cart-item-row" data-cart-id="${item.cartId}" style="display:flex; gap:12px; padding:12px; background:var(--surface-hover); border-radius:12px; margin-bottom:12px; border:1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-            ${thumb}
-            <div style="flex:1; display:flex; flex-direction:column; justify-content:center; min-width:0;">
-              <div style="font-weight:700; font-size:1rem; line-height:1.2; color:var(--foreground); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.menuItemName}</div>
-              <div style="font-size:0.8rem; color:var(--text-muted); font-weight:500;">${this.formatPrice(item.unitPrice)} each</div>
-              ${custLines}
-              ${item.instruction ? `<div style="font-size:11px; color:#d97706; margin-top:6px; background:#fef3c7; padding:4px 8px; border-radius:4px; display:inline-block; border-left:2px solid #f59e0b;"><i data-lucide="pen-tool" style="width:10px;height:10px;display:inline;"></i> ${this._escHtml(item.instruction)}</div>` : ''}
-            </div>
-            <div style="display:flex; flex-direction:column; justify-content:space-between; align-items:flex-end; min-width:90px;">
-              <div style="font-weight:800; font-size:1.05rem; color:var(--primary);">${this.formatPrice(item.unitPrice * item.quantity)}</div>
-              <div style="display:flex; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:2px; margin-top:8px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-                <button onclick="customerApp.updateQuantity(${item.cartId}, -1)" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; cursor:pointer; color:var(--danger);">
-                  <i data-lucide="${item.quantity === 1 ? 'trash-2' : 'minus'}" style="width:14px; height:14px;"></i>
-                </button>
-                <span style="font-weight:700; font-size:14px; min-width:32px; text-align:center; color:var(--foreground);">${item.quantity}</span>
-                <button onclick="customerApp.updateQuantity(${item.cartId}, 1)" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; cursor:pointer; color:var(--success);">
-                  <i data-lucide="plus" style="width:14px; height:14px;"></i>
-                </button>
-              </div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-
-      <div class="border-t border-border pt-3 mb-3">
-        <div class="flex justify-between text-sm mb-1">
-          <span>Subtotal</span>
-          <span>${this.formatPrice(total)}</span>
-        </div>
-        ${couponHtml}
-        ${taxHtml}
-        ${chargeHtml}
-        <div class="flex justify-between font-bold text-lg mt-2 pt-2 border-t border-border">
-          <span>Total</span>
-          <span>${this.formatPrice(finalTotal)}</span>
-        </div>
-      </div>
-
-      ${couponInputHtml}
-
-      <div id="cart-custom-fields" class="mb-3 ${cfHtml ? '' : 'hidden'}">
-        ${cfHtml}
-      </div>
-
-      <div class="mb-3">
-        <label class="text-sm font-bold mb-1 block">Special Instructions (Optional)</label>
-        <textarea id="customer-note" class="form-control" placeholder="e.g. Less spicy, extra sauce..." rows="2"
-          style="resize:none;font-size:.9rem;"></textarea>
-      </div>
-
-      <!-- Place Order row: dropdown on left, button on right -->
-      <div style="display:flex;gap:.6rem;align-items:stretch;margin-top:1rem;margin-bottom:1rem;">
-        <select id="pay-method-select" class="form-control" style="flex:1;font-size:.95rem;padding:.55rem .75rem;"
-          onchange="customerApp._onPayMethodChange(this.value)">
-          <option value="OFFLINE">🏪 Pay at Counter</option>
-          ${settings.enableOnlinePayment ? `<option value="ONLINE">📱 Pay Online</option>` : ''}
-        </select>
-        <button id="place-order-btn" class="btn btn-primary" onclick="customerApp.placeOrder()"
-          style="flex:2;padding:.85rem 1rem;font-size:.95rem;font-weight:700;letter-spacing:.01em;min-width:0;">
-          <i data-lucide="check-circle" style="width:17px;height:17px;display:inline;margin-right:.4rem;"></i>
-          Place Order — ${this.formatPrice(finalTotal)}
-        </button>
-      </div>
-      
-      <!-- Payment info banner for cash orders -->
-      <div id="cash-payment-info" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.75rem;">
-        <i data-lucide="wallet" style="width:20px;height:20px;color:#f59e0b;flex-shrink:0;"></i>
-        <div style="flex:1;">
-          <div style="font-weight:700;font-size:.95rem;color:#92400e;margin-bottom:.25rem;">Cash Payment at Counter</div>
-          <div style="font-size:.85rem;color:#78350f;">Please pay <strong style="font-size:1.1rem;color:#b45309;">${this.formatPrice(finalTotal)}</strong> when collecting your order</div>
-        </div>
-      </div>
-    `;
-    
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+    const body=document.querySelector('#cart-modal-overlay .modal-body'); if(!body)return;
+    if(!this.cart.length){body.innerHTML=`<div class="empty-cart-state"><div class="empty-cart-icon"><i data-lucide="shopping-cart"></i></div><h3>Your cart is waiting</h3><p>Add something delicious and it will appear here.</p><button class="btn-primary-lg" onclick="closeModal('cart-modal')">Browse Menu</button></div>`;if(typeof lucide!=='undefined')lucide.createIcons();return;}
+    const total=this.cart.reduce((s,i)=>s+i.unitPrice*i.quantity,0), settings=this.vendor?.settings||{}, taxPct=Number(settings.taxPercentage||0), taxName=settings.taxName||'Tax', chargeAmt=Number(settings.additionalCharges||0), chargeName=settings.additionalChargeName||'Service Charge', taxAmount=taxPct>0?total*taxPct/100:0;
+    let couponDiscount=0;if(this.appliedCoupon)couponDiscount=this.appliedCoupon.type==='PERCENTAGE'?total*this.appliedCoupon.value/100:this.appliedCoupon.value;couponDiscount=Math.min(couponDiscount,total);const finalTotal=Math.max(0,total-couponDiscount+taxAmount+chargeAmt);
+    this._currentCheckout={subtotal:total,taxAmount,taxName:taxPct>0?taxName:null,serviceChargeAmount:chargeAmt>0?chargeAmt:null,serviceChargeName:chargeAmt>0?chargeName:null,couponCode:this.appliedCoupon?this.appliedCoupon.code:null,couponDiscount:couponDiscount>0?couponDiscount:null,finalTotal};
+    let cfHtml='';(this.vendor?.settings?.customFields||[]).forEach((cf,idx)=>{const name=this._escHtml(cf.name);cfHtml+=`<div class="checkout-field"><label>${name} ${cf.required?'<span>*</span>':''}</label>`;if(cf.type==='TEXT')cfHtml+=`<input type="text" id="cf-${idx}" class="checkout-input" placeholder="Enter ${name}">`;else if(cf.type==='DROPDOWN')cfHtml+=`<select id="cf-${idx}" class="checkout-input"><option value="">Select ${name}</option>${(cf.options||[]).map(o=>`<option value="${this._escHtml(o)}">${this._escHtml(o)}</option>`).join('')}</select>`;else if(cf.type==='CHECKBOX')cfHtml+=`<div class="checkout-choice-grid">${(cf.options||[]).map(o=>`<label class="choice-check"><input type="checkbox" name="cf-${idx}" value="${this._escHtml(o)}"><span>${this._escHtml(o)}</span></label>`).join('')}</div>`;cfHtml+=`</div>`;});
+    const paymentOnline=!!settings.enableOnlinePayment,paymentValue=document.getElementById('pay-method-select')?.value||'OFFLINE',onlineSelected=paymentValue==='ONLINE';
+    const couponSection=settings.coupons?.length?`<div class="checkout-section coupon-section"><div class="checkout-section-heading"><div><span class="section-kicker">SAVE MORE</span><h4>Have a coupon?</h4></div><i data-lucide="ticket-percent"></i></div><div class="coupon-row"><input type="text" id="cart-coupon-input" class="checkout-input" placeholder="Enter coupon code" value="${this.appliedCoupon?this._escHtml(this.appliedCoupon.code):''}" ${this.appliedCoupon?'disabled':''}>${this.appliedCoupon?`<button class="coupon-action remove" onclick="customerApp.removeCoupon()">Remove</button>`:`<button class="coupon-action" onclick="customerApp.applyCoupon()">Apply</button>`}</div>${this.appliedCoupon?`<div class="coupon-success"><i data-lucide="check-circle-2"></i> ${this._escHtml(this.appliedCoupon.code)} applied — you saved ${this.formatPrice(couponDiscount)}</div>`:''}</div>`:'';
+    body.innerHTML=`<div class="checkout-wrap"><section class="checkout-section cart-items-section"><div class="checkout-section-heading"><div><span class="section-kicker">YOUR ORDER</span><h4>${this.cart.reduce((s,i)=>s+i.quantity,0)} items</h4></div><span class="mini-total">${this.formatPrice(total)}</span></div><div class="checkout-items">${this.cart.map(item=>{const thumb=item.image?`<img src="${this._escHtml(item.image)}" alt="${this._escHtml(item.menuItemName)}">`:`<div class="cart-thumb-placeholder"><i data-lucide="utensils"></i></div>`;const cust=item.customizations?.length?`<div class="cart-custom-tags">${item.customizations.map(c=>`<span>${this._escHtml(c.optionName||c.groupName)}</span>`).join('')}</div>`:'';return `<div class="checkout-item"><div class="checkout-item-thumb">${thumb}</div><div class="checkout-item-main"><h5>${this._escHtml(item.menuItemName)}</h5><div class="checkout-item-unit">${this.formatPrice(item.unitPrice)} each</div>${cust}</div><div class="checkout-item-side"><strong>${this.formatPrice(item.unitPrice*item.quantity)}</strong><div class="checkout-qty"><button onclick="customerApp.updateQuantity(${item.cartId},-1)"><i data-lucide="${item.quantity===1?'trash-2':'minus'}"></i></button><span>${item.quantity}</span><button onclick="customerApp.updateQuantity(${item.cartId},1)"><i data-lucide="plus"></i></button></div></div></div>`}).join('')}</div></section>${couponSection}${cfHtml?`<section class="checkout-section"><div class="checkout-section-heading"><div><span class="section-kicker">ORDER DETAILS</span><h4>Almost there</h4></div><i data-lucide="clipboard-list"></i></div>${cfHtml}</section>`:''}<section class="checkout-section"><div class="checkout-section-heading"><div><span class="section-kicker">NOTE</span><h4>Anything we should know?</h4></div><i data-lucide="message-square-text"></i></div><textarea id="customer-note" class="checkout-textarea" placeholder="Less spicy, extra sauce, no onions..." rows="3"></textarea></section><section class="checkout-section bill-section"><div class="checkout-section-heading"><div><span class="section-kicker">BILL DETAILS</span><h4>Summary</h4></div><i data-lucide="receipt"></i></div><div class="bill-lines"><div><span>Item total</span><strong>${this.formatPrice(total)}</strong></div>${couponDiscount>0?`<div class="discount-line"><span>Coupon (${this._escHtml(this.appliedCoupon.code)})</span><strong>−${this.formatPrice(couponDiscount)}</strong></div>`:''}${taxAmount>0?`<div><span>${this._escHtml(taxName)} <small>${taxPct}%</small></span><strong>${this.formatPrice(taxAmount)}</strong></div>`:''}${chargeAmt>0?`<div><span>${this._escHtml(chargeName)}</span><strong>${this.formatPrice(chargeAmt)}</strong></div>`:''}</div><div class="bill-total"><span>Total to pay</span><strong>${this.formatPrice(finalTotal)}</strong></div><div class="bill-note"><i data-lucide="shield-check"></i> Final amount includes applicable taxes and charges.</div></section><section class="checkout-section payment-section"><div class="checkout-section-heading"><div><span class="section-kicker">PAYMENT</span><h4>How would you like to pay?</h4></div><i data-lucide="wallet-cards"></i></div><div class="payment-options"><label class="payment-card ${!onlineSelected?'selected':''}"><input type="radio" name="payment-ui" value="OFFLINE" ${!onlineSelected?'checked':''} onchange="customerApp._onPayMethodChange('OFFLINE')"><span class="payment-icon counter"><i data-lucide="store"></i></span><span class="payment-copy"><strong>Pay at Counter</strong><small>Pay when collecting your order</small></span><span class="payment-check"><i data-lucide="check"></i></span></label>${paymentOnline?`<label class="payment-card ${onlineSelected?'selected':''}"><input type="radio" name="payment-ui" value="ONLINE" ${onlineSelected?'checked':''} onchange="customerApp._onPayMethodChange('ONLINE')"><span class="payment-icon online"><i data-lucide="smartphone"></i></span><span class="payment-copy"><strong>Pay Online</strong><small>UPI, cards & net banking via Cashfree</small></span><span class="payment-check"><i data-lucide="check"></i></span></label>`:''}</div><select id="pay-method-select" class="sr-only-payment-select" aria-hidden="true"><option value="OFFLINE" ${!onlineSelected?'selected':''}>OFFLINE</option>${paymentOnline?`<option value="ONLINE" ${onlineSelected?'selected':''}>ONLINE</option>`:''}</select><div id="cash-payment-info" class="payment-info ${onlineSelected?'hidden':''}"><i data-lucide="wallet"></i><div><strong>Pay ${this.formatPrice(finalTotal)} at the counter</strong><span>Show your order number when collecting.</span></div></div><div id="upi-qr-panel" class="payment-info online-info ${onlineSelected?'':'hidden'}"><i data-lucide="lock-keyhole"></i><div><strong>Secure online payment</strong><span>You’ll be redirected to Cashfree to complete payment.</span></div></div></section></div><div class="checkout-bottom-spacer"></div>`;
+    if(typeof lucide!=='undefined')lucide.createIcons();this.syncPaymentCards();const checkoutTotal=document.getElementById('checkout-button-total');if(checkoutTotal)checkoutTotal.textContent=this.formatPrice(finalTotal);const checkoutLabel=document.querySelector('.checkout-btn-label');if(checkoutLabel)checkoutLabel.textContent=onlineSelected?'Continue to Payment':'Place Order';
   }
-
   _onPayMethodChange(value) {
-    const qrPanel = document.getElementById('upi-qr-panel');
-    const cashInfo = document.getElementById('cash-payment-info');
-    
-    if (qrPanel) {
-      qrPanel.classList.toggle('hidden', value !== 'ONLINE');
-    }
-    
-    if (cashInfo) {
-      cashInfo.style.display = value === 'OFFLINE' ? 'flex' : 'none';
-    }
+    const select=document.getElementById('pay-method-select');if(select)select.value=value;const qrPanel=document.getElementById('upi-qr-panel');const cashInfo=document.getElementById('cash-payment-info');if(qrPanel)qrPanel.classList.toggle('hidden',value!=='ONLINE');if(cashInfo)cashInfo.classList.toggle('hidden',value!=='OFFLINE');this.syncPaymentCards();const label=document.querySelector('.checkout-btn-label');if(label)label.textContent=value==='ONLINE'?'Continue to Payment':'Place Order';const total=document.getElementById('checkout-button-total');if(total&&this._currentCheckout)total.textContent=this.formatPrice(this._currentCheckout.finalTotal||0);
   }
 
+  syncPaymentCards() { const selected=document.getElementById('pay-method-select')?.value||'OFFLINE';document.querySelectorAll('.payment-card').forEach(card=>{const radio=card.querySelector('input[type="radio"]');card.classList.toggle('selected',radio?.value===selected);}); }
   async placeOrder(isFromPayment = false, pendingData = null) {
     if (this.cart.length === 0) return;
 

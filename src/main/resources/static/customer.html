@@ -9,51 +9,6 @@
     <link rel="stylesheet" href="css/customer.css">
     <link rel="stylesheet" href="css/animations.css">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        body { background-color: var(--bg-color); }
-        /* Make checkboxes and radios larger for easier tapping */
-        input[type="checkbox"], input[type="radio"] {
-            width: 1.5rem;
-            height: 1.5rem;
-            cursor: pointer;
-        }
-        /* Geofence location notice banner */
-        #gf-location-notice {
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            background: rgba(99,102,241,.08);
-            border: 1px solid rgba(99,102,241,.25);
-            border-radius: 10px;
-            padding: .75rem 1rem;
-            margin: .75rem 0;
-            font-size: .85rem;
-            transition: background .3s, border-color .3s;
-        }
-        /* 5-step order timeline */
-        .order-timeline { display: flex; flex-direction: column; gap: 0; }
-        .timeline-step { display: flex; gap: 1rem; align-items: flex-start; }
-        .timeline-icon-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-        .timeline-icon {
-            width: 36px; height: 36px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            background: var(--surface); border: 2px solid var(--border);
-            color: var(--text-muted); transition: all .3s;
-        }
-        .timeline-icon svg { width: 16px; height: 16px; }
-        .timeline-line { width: 2px; height: 28px; background: var(--border); margin: 3px 0; transition: background .3s; }
-        .timeline-step:last-child .timeline-line { display: none; }
-        .timeline-content { padding-bottom: 8px; padding-top: 6px; }
-        .timeline-label { font-weight: 600; font-size: .9rem; color: var(--text-muted); transition: color .3s; }
-        .timeline-sub { font-size: .78rem; color: var(--text-muted); opacity: .7; }
-        /* Active / completed step */
-        .timeline-step.done .timeline-icon { background: var(--primary); border-color: var(--primary); color: #fff; }
-        .timeline-step.done .timeline-line { background: var(--primary); }
-        .timeline-step.done .timeline-label { color: var(--primary); }
-        .timeline-step.active .timeline-icon { background: var(--success); border-color: var(--success); color: #fff; animation: pulse-step 1.5s infinite; }
-        .timeline-step.active .timeline-label { color: var(--success); font-weight: 700; }
-        @keyframes pulse-step { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)} 50%{box-shadow:0 0 0 8px rgba(34,197,94,0)} }
-    </style>
 </head>
 <body>
     <div class="customer-app">
@@ -72,16 +27,53 @@
                 Currently Serving: <span id="running-queue-display">--</span>
             </div>
         </header>
-
         <!-- Menu View -->
-        <div id="menu-view">
-            <div class="category-pills">
-                <!-- Populated by JS -->
-            </div>
+        <main id="menu-view" class="customer-main">
+            <section class="menu-hero" id="menu-hero">
+                <div class="hero-content">
+                    <span class="hero-eyebrow"><i data-lucide="sparkles"></i> Freshly made for you</span>
+                    <h2 data-hero-title>Good food, good mood! 😊</h2>
+                    <p data-hero-subtitle>Freshly made at your favourite place</p>
+                    <div class="hero-dots" aria-hidden="true"><span class="active"></span><span></span><span></span></div>
+                </div>
+            </section>
 
-            <div class="menu-grid">
-                <!-- Populated by JS -->
-            </div>
+            <section class="menu-toolbar">
+                <div class="search-box">
+                    <i data-lucide="search"></i>
+                    <input id="menu-search" type="search" autocomplete="off" placeholder="Search for food or drinks..." aria-label="Search menu">
+                    <button id="clear-search-btn" type="button" class="search-clear hidden" aria-label="Clear search"><i data-lucide="x"></i></button>
+                </div>
+            </section>
+
+            <section class="menu-section-head">
+                <div>
+                    <h2 id="menu-section-title">Popular <span class="section-sparkle">✦</span></h2>
+                    <p id="menu-section-subtitle">Our most loved picks for you</p>
+                </div>
+            </section>
+
+            <div class="category-pills" aria-hidden="true"></div>
+            <section class="menu-grid" aria-live="polite"></section>
+        </main>
+
+        <!-- Floating category/filter control -->
+        <button id="category-filter-fab" class="category-filter-fab" type="button" onclick="customerApp.openCategorySheet()" aria-label="Choose menu category">
+            <span class="fab-icon"><i data-lucide="sliders-horizontal"></i></span>
+            <span id="category-filter-label">Popular</span>
+            <i data-lucide="chevron-down" class="fab-chevron"></i>
+        </button>
+
+        <!-- Category Sheet -->
+        <div class="category-sheet-overlay" id="category-sheet-overlay" onclick="if(event.target===this) customerApp.closeCategorySheet()">
+            <section class="category-sheet" role="dialog" aria-modal="true" aria-labelledby="category-sheet-title">
+                <div class="sheet-handle"></div>
+                <div class="sheet-header">
+                    <div><span class="section-kicker">EXPLORE MENU</span><h3 id="category-sheet-title">Choose a category</h3></div>
+                    <button class="sheet-close" type="button" onclick="customerApp.closeCategorySheet()"><i data-lucide="x"></i></button>
+                </div>
+                <div id="category-sheet-list" class="category-sheet-list"></div>
+            </section>
         </div>
 
         <!-- Active Order View (Hidden by default) -->
@@ -222,51 +214,43 @@
             </div>
             <button class="btn btn-secondary mt-4" onclick="customerApp.startNewOrder()">Start New Order</button>
         </div>
+        <!-- Sticky Cart -->
+        <button class="floating-cart" id="floating-cart" type="button" onclick="openModal('cart-modal')">
+            <span class="cart-icon-wrap"><i data-lucide="shopping-cart"></i><b id="cart-badge">0</b></span>
+            <span class="cart-summary"><strong id="cart-count">0 items</strong><small>View your cart</small></span>
+            <span class="cart-total-wrap"><strong id="cart-total">₹0</strong><small>Includes taxes</small></span>
+            <span class="cart-cta">View Cart <i data-lucide="arrow-right"></i></span>
+        </button>
 
-        <!-- Floating Cart -->
-        <div class="floating-cart" id="floating-cart" onclick="openModal('cart-modal')">
-            <div class="flex flex-col">
-                <span class="text-sm opacity-90" id="cart-count">0 Items</span>
-                <span class="font-bold" id="cart-total">₹0</span>
-            </div>
-            <div class="flex items-center gap-2 font-bold">
-                View Cart <i data-lucide="chevron-right"></i>
-            </div>
-        </div>
-
-        <!-- Cart Modal -->
-        <div class="modal-overlay" id="cart-modal-overlay">
-            <div class="modal" style="margin-top: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%);">
-                <div class="modal-header">
-                    <h3>Your Cart</h3>
-                    <button class="btn-icon" onclick="closeModal('cart-modal')"><i data-lucide="x"></i></button>
+        <!-- Cart / Checkout -->
+        <div class="modal-overlay checkout-overlay" id="cart-modal-overlay">
+            <div class="modal checkout-modal" style="margin-top:auto;">
+                <div class="checkout-header">
+                    <div class="checkout-heading">
+                        <span class="checkout-icon"><i data-lucide="shopping-bag"></i></span>
+                        <div><span class="section-kicker">CHECKOUT</span><h3>Your order</h3></div>
+                    </div>
+                    <button class="btn-icon checkout-close" type="button" onclick="closeModal('cart-modal')"><i data-lucide="x"></i></button>
                 </div>
-                <div class="modal-body">
-                    <div id="cart-custom-fields" class="mb-4">
-                        <!-- Populated by JS if vendor has custom fields -->
-                    </div>
-                    <div class="mb-4">
-                        <label class="text-sm font-bold mb-2 block">Special Instructions (Optional)</label>
-                        <textarea id="customer-note" class="form-control" rows="2" placeholder="e.g. Less spicy, extra sauce..."></textarea>
-                    </div>
-                    <p class="text-muted mb-4">Items will be prepared once you place the order.</p>
-                    <button id="place-order-btn" class="btn btn-primary w-full" onclick="customerApp.placeOrder()">Place Order</button>
+                <div class="modal-body checkout-body"></div>
+                <div class="checkout-footer">
+                    <button id="place-order-btn" class="checkout-primary-btn" type="button" onclick="customerApp.placeOrder()">
+                        <span><i data-lucide="check-circle-2"></i><span class="checkout-btn-label">Place Order</span></span>
+                        <strong id="checkout-button-total">₹0</strong>
+                    </button>
                 </div>
             </div>
         </div>
-
         <!-- Customization Modal -->
-        <div class="modal-overlay" id="cust-modal-overlay">
-            <div class="modal" style="margin-top: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(100%);">
-                <div class="modal-header">
-                    <h3 id="cust-modal-title">Customize Item</h3>
-                    <button class="btn-icon" onclick="closeModal('cust-modal')"><i data-lucide="x"></i></button>
+        <div class="modal-overlay customization-overlay" id="cust-modal-overlay">
+            <div class="modal customization-modal" style="margin-top:auto;">
+                <div class="customization-header">
+                    <div><span class="section-kicker">MAKE IT YOURS</span><h3 id="cust-modal-title">Customize Item</h3></div>
+                    <button class="btn-icon" type="button" onclick="closeModal('cust-modal')"><i data-lucide="x"></i></button>
                 </div>
-                <div class="modal-body" id="cust-modal-body" style="max-height: 60vh; overflow-y: auto;">
-                    <!-- populated by js -->
-                </div>
-                <div class="p-4 border-t border-border bg-surface">
-                    <button class="btn btn-primary w-full" id="cust-modal-add-btn">Add to Cart</button>
+                <div class="modal-body customization-body" id="cust-modal-body"></div>
+                <div class="customization-footer">
+                    <button class="checkout-primary-btn" type="button" id="cust-modal-add-btn"><span><i data-lucide="shopping-cart"></i><span>Add to Cart</span></span><strong>+</strong></button>
                 </div>
             </div>
         </div>
@@ -279,21 +263,37 @@
     <script src="js/customer-notifications.js?v=2"></script>
     <script src="js/customer.js?v=3"></script>
     <script>
-        lucide.createIcons();
-        
-        // Modal slide up animation override for bottom sheet
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            const search = document.getElementById('menu-search');
+            const clear = document.getElementById('clear-search-btn');
+            if (search) {
+                search.addEventListener('input', (e) => {
+                    if (window.customerApp) window.customerApp.filterMenu(e.target.value);
+                    if (clear) clear.classList.toggle('hidden', !e.target.value);
+                });
+            }
+            if (clear) clear.addEventListener('click', () => {
+                if (window.customerApp) window.customerApp.clearMenuSearch();
+                clear.classList.add('hidden');
+            });
+        });
+
+        // Preserve the existing modal API and only enhance the presentation/animation.
         const origOpen = window.openModal;
         window.openModal = (id) => {
             origOpen(id);
-            if (id === 'cart-modal' || id === 'cust-modal') {
-                document.querySelector(`#${id}-overlay .modal`).style.transform = 'translateY(0)';
+            const modal = document.querySelector(`#${id}-modal-overlay .modal`);
+            if (modal && (id === 'cart-modal' || id === 'cust-modal')) {
+                requestAnimationFrame(() => modal.classList.add('is-visible'));
             }
         };
         const origClose = window.closeModal;
         window.closeModal = (id) => {
-            if (id === 'cart-modal' || id === 'cust-modal') {
-                document.querySelector(`#${id}-overlay .modal`).style.transform = 'translateY(100%)';
-                setTimeout(() => origClose(id), 300);
+            const modal = document.querySelector(`#${id}-modal-overlay .modal`);
+            if (modal && (id === 'cart-modal' || id === 'cust-modal')) {
+                modal.classList.remove('is-visible');
+                setTimeout(() => origClose(id), 260);
             } else {
                 origClose(id);
             }
