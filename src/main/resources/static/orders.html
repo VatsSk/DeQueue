@@ -11,77 +11,124 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-    <div class="app-layout">
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <i data-lucide="qr-code"></i> DeQueue
-            </div>
-            <nav class="sidebar-nav">
-                <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
-                <a href="orders.html" class="nav-item active"><i data-lucide="list-ordered"></i> Orders</a>
-                <a href="menu.html" class="nav-item"><i data-lucide="utensils"></i> Menu</a>
-                <a href="categories.html" class="nav-item"><i data-lucide="tags"></i> Categories</a>
-                <a href="customer.html" class="nav-item"><i data-lucide="smartphone"></i> Customer View</a>
-            </nav>
-        </aside>
+<div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand"><i data-lucide="qr-code"></i> DeQueue</div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+            <a href="orders.html" class="nav-item active"><i data-lucide="list-ordered"></i> Orders</a>
+            <a href="menu.html" class="nav-item"><i data-lucide="utensils"></i> Menu</a>
+            <a href="categories.html" class="nav-item"><i data-lucide="tags"></i> Categories</a>
+            <a href="customer.html" class="nav-item"><i data-lucide="smartphone"></i> Customer View</a>
+        </nav>
+    </aside>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <header class="header">
-                <div class="flex items-center gap-4">
-                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')">
-                        <i data-lucide="menu"></i>
-                    </button>
-                    <h2 class="text-xl">Orders</h2>
-                </div>
-            </header>
-
-            <div class="page-content orders-container">
-                <div class="orders-header">
-                    <div class="orders-filters" id="orders-filters-container">
-                        <!-- Populated dynamically based on permissions -->
-                    </div>
-                    <div>
-                        <input type="text" class="form-control" placeholder="Search Order #..." style="max-width: 200px;">
-                    </div>
-                </div>
-
-                <div class="orders-grid">
-                    <!-- Populated by JS -->
-                </div>      </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Order Details Modal -->
-    <div class="modal-overlay" id="order-modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="order-modal-title">Order Details</h3>
-                <button class="btn-icon" onclick="closeModal('order-modal')">
-                    <i data-lucide="x"></i>
+    <main class="main-content">
+        <header class="header">
+            <div class="flex items-center gap-4">
+                <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                    <i data-lucide="menu"></i>
                 </button>
+                <div>
+                    <h2 class="text-xl">Orders</h2>
+                    <div class="orders-live-indicator"><span></span> Live orders</div>
+                </div>
             </div>
-            <div class="modal-body" id="order-modal-body" style="max-height: 70vh; overflow-y: auto;">
-                <!-- Populated dynamically -->
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary w-full" onclick="closeModal('order-modal')">Close</button>
-            </div>
+        </header>
+
+        <div class="page-content orders-container">
+            <section class="orders-toolbar">
+                <div class="orders-summary" id="orders-summary"></div>
+
+                <div class="orders-view-switcher" role="tablist" aria-label="Order view">
+                    <button class="view-switch active" data-view="cards" type="button">
+                        <i data-lucide="layout-grid"></i><span>Cards</span>
+                    </button>
+                    <button class="view-switch" data-view="table" type="button">
+                        <i data-lucide="list"></i><span>Table</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="orders-filter-panel">
+                <div class="orders-header">
+                    <div class="orders-filters" id="orders-filters-container"></div>
+
+                    <div class="orders-search-wrap">
+                        <i data-lucide="search"></i>
+                        <input id="order-search" type="text" class="form-control"
+                               placeholder="Search Order #..." autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="orders-secondary-filters">
+                    <label class="select-filter">
+                        <span>Table</span>
+                        <select id="table-filter"><option value="ALL">All Tables</option></select>
+                    </label>
+                    <label class="select-filter">
+                        <span>Order Type</span>
+                        <select id="type-filter">
+                            <option value="ALL">All Types</option>
+                            <option value="DINE_IN">Dine-in</option>
+                            <option value="TAKEAWAY">Takeaway</option>
+                            <option value="DELIVERY">Delivery</option>
+                        </select>
+                    </label>
+                    <label class="select-filter">
+                        <span>Payment</span>
+                        <select id="payment-filter">
+                            <option value="ALL">All Payments</option>
+                            <option value="PAID">Paid</option>
+                            <option value="UNPAID">Unpaid</option>
+                            <option value="ONLINE">Online</option>
+                            <option value="OFFLINE">Offline</option>
+                        </select>
+                    </label>
+                    <label class="select-filter">
+                        <span>Sort</span>
+                        <select id="sort-filter">
+                            <option value="WAITING">Longest Waiting</option>
+                            <option value="NEWEST">Newest</option>
+                            <option value="OLDEST">Oldest</option>
+                            <option value="VALUE">Highest Value</option>
+                        </select>
+                    </label>
+                    <button id="clear-order-filters" class="btn btn-secondary clear-filters" type="button">
+                        <i data-lucide="rotate-ccw"></i> Reset
+                    </button>
+                </div>
+            </section>
+
+            <section class="orders-content">
+                <div class="orders-grid" id="orders-grid"></div>
+                <div class="orders-table-wrap" id="orders-table-wrap" hidden></div>
+            </section>
+        </div>
+    </main>
+</div>
+
+<div class="modal-overlay" id="order-modal-overlay">
+    <div class="modal order-details-modal">
+        <div class="modal-header">
+            <h3 id="order-modal-title">Order Details</h3>
+            <button class="btn-icon" onclick="closeModal('order-modal')"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" id="order-modal-body"></div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary w-full" onclick="closeModal('order-modal')">Close</button>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/router.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="js/orders.js?v=2"></script>
-    <script>
-        lucide.createIcons();
-    </script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/router.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="js/orders.js?v=3"></script>
+<script>lucide.createIcons();</script>
 </body>
 </html>
