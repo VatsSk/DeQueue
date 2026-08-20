@@ -209,8 +209,28 @@ class CustomerApp {
   filterMenu(query) { this.searchQuery=query||''; const clear=document.getElementById('clear-search-btn'); if(clear) clear.classList.toggle('hidden', !this.searchQuery); this.renderMenuItems(this.currentCategory); }
   toggleFavorite(itemId, button) { const key=`dequeue_favorites_${this.vendorCode}`; let favorites=[]; try{favorites=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){} const exists=favorites.includes(itemId); favorites=exists?favorites.filter(id=>id!==itemId):[...favorites,itemId]; localStorage.setItem(key,JSON.stringify(favorites)); if(button) button.classList.toggle('is-favorite',!exists); if(typeof lucide!=='undefined') lucide.createIcons(); }
   syncFavoriteButtons() { let favorites=[]; try{favorites=JSON.parse(localStorage.getItem(`dequeue_favorites_${this.vendorCode}`)||'[]')}catch(e){} document.querySelectorAll('.favorite-btn').forEach(btn=>{const card=btn.closest('.menu-item-card'); if(card) btn.classList.toggle('is-favorite',favorites.includes(card.dataset.itemId));}); }
-  openCategorySheet() { document.getElementById('category-sheet-overlay')?.classList.add('is-open'); document.body.classList.add('sheet-open'); }
-  closeCategorySheet() { document.getElementById('category-sheet-overlay')?.classList.remove('is-open'); document.body.classList.remove('sheet-open'); }
+  setMenuChromeVisible(visible) {
+    const fab = document.getElementById('category-filter-fab');
+    const sheet = document.getElementById('category-sheet-overlay');
+    const menuView = document.getElementById('menu-view');
+    const shouldShow = Boolean(visible && menuView && !menuView.classList.contains('hidden'));
+    if (fab) fab.classList.toggle('is-hidden', !shouldShow);
+    if (!shouldShow && sheet) {
+      sheet.classList.remove('is-open');
+      document.body.classList.remove('sheet-open');
+    }
+  }
+
+  openCategorySheet() {
+    const menuView = document.getElementById('menu-view');
+    if (!menuView || menuView.classList.contains('hidden')) return;
+    document.getElementById('category-sheet-overlay')?.classList.add('is-open');
+    document.body.classList.add('sheet-open');
+  }
+  closeCategorySheet() {
+    document.getElementById('category-sheet-overlay')?.classList.remove('is-open');
+    document.body.classList.remove('sheet-open');
+  }
 
   filterByCategory(categoryId) { this.currentCategory=categoryId||'popular'; this.renderCategories(); this.renderMenuItems(this.currentCategory); }
 
@@ -654,10 +674,13 @@ class CustomerApp {
     const orderView = document.getElementById('order-view');
     if (menuView) menuView.classList.add('hidden');
     if (orderView) orderView.classList.remove('hidden');
+    this.setMenuChromeVisible(false);
 
     if (this.activeOrder) {
       const qnEl = document.getElementById('queue-number');
       if (qnEl) qnEl.textContent = this.activeOrder.queueNumber || 'N/A';
+      const statusOrder = document.getElementById('status-order-number');
+      if (statusOrder) statusOrder.textContent = this.activeOrder.queueNumber || 'N/A';
 
       // Show amount-to-pay banner
       const amtBanner = document.getElementById('amount-to-pay-banner');
@@ -753,6 +776,7 @@ class CustomerApp {
         }
         const orderView = document.getElementById('order-view');
         const thankYouView = document.getElementById('thank-you-view');
+        this.setMenuChromeVisible(false);
         
         if (status === 'CANCELLED') {
             document.getElementById('thank-you-title').textContent = 'Order Cancelled';
@@ -856,16 +880,16 @@ class CustomerApp {
 
   setRating(val) {
       this.currentRating = val;
-      const stars = document.querySelectorAll('#star-rating .star-icon');
-      stars.forEach((star, index) => {
-          if (index < val) {
-              star.classList.remove('text-muted');
-              star.classList.add('fill-warning', 'text-warning');
-          } else {
-              star.classList.add('text-muted');
-              star.classList.remove('fill-warning', 'text-warning');
-          }
+      const stars = document.querySelectorAll('#star-rating .star-button');
+      const labels = { 1: 'Not great', 2: 'Could be better', 3: 'It was good', 4: 'Really liked it', 5: 'Loved it! ❤️' };
+      stars.forEach((button, index) => {
+          const selected = index < val;
+          button.classList.toggle('selected', selected);
+          button.setAttribute('aria-checked', selected && index === val - 1 ? 'true' : 'false');
       });
+      const ratingLabel = document.getElementById('rating-label');
+      if (ratingLabel) ratingLabel.textContent = `${val}/5 · ${labels[val] || 'Thank you!'}`;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 
   async submitFeedback() {
@@ -877,9 +901,10 @@ class CustomerApp {
           return;
       }
       
-      if (this.completedOrder && this.completedOrder.queueNumber) {
+      const feedbackOrder = this.completedOrder || this._completedOrder;
+      if (feedbackOrder && feedbackOrder.queueNumber) {
           try {
-              const res = await fetch(`/api/v1/public/orders/${this.vendorCode}/feedback/${this.completedOrder.queueNumber}`, {
+              const res = await fetch(`/api/v1/public/orders/${this.vendorCode}/feedback/${feedbackOrder.queueNumber}`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ rating: rating, feedback: text })
@@ -913,6 +938,8 @@ class CustomerApp {
       const menuView = document.getElementById('menu-view');
       if (thankYouView) thankYouView.classList.add('hidden');
       if (menuView) menuView.classList.remove('hidden');
+      this.setMenuChromeVisible(true);
+      this.closeCategorySheet();
   }
 
   // ─── Geofence helpers ────────────────────────────────────────────────────
@@ -1104,6 +1131,8 @@ class CustomerApp {
       badge.textContent = labels[status] || status;
       badge.className = `badge ${badgeClasses[status] || 'badge-pending'} text-lg px-4 py-2 mt-4`;
     }
+    const shortStatus = document.getElementById('order-status-short');
+    if (shortStatus) shortStatus.textContent = labels[status] || status;
 
     // Show/hide cancel button (only for PENDING)
     const cancelContainer = document.getElementById('cancel-order-container');

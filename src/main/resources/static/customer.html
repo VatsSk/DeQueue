@@ -85,7 +85,14 @@
                 <h2>Order Placed!</h2>
                 <p class="text-muted mt-2">Your queue number is</p>
                 <div class="queue-number-display" id="queue-number">--</div>
-                <div class="badge badge-pending text-lg px-4 py-2 mt-4" id="order-status-badge">Order Initiated</div>
+                <div class="order-status-hero">
+                    <span class="status-live-dot"></span>
+                    <span id="order-status-short">Order Initiated</span>
+                </div>
+                <div class="order-status-meta">
+                    <span><i data-lucide="hash"></i> Order <strong id="status-order-number">--</strong></span>
+                    <span><i data-lucide="clock-3"></i> Live updates</span>
+                </div>
 
                 <!-- Always-visible Amount to Pay banner -->
                 <div id="amount-to-pay-banner" class="mt-4 p-4 rounded-xl text-left hidden"
@@ -103,8 +110,14 @@
                 </div>
 
                 <!-- 5-Step Status Timeline -->
-                <div class="mt-6 text-left card" style="padding: 1.25rem;">
-                    <h3 class="mb-4 border-b pb-2" style="border-color:var(--border);font-size:1rem;">Order Status</h3>
+                <div class="status-card mt-6 text-left">
+                    <div class="status-card-head">
+                        <div>
+                            <span class="section-kicker">LIVE ORDER TRACKING</span>
+                            <h3>Order progress</h3>
+                        </div>
+                        <span class="status-live-badge"><span></span> Live</span>
+                    </div>
                     <div class="order-timeline">
                         <!-- Step 1 -->
                         <div class="timeline-step" id="step-PENDING">
@@ -200,18 +213,28 @@
                 </div>
             </div>
 
-            <div class="card text-left">
-                <h3 class="font-bold mb-2 text-center">Rate Your Experience</h3>
-                <div class="mb-3 flex justify-center gap-2" id="star-rating">
-                    <i data-lucide="star" class="star-icon cursor-pointer text-muted" data-val="1" style="width:32px;height:32px;transition:all 0.2s;" onclick="customerApp.setRating(1)"></i>
-                    <i data-lucide="star" class="star-icon cursor-pointer text-muted" data-val="2" style="width:32px;height:32px;transition:all 0.2s;" onclick="customerApp.setRating(2)"></i>
-                    <i data-lucide="star" class="star-icon cursor-pointer text-muted" data-val="3" style="width:32px;height:32px;transition:all 0.2s;" onclick="customerApp.setRating(3)"></i>
-                    <i data-lucide="star" class="star-icon cursor-pointer text-muted" data-val="4" style="width:32px;height:32px;transition:all 0.2s;" onclick="customerApp.setRating(4)"></i>
-                    <i data-lucide="star" class="star-icon cursor-pointer text-muted" data-val="5" style="width:32px;height:32px;transition:all 0.2s;" onclick="customerApp.setRating(5)"></i>
+            <section class="feedback-card">
+                <div class="feedback-heading">
+                    <div class="feedback-icon"><i data-lucide="heart-handshake"></i></div>
+                    <div>
+                        <span class="section-kicker">YOUR EXPERIENCE</span>
+                        <h3>How was your order?</h3>
+                        <p>Your feedback helps the restaurant serve you better.</p>
+                    </div>
                 </div>
-                <textarea id="feedback-text" class="form-control mb-3" rows="3" placeholder="Tell us more about your experience (Optional)"></textarea>
-                <button class="btn btn-primary w-full" onclick="customerApp.submitFeedback()">Submit Feedback</button>
-            </div>
+                <div class="rating-panel">
+                    <div class="rating-stars" id="star-rating" role="radiogroup" aria-label="Rate your experience">
+                        <button type="button" class="star-button" data-val="1" aria-label="1 star" onclick="customerApp.setRating(1)"><i data-lucide="star"></i></button>
+                        <button type="button" class="star-button" data-val="2" aria-label="2 stars" onclick="customerApp.setRating(2)"><i data-lucide="star"></i></button>
+                        <button type="button" class="star-button" data-val="3" aria-label="3 stars" onclick="customerApp.setRating(3)"><i data-lucide="star"></i></button>
+                        <button type="button" class="star-button" data-val="4" aria-label="4 stars" onclick="customerApp.setRating(4)"><i data-lucide="star"></i></button>
+                        <button type="button" class="star-button" data-val="5" aria-label="5 stars" onclick="customerApp.setRating(5)"><i data-lucide="star"></i></button>
+                    </div>
+                    <div id="rating-label" class="rating-label">Tap a star to rate</div>
+                </div>
+                <textarea id="feedback-text" class="feedback-textarea" rows="3" placeholder="Tell us what you liked or what we can improve... (Optional)"></textarea>
+                <button class="feedback-submit" type="button" onclick="customerApp.submitFeedback()"><i data-lucide="send"></i><span>Share Feedback</span></button>
+            </section>
             <button class="btn btn-secondary mt-4" onclick="customerApp.startNewOrder()">Start New Order</button>
         </div>
         <!-- Sticky Cart -->
@@ -282,6 +305,9 @@
         // Preserve the existing modal API and only enhance the presentation/animation.
         const origOpen = window.openModal;
         window.openModal = (id) => {
+            if (window.customerApp && (id === 'cart-modal' || id === 'cust-modal')) {
+                window.customerApp.setMenuChromeVisible(false);
+            }
             origOpen(id);
             const modal = document.querySelector(`#${id}-modal-overlay .modal`);
             if (modal && (id === 'cart-modal' || id === 'cust-modal')) {
@@ -293,7 +319,12 @@
             const modal = document.querySelector(`#${id}-modal-overlay .modal`);
             if (modal && (id === 'cart-modal' || id === 'cust-modal')) {
                 modal.classList.remove('is-visible');
-                setTimeout(() => origClose(id), 260);
+                setTimeout(() => {
+                    origClose(id);
+                    if (window.customerApp && id === 'cart-modal') {
+                        window.customerApp.setMenuChromeVisible(true);
+                    }
+                }, 260);
             } else {
                 origClose(id);
             }
