@@ -14,6 +14,9 @@ class Router {
             { path: 'qr.html', icon: 'qr-code', label: 'QR Code', permissions: ['qr.view'] },
             { path: 'profile.html', icon: 'store', label: 'Shop Profile', permissions: ['staff.view'] },
             { path: 'settings.html', icon: 'settings', label: 'Settings', permissions: ['staff.view'] },
+            { path: 'geofence.html', icon: 'map-pin', label: 'Geofencing', permissions: ['staff.view'] },
+            { path: 'settlements.html', icon: 'wallet', label: 'Payments & Settlements', permissions: ['report.view', 'order.view'] },
+            // { path: 'promotions.html', icon: 'tag', label: 'Promotions', permissions: ['menu.view'] },
 //            { path: 'customer.html', icon: 'smartphone', label: 'Customer View', permissions: ['order.view', 'menu.view'] },
             { path: 'vendors.html', icon: 'building', label: 'Platform Vendors', permissions: [], platformAdminOnly: true }
         ];
@@ -60,6 +63,10 @@ class Router {
                 // If the user has any of the permissions required by the item, grant access.
                 // If the item lists no permissions, default to allowing access.
                 if (!item.permissions || item.permissions.length === 0) {
+                    hasAccess = true;
+                } else if (user && user.roles && Array.isArray(user.roles) && user.roles.includes('ROLE_VENDOR_ADMIN')) {
+                    hasAccess = true;
+                } else if (user && user.role === 'ROLE_VENDOR_ADMIN') {
                     hasAccess = true;
                 } else if (user && user.effectivePermissions && Array.isArray(user.effectivePermissions)) {
                     hasAccess = item.permissions.some(p => user.effectivePermissions.includes(p));
@@ -126,6 +133,10 @@ class Router {
             } else if (currentItem.platformAdminOnly) {
                 allowed = false;
             } else if (!currentItem.permissions || currentItem.permissions.length === 0) {
+                allowed = true;
+            } else if (user && user.roles && Array.isArray(user.roles) && user.roles.includes('ROLE_VENDOR_ADMIN')) {
+                allowed = true;
+            } else if (user && user.role === 'ROLE_VENDOR_ADMIN') {
                 allowed = true;
             } else if (user.effectivePermissions && Array.isArray(user.effectivePermissions)) {
                 allowed = currentItem.permissions.some(p => user.effectivePermissions.includes(p));

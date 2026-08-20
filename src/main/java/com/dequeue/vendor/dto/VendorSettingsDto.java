@@ -22,4 +22,9 @@ public class VendorSettingsDto {
     private String taxName;
     private String gstNumber;
     private List<com.dequeue.vendor.entity.CustomFieldDef> customFields;
+    private boolean enableOnlinePayment;
+    private String upiId;
+    private String bankAccountName;
+    private String bankAccountNumber;
+    private String bankIfscCode;
 }

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settlements - DeQueue</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .tab { padding: 0.75rem 1.5rem; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent; }
+        .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: bold; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .report-filters { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap; }
+        .filter-group { display: flex; align-items: center; gap: 0.5rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+        .stat-card { background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); }
+        .stat-card.center { text-align: center; }
+        .stat-value { font-size: 2rem; font-weight: bold; color: var(--primary); margin: 0.5rem 0; }
+        .stat-label { color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        
+        .table-container { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; margin-bottom: 1.5rem; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        .table th { background: var(--bg); font-weight: 600; }
+        .table tr:last-child td { border-bottom: none; }
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-settled { background: #d4edda; color: #155724; }
+        .badge-cashfree { background: #cce5ff; color: #004085; }
+        .badge-offline { background: #e2e3e5; color: #383d41; }
+        
+        .section-header { margin: 2rem 0 1rem 0; font-size: 1.25rem; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        .summary-box { background: var(--bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 1rem; }
+        
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: var(--surface); padding: 2rem; border-radius: 8px; width: 90%; max-width: 900px; max-height: 90vh; overflow-y: auto; }
+        .close-modal { float: right; cursor: pointer; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <i data-lucide="qr-code"></i> DeQueue
+            </div>
+            <nav class="sidebar-nav" id="sidebar-nav">
+                <!-- Dynamically populated by router.js -->
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="flex items-center gap-4">
+                    <button class="mobile-toggle btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"><i data-lucide="menu"></i></button>
+                    <h2 class="text-xl">Settlements & Financial Reports</h2>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="tabs">
+                    <div class="tab active" data-tab="dashboard">Financial Overview</div>
+                    <div class="tab" data-tab="ledger">Transaction Ledger</div>
+                    <div class="tab" data-tab="history">Settlement History</div>
+                    <div class="tab" data-tab="pending">Pending Settlements</div>
+                </div>
+
+                <!-- DASHBOARD TAB -->
+                <div class="tab-content active" id="dashboard-tab">
+                    <div class="grid-3">
+                        <div class="stat-card center">
+                            <div class="stat-label">Total Sales</div>
+                            <div class="stat-value" id="dashTotalSales">₹0.00</div>
+                        </div>
+                        <div class="stat-card center">
+                            <div class="stat-label">Cashfree Sales</div>
+                            <div class="stat-value" id="dashCashfreeSales">₹0.00</div>
+                        </div>
+                        <div class="stat-card center">
+                            <div class="stat-label">Cash / Offline Sales</div>
+                            <div class="stat-value" id="dashOfflineSales">₹0.00</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-3">
+                        <div class="stat-card center" style="border-left: 4px solid #f5c6cb;">
+                            <div class="stat-label">Total Deductions (Fees & Taxes)</div>
+                            <div class="stat-value text-danger" id="dashTotalDeductions">₹0.00</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                Platform: <span id="dashPlatformFee">₹0</span> | CF Fee: <span id="dashCFFee">₹0</span> | CF Tax: <span id="dashCFTax">₹0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card center" style="border-left: 4px solid #b8daff;">
+                            <div class="stat-label">Already Settled</div>
+                            <div class="stat-value" id="dashSettled">₹0.00</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);" id="dashSettledTill">Settled Till: -</div>
+                        </div>
+                        <div class="stat-card center" style="border-left: 4px solid #ffeeba;">
+                            <div class="stat-label">Pending Settlement</div>
+                            <div class="stat-value" id="dashPending">₹0.00</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);" id="dashPendingFrom">Pending From: -</div>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-box">
+                        <h3 style="margin-bottom: 0.5rem;">Net Earnings Summary</h3>
+                        <p>Total Vendor Earnings: <strong style="font-size: 1.25rem; color: var(--primary);" id="dashNetEarnings">₹0.00</strong> 
+                        <span class="text-muted">(Total Sales - Refunds - All Fees and Taxes)</span></p>
+                    </div>
+                </div>
+
+                <!-- LEDGER TAB -->
+                <div class="tab-content" id="ledger-tab">
+                    <div class="report-filters">
+                        <div class="filter-group">
+                            <label for="ledgerStart">From:</label>
+                            <input type="date" id="ledgerStart" class="form-control" style="width: auto;">
+                        </div>
+                        <div class="filter-group">
+                            <label for="ledgerEnd">To:</label>
+                            <input type="date" id="ledgerEnd" class="form-control" style="width: auto;">
+                        </div>
+                        <button class="btn btn-primary" id="btnFilterLedger">Apply</button>
+                        <button class="btn btn-secondary" id="btnExportLedger"><i data-lucide="download"></i> Export CSV</button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Order / Queue</th>
+                                    <th>Source</th>
+                                    <th>Amount</th>
+                                    <th>CF Fee+Tax</th>
+                                    <th>Platform Fee</th>
+                                    <th>Net Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ledgerTableBody">
+                                <tr><td colspan="8" class="text-center text-muted">Loading transactions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span id="ledgerPageInfo" class="text-muted"></span>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary btn-sm" id="btnPrevLedger">Previous</button>
+                            <button class="btn btn-secondary btn-sm" id="btnNextLedger">Next</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HISTORY TAB -->
+                <div class="tab-content" id="history-tab">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Settlement Ref</th>
+                                    <th>Period</th>
+                                    <th>Orders</th>
+                                    <th>Total Sales</th>
+                                    <th>Deductions</th>
+                                    <th>Net Amount</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <tr><td colspan="8" class="text-center text-muted">Loading settlements...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- PENDING TAB -->
+                <div class="tab-content" id="pending-tab">
+                    <div class="summary-box" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3>Pending Settlement Overview</h3>
+                            <p class="text-muted" id="pendingOverviewText">Pending from: -</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">Total Pending Amount</div>
+                            <div style="font-size: 2rem; font-weight: bold; color: #856404;" id="pendingTotalAmount">₹0.00</div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid-3" style="margin-bottom: 2rem;">
+                         <div class="stat-card">
+                            <div class="stat-label">Pending Orders</div>
+                            <div class="stat-value" id="pendingOrderCount" style="font-size: 1.5rem;">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Gross Sales</div>
+                            <div class="stat-value" id="pendingGross" style="font-size: 1.5rem;">₹0.00</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Fees to Deduct</div>
+                            <div class="stat-value text-danger" id="pendingFees" style="font-size: 1.5rem;">₹0.00</div>
+                        </div>
+                    </div>
+
+                    <h3 class="section-header">Pending Transactions</h3>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Order</th>
+                                    <th>Source</th>
+                                    <th>Gross</th>
+                                    <th>Deductions</th>
+                                    <th>Net</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingTableBody">
+                                <tr><td colspan="6" class="text-center text-muted">Loading pending transactions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Settlement Detail Modal -->
+    <div class="modal" id="settlementModal">
+        <div class="modal-content">
+            <i data-lucide="x" class="close-modal" onclick="document.getElementById('settlementModal').style.display='none'"></i>
+            <h3 id="modalSettlementRef" style="margin-bottom: 0.5rem;">Settlement Details</h3>
+            <p class="text-muted" id="modalSettlementPeriod" style="margin-bottom: 1.5rem;"></p>
+            
+            <div class="grid-3">
+                <div class="summary-box">
+                    <div class="stat-label">Total Sales</div>
+                    <div class="stat-value" id="modalTotalSales" style="font-size: 1.5rem;">₹0.00</div>
+                    <div style="font-size: 0.85rem;" class="text-muted">CF: <span id="modalCFSales"></span> | Off: <span id="modalOffSales"></span></div>
+                </div>
+                <div class="summary-box">
+                    <div class="stat-label">Total Deductions</div>
+                    <div class="stat-value text-danger" id="modalDeductions" style="font-size: 1.5rem;">₹0.00</div>
+                    <div style="font-size: 0.85rem;" class="text-muted">Platform: <span id="modalPlatFee"></span> | Gateway: <span id="modalGateFee"></span></div>
+                </div>
+                <div class="summary-box" style="background: #e8f4fd; border-color: #b8daff;">
+                    <div class="stat-label" style="color: #004085;">Net Settled Amount</div>
+                    <div class="stat-value" id="modalNet" style="font-size: 1.5rem; color: #004085;">₹0.00</div>
+                    <div style="font-size: 0.85rem; color: #004085;">Status: <span id="modalStatus"></span></div>
+                </div>
+            </div>
+            
+            <h4 style="margin: 1.5rem 0 1rem 0; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Included Transactions</h4>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Source</th>
+                            <th>Amount</th>
+                            <th>Net</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalTxnBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/settlements.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

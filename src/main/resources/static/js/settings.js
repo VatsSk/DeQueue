@@ -50,6 +50,16 @@ class Settings {
     document.getElementById('set-charge-name').value = this.settings.additionalChargeName || '';
     document.getElementById('set-charge-amt').value = this.settings.additionalCharges || 0;
 
+    document.getElementById('set-platform-fee').value = this.settings.platformFeePercentage != null ? this.settings.platformFeePercentage : 5.00;
+    document.getElementById('set-cashfree-fee').value = this.settings.cashfreeFeePercentage != null ? this.settings.cashfreeFeePercentage : 2.00;
+    document.getElementById('set-cashfree-tax').value = this.settings.cashfreeTaxPercentage != null ? this.settings.cashfreeTaxPercentage : 18.00;
+
+    document.getElementById('set-enable-online-payment').checked = this.settings.enableOnlinePayment || false;
+    document.getElementById('set-upi-id').value = this.settings.upiId || '';
+    document.getElementById('set-bank-name').value = this.settings.bankAccountName || '';
+    document.getElementById('set-bank-acc').value = this.settings.bankAccountNumber || '';
+    document.getElementById('set-bank-ifsc').value = this.settings.bankIfscCode || '';
+
     this.renderCoupons();
     this.renderCustomFields();
   }
@@ -190,6 +200,12 @@ class Settings {
     this.settings.taxPercentage = parseFloat(document.getElementById('set-tax-pct').value) || 0;
     this.settings.additionalChargeName = document.getElementById('set-charge-name').value || '';
     this.settings.additionalCharges = parseFloat(document.getElementById('set-charge-amt').value) || 0;
+
+    this.settings.enableOnlinePayment = document.getElementById('set-enable-online-payment').checked;
+    this.settings.upiId = document.getElementById('set-upi-id').value.trim();
+    this.settings.bankAccountName = document.getElementById('set-bank-name').value.trim();
+    this.settings.bankAccountNumber = document.getElementById('set-bank-acc').value.trim();
+    this.settings.bankIfscCode = document.getElementById('set-bank-ifsc').value.trim();
 
     try {
       const res = await api.patch('/vendors/me/settings', this.settings);

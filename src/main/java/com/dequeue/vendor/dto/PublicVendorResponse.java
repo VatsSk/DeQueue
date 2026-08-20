@@ -28,5 +28,7 @@ public class PublicVendorResponse {
         private Double additionalCharges;
         private String additionalChargeName;
         private java.util.List<com.dequeue.vendor.entity.Coupon> coupons;
+        private boolean enableOnlinePayment;
+        private String upiId;
     }
 }

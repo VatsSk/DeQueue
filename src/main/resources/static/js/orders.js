@@ -298,15 +298,25 @@ class Orders {
         }
 
 // Payment status
-        let paymentHtml = hasPriceAccess
-            ? `
-        <div class="mt-2">
-            <div class="text-sm font-bold bg-danger/10 text-danger p-2 rounded-md border border-danger/20 flex items-center justify-center gap-2 shadow-sm">
-                <i data-lucide="wallet" style="width:16px;height:16px;"></i> Unpaid (Pay at Counter)
-            </div>
-        </div>
-      `
-            : '';
+        let paymentHtml = '';
+        if (hasPriceAccess) {
+            const method = (order.metadata && order.metadata.paymentMethod) || 'OFFLINE';
+            if (method === 'CASHFREE') {
+                paymentHtml = `
+                <div class="mt-2">
+                    <div class="text-sm font-bold bg-yellow-50 text-yellow-600 p-2 rounded-md border border-yellow-200 flex items-center justify-center gap-2 shadow-sm">
+                        <i data-lucide="zap" style="width:16px;height:16px;fill:currentColor;"></i> Online Payment
+                    </div>
+                </div>`;
+            } else {
+                paymentHtml = `
+                <div class="mt-2">
+                    <div class="text-sm font-bold bg-danger/10 text-danger p-2 rounded-md border border-danger/20 flex items-center justify-center gap-2 shadow-sm">
+                        <i data-lucide="wallet" style="width:16px;height:16px;"></i> Pay at Counter
+                    </div>
+                </div>`;
+            }
+        }
 
 // Feedback 
         let feedbackHtml = '';
@@ -795,10 +805,18 @@ class Orders {
        </div>`;
        
        if (order.paymentStatus !== 'PAID') {
-           amountHtml += `
-           <div class="flex items-center justify-center gap-2 text-sm font-bold text-danger mt-3 bg-danger/10 p-3.5 rounded-xl border border-danger/20 shadow-sm uppercase tracking-wider">
-               <i data-lucide="wallet" style="width:16px;height:16px;"></i> Unpaid (Pay at counter)
-           </div>`;
+           const method = (order.metadata && order.metadata.paymentMethod) || 'OFFLINE';
+           if (method === 'CASHFREE') {
+               amountHtml += `
+               <div class="flex items-center justify-center gap-2 text-sm font-bold text-yellow-600 mt-3 bg-yellow-50 p-3.5 rounded-xl border border-yellow-200 shadow-sm uppercase tracking-wider">
+                   <i data-lucide="zap" style="width:16px;height:16px;fill:currentColor;"></i> Online Payment
+               </div>`;
+           } else {
+               amountHtml += `
+               <div class="flex items-center justify-center gap-2 text-sm font-bold text-danger mt-3 bg-danger/10 p-3.5 rounded-xl border border-danger/20 shadow-sm uppercase tracking-wider">
+                   <i data-lucide="wallet" style="width:16px;height:16px;"></i> Pay at counter
+               </div>`;
+           }
        }
     }
 

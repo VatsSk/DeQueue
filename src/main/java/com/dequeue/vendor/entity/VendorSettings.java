@@ -43,4 +43,25 @@ public class VendorSettings {
     
     @Builder.Default
     private java.util.List<CustomFieldDef> customFields = new java.util.ArrayList<>();
+
+    // Settlement config fields
+    @Builder.Default
+    private java.math.BigDecimal platformFeePercentage = new java.math.BigDecimal("5.00");
+    
+    @Builder.Default
+    private java.math.BigDecimal cashfreeFeePercentage = new java.math.BigDecimal("2.00");
+    
+    @Builder.Default
+    private java.math.BigDecimal cashfreeTaxPercentage = new java.math.BigDecimal("18.00");
+
+    // Online Payment (UPI)
+    @Builder.Default
+    private boolean enableOnlinePayment = false;
+
+    private String upiId;
+
+    // Bank Details for Platform Payouts
+    private String bankAccountName;
+    private String bankAccountNumber;
+    private String bankIfscCode;
 }

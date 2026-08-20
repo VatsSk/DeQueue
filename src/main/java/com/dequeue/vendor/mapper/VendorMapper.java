@@ -28,6 +28,8 @@ public interface VendorMapper {
         dto.setAdditionalCharges(settings.getAdditionalCharges());
         dto.setAdditionalChargeName(settings.getAdditionalChargeName());
         dto.setCoupons(settings.getCoupons());
+        dto.setEnableOnlinePayment(settings.isEnableOnlinePayment());
+        dto.setUpiId(settings.getUpiId());
         return dto;
     }
 }

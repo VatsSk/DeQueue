@@ -98,6 +98,17 @@ class CustomerApp {
 
       await this.loadMenu();
 
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('payment_success') === 'true') {
+         const pendingStr = sessionStorage.getItem('dequeue_pending_checkout_' + this.vendorCode);
+         if (pendingStr) {
+             const pendingData = JSON.parse(pendingStr);
+             window.history.replaceState({}, document.title, window.location.pathname + '?vendor=' + this.vendorCode);
+             this.placeOrder(true, pendingData);
+             return;
+         }
+      }
+
       // If vendor has geofence enabled, prompt user for location
       if (this.vendor.settings && this.vendor.settings.enableGeofence) {
         this.promptGeofenceLocation();
@@ -615,86 +626,114 @@ class CustomerApp {
           <span>${this.formatPrice(finalTotal)}</span>
         </div>
       </div>
-      
-      ${couponInputHtml}
 
-      <!-- Payment Method Section -->
-      <div class="card mt-3 mb-3" style="padding:1rem;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);">
-        <div class="flex justify-between items-center mb-2">
-          <span class="font-bold" style="font-size:.9rem;">Amount to Pay</span>
-          <span class="font-bold text-primary" style="font-size:1.2rem;">${this.formatPrice(finalTotal)}</span>
-        </div>
-        <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:.75rem;">Payment Method (select at counter)</div>
-        <label class="flex items-center gap-2" style="font-size:.9rem;">
-          <input type="radio" name="pay-method" value="counter" checked style="width:1.1rem;height:1.1rem;">
-          <span>Pay at Counter</span>
-        </label>
-        <label class="flex items-center gap-2 mt-2 opacity-50" style="font-size:.9rem;" title="Coming soon">
-          <input type="radio" name="pay-method" value="online" disabled style="width:1.1rem;height:1.1rem;">
-          <span>Online Payment <span class="badge" style="font-size:.65rem;padding:2px 6px;">Coming Soon</span></span>
-        </label>
-      </div>
+      ${couponInputHtml}
 
       <div id="cart-custom-fields" class="mb-3 ${cfHtml ? '' : 'hidden'}">
         ${cfHtml}
       </div>
 
-      <textarea id="customer-note" class="form-control mb-3" placeholder="Any special instructions or allergies..." rows="2"
-        style="resize:none;font-size:0.9rem;"></textarea>
+      <div class="mb-3">
+        <label class="text-sm font-bold mb-1 block">Special Instructions (Optional)</label>
+        <textarea id="customer-note" class="form-control" placeholder="e.g. Less spicy, extra sauce..." rows="2"
+          style="resize:none;font-size:.9rem;"></textarea>
+      </div>
 
-      <button id="place-order-btn" class="btn btn-primary w-full" onclick="customerApp.placeOrder()"
-        style="padding: 1rem; font-size: 1rem; font-weight: 600; letter-spacing: 0.02em;">
-        <i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i>
-        Place Order — ${this.formatPrice(finalTotal)}
-      </button>
+      <!-- Place Order row: dropdown on left, button on right -->
+      <div style="display:flex;gap:.6rem;align-items:stretch;margin-top:1rem;margin-bottom:1rem;">
+        <select id="pay-method-select" class="form-control" style="flex:1;font-size:.95rem;padding:.55rem .75rem;"
+          onchange="customerApp._onPayMethodChange(this.value)">
+          <option value="OFFLINE">🏪 Pay at Counter</option>
+          ${settings.enableOnlinePayment ? `<option value="ONLINE">📱 Pay Online</option>` : ''}
+        </select>
+        <button id="place-order-btn" class="btn btn-primary" onclick="customerApp.placeOrder()"
+          style="flex:2;padding:.85rem 1rem;font-size:.95rem;font-weight:700;letter-spacing:.01em;min-width:0;">
+          <i data-lucide="check-circle" style="width:17px;height:17px;display:inline;margin-right:.4rem;"></i>
+          Place Order — ${this.formatPrice(finalTotal)}
+        </button>
+      </div>
     `;
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 
-  async placeOrder() {
+  _onPayMethodChange(value) {
+    const qrPanel = document.getElementById('upi-qr-panel');
+    if (qrPanel) {
+      qrPanel.classList.toggle('hidden', value !== 'ONLINE');
+    }
+  }
+
+  async placeOrder(isFromPayment = false, pendingData = null) {
     if (this.cart.length === 0) return;
 
-    // ── Prevent double-submit immediately ──
-    const placeBtn = document.getElementById('place-order-btn');
-    if (placeBtn) {
-      if (placeBtn.disabled) return; // already in-flight
-      placeBtn.disabled = true;
-      placeBtn.innerHTML = '<i data-lucide="loader-2" style="width:18px;height:18px;display:inline;margin-right:0.4rem;animation:spin 1s linear infinite;"></i> Placing Order…';
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    }
+    let paymentMethod = 'OFFLINE';
+    let note = '';
+    let metadata = {};
 
-    // Geofence check: if vendor requires it, validate user location first
-    if (this.vendor && this.vendor.settings && this.vendor.settings.enableGeofence) {
-      const allowed = await this.validateGeofence();
-      if (!allowed) {
-        if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = '<i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i> Place Order'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
-        return;
-      }
-    }
+    if (isFromPayment && pendingData) {
+        paymentMethod = 'ONLINE';
+        note = pendingData.note;
+        metadata = pendingData.metadata;
+        this._currentCheckout = pendingData.checkout;
+    } else {
+        const paySelect = document.getElementById('pay-method-select');
+        paymentMethod = paySelect ? paySelect.value : 'OFFLINE';
 
-    const note = document.getElementById('customer-note')?.value || '';
-    
-    // Collect Custom Fields
-    const metadata = {};
-    if (this.vendor?.settings?.customFields) {
-        let missingRequired = false;
-        this.vendor.settings.customFields.forEach((cf, idx) => {
-            const el = document.getElementById(`cf-${idx}`);
-            if (cf.type === 'CHECKBOX') {
-                const checked = Array.from(document.querySelectorAll(`input[name="cf-${idx}"]:checked`)).map(cb => cb.value);
-                if (cf.required && checked.length === 0) missingRequired = true;
-                if (checked.length > 0) metadata[cf.name] = checked.join(', ');
-            } else {
-                const val = el ? el.value.trim() : '';
-                if (cf.required && !val) missingRequired = true;
-                if (val) metadata[cf.name] = val;
+        const placeBtn = document.getElementById('place-order-btn');
+        if (placeBtn) {
+            if (placeBtn.disabled) return;
+            placeBtn.disabled = true;
+            placeBtn.innerHTML = '<i data-lucide="loader-2" style="width:18px;height:18px;display:inline;margin-right:0.4rem;animation:spin 1s linear infinite;"></i> Placing Order...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        if (this.vendor && this.vendor.settings && this.vendor.settings.enableGeofence) {
+            const allowed = await this.validateGeofence();
+            if (!allowed) {
+                if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = '<i data-lucide="check-circle" style="width:18px;height:18px;display:inline;margin-right:0.4rem;"></i> Place Order'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
+                return;
             }
-        });
-        
-        if (missingRequired) {
-            if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = 'Place Order'; }
-            if (window.showToast) showToast('Please fill all required fields', 'error');
+        }
+
+        note = document.getElementById('customer-note')?.value || '';
+
+        if (this.vendor?.settings?.customFields) {
+            let missingRequired = false;
+            this.vendor.settings.customFields.forEach((cf, idx) => {
+                const el = document.getElementById(`cf-${idx}`);
+                if (cf.type === 'CHECKBOX') {
+                    const checked = Array.from(document.querySelectorAll(`input[name="cf-${idx}"]:checked`)).map(cb => cb.value);
+                    if (cf.required && checked.length === 0) missingRequired = true;
+                    if (checked.length > 0) metadata[cf.name] = checked.join(', ');
+                } else {
+                    const val = el ? el.value.trim() : '';
+                    if (cf.required && !val) missingRequired = true;
+                    if (val) metadata[cf.name] = val;
+                }
+            });
+
+            if (missingRequired) {
+                if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = 'Place Order'; }
+                if (window.showToast) showToast('Please fill all required fields', 'error');
+                return;
+            }
+        }
+
+        metadata['paymentMethod'] = paymentMethod;
+        if (this._currentCheckout) {
+            this._currentCheckout.paymentMethod = paymentMethod;
+        }
+
+        // Navigate to Cashfree simulated payment process
+        if (paymentMethod === 'ONLINE') {
+            const amount = (this._currentCheckout?.finalTotal || this.cart.reduce((s, c) => s + c.totalPrice, 0)).toFixed(2);
+            sessionStorage.setItem('dequeue_pending_checkout_' + this.vendorCode, JSON.stringify({
+                metadata,
+                checkout: this._currentCheckout,
+                note: note
+            }));
+            window.location.href = `/cashfree.html?amount=${amount}&vendorCode=${this.vendorCode}`;
             return;
         }
     }
@@ -743,19 +782,19 @@ class CustomerApp {
       // Initialize notification manager for real-time updates
       if (typeof CustomerNotificationManager !== 'undefined') {
         this.notificationManager = new CustomerNotificationManager(this);
-        const orderData = data.data;
+        const orderResult = data.data;
         this.notificationManager.init(
-          orderData.id,
-          orderData.sessionId,
-          orderData.customerSessionToken,
-          orderData.queueNumber
+          orderResult.id,
+          orderResult.sessionId,
+          orderResult.customerSessionToken,
+          orderResult.queueNumber
         );
 
         // Save token data for reconnection
         localStorage.setItem(`dequeue_token_${this.vendorCode}`, JSON.stringify({
-          orderId: orderData.id,
-          sessionId: orderData.sessionId,
-          customerToken: orderData.customerSessionToken
+          orderId: orderResult.id,
+          sessionId: orderResult.sessionId,
+          customerToken: orderResult.customerSessionToken
         }));
       }
 
