@@ -26,6 +26,7 @@ public class ExtractedMenuItemDto {
     private String categoryName;
     private Integer preparationTime;
     private String tags; // comma-separated raw string from Gemini
+    private String imageUrl;
 
     /**
      * Customization groups detected by Gemini for this item

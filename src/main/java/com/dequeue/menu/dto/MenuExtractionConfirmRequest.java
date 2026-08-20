@@ -18,4 +18,6 @@ public class MenuExtractionConfirmRequest {
 
     @NotBlank(message = "extractionSessionId is required")
     private String extractionSessionId;
+
+    private java.util.List<ExtractedMenuItemDto> items;
 }

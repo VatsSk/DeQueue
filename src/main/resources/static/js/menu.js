@@ -576,24 +576,81 @@ class Menu {
     const filtered = filterCat ? items.filter(i => i.categoryName === filterCat) : items;
     let rows = '';
     filtered.forEach(item => {
-      const price = (item.price === 0 || item.price === '0' || item.price === null)
-        ? '<span class="ai-price-zero">Not set</span>'
-        : `₹${parseFloat(item.price).toFixed(2)}`;
-      const descSnip = item.description
-        ? `<br><small class="text-muted">${this._esc(item.description.substring(0, 65))}${item.description.length > 65 ? '…' : ''}</small>`
-        : '';
+      // Find original index to update data
+      const origIndex = this._aiPreviewData.items.indexOf(item);
+      const imgPreview = item.imageUrl 
+          ? `<img src="${item.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` 
+          : `<i data-lucide="image" style="width:20px;height:20px;color:var(--text-muted);"></i>`;
+
       rows += `
-        <tr>
-          <td><strong>${this._esc(item.name)}</strong>${descSnip}</td>
-          <td>${price}</td>
-          <td><span class="ai-preview-badge">${this._esc(item.categoryName || 'General')}</span></td>
+        <tr data-index="${origIndex}">
+          <td style="width:50px; text-align:center;">
+              <div class="ai-item-img-upload" onclick="menuApp._triggerAiItemImageUpload(${origIndex})" style="cursor:pointer; width:40px; height:40px; background:var(--surface-hover); border:1px dashed var(--border); border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden;" title="Upload Image">
+                  ${imgPreview}
+              </div>
+          </td>
+          <td>
+            <input type="text" class="form-control" style="padding:0.25rem 0.5rem; min-height:30px; font-weight:600; font-size:0.9rem;" value="${this._esc(item.name || '')}" onchange="menuApp._updateAiItem(${origIndex}, 'name', this.value)" placeholder="Item name">
+            <textarea class="form-control" style="padding:0.25rem 0.5rem; min-height:40px; font-size:0.8rem; margin-top:0.25rem; color:var(--text-muted);" onchange="menuApp._updateAiItem(${origIndex}, 'description', this.value)" placeholder="Description">${this._esc(item.description || '')}</textarea>
+          </td>
+          <td style="width:100px;">
+             <input type="number" class="form-control" style="padding:0.25rem 0.5rem; min-height:30px; font-size:0.9rem;" value="${item.price || 0}" onchange="menuApp._updateAiItem(${origIndex}, 'price', this.value)">
+          </td>
+          <td style="width:120px;">
+             <input type="text" class="form-control" style="padding:0.25rem 0.5rem; min-height:30px; font-size:0.85rem;" value="${this._esc(item.categoryName || 'General')}" onchange="menuApp._updateAiItem(${origIndex}, 'categoryName', this.value)">
+          </td>
         </tr>`;
     });
     wrap.innerHTML = `
       <table class="ai-preview-table">
-        <thead><tr><th>Item</th><th>Price</th><th>Category</th></tr></thead>
+        <thead><tr><th>Img</th><th>Item & Description</th><th>Price</th><th>Category</th></tr></thead>
         <tbody>${rows}</tbody>
-      </table>`;
+      </table>
+      <input type="file" id="aiItemImageUploadInput" accept="image/*" style="display:none;" onchange="menuApp._handleAiItemImageUpload(event)">
+    `;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  _updateAiItem(index, field, value) {
+      if (!this._aiPreviewData || !this._aiPreviewData.items[index]) return;
+      this._aiPreviewData.items[index][field] = value;
+  }
+
+  _triggerAiItemImageUpload(index) {
+      this._currentAiItemIndex = index;
+      document.getElementById('aiItemImageUploadInput').click();
+  }
+
+  async _handleAiItemImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const index = this._currentAiItemIndex;
+      if (index === undefined || index === null) return;
+
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      try {
+          const response = await fetch('/api/v1/images/upload', {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + api.token },
+              body: formData
+          });
+          const result = await response.json();
+          if (result.success) {
+              this._aiPreviewData.items[index].imageUrl = result.data;
+              // Re-render table while preserving focus might be tricky, so let's just re-render fully 
+              // (focus will be lost, but since they just uploaded an image via file picker, focus was already lost)
+              this.filterPreviewItems(); 
+          } else {
+              if (window.showToast) showToast(result.message || 'Image upload failed', 'error');
+          }
+      } catch (e) {
+          console.error(e);
+          if (window.showToast) showToast('Failed to upload image', 'error');
+      } finally {
+          event.target.value = '';
+      }
   }
 
   filterPreviewItems() {
@@ -619,7 +676,8 @@ class Menu {
 
     try {
       const res = await api.post('/menu/extract-from-image/confirm', {
-        extractionSessionId: this._aiPreviewData.extractionSessionId
+        extractionSessionId: this._aiPreviewData.extractionSessionId,
+        items: this._aiPreviewData.items
       });
       this._hideAiLoading();
 
