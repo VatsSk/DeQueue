@@ -2,7 +2,6 @@ package com.dequeue.rbac.entity;
 
 import lombok.*;
 import org.springframework.data.annotation.*;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -18,10 +17,6 @@ public class RbacRole {
 
     @Id
     private String id;
-
-    /** Tenant scope — all roles are vendor-specific */
-    @Indexed
-    private String vendorId;
 
     private String name;
     private String description;

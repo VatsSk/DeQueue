@@ -40,7 +40,7 @@ public class SecurityUtils {
 
     /**
      * Returns the effective permission keys for the current user.
-     * e.g. ["order.view", "order.accept", "menu.view"]
+     * e.g. stat["order.view", "order.accept", "menu.view"]
      */
     public static List<String> getCurrentEffectivePermissions() {
         UserPrincipal user = getCurrentUser();

@@ -3,7 +3,6 @@ package com.dequeue.rbac.service;
 import com.dequeue.common.audit.AuditService;
 import com.dequeue.common.exception.BadRequestException;
 import com.dequeue.common.exception.ResourceNotFoundException;
-import com.dequeue.common.security.SecurityUtils;
 import com.dequeue.rbac.dto.CreateRoleRequest;
 import com.dequeue.rbac.dto.RoleResponse;
 import com.dequeue.rbac.dto.UpdateRoleRequest;
@@ -34,9 +33,7 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public List<RoleResponse> findAll() {
-        String vendorId = SecurityUtils.getCurrentVendorId();
-        List<RbacRole> roles = roleRepository.findByVendorId(vendorId);
-        return roles.stream()
+        return roleRepository.findByActiveTrue().stream()
                 .filter(role -> !role.getName().equalsIgnoreCase("ROLE_VENDOR_ADMIN"))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -49,10 +46,11 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public RoleResponse create(CreateRoleRequest request) {
-        String vendorId = SecurityUtils.getCurrentVendorId();
+        if (roleRepository.existsByName(request.getName())) {
+            throw new BadRequestException("A role with name '" + request.getName() + "' already exists");
+        }
 
         RbacRole role = RbacRole.builder()
-                .vendorId(vendorId)
                 .name(request.getName())
                 .description(request.getDescription())
                 .permissions(request.getPermissionIds() != null ? request.getPermissionIds() : new ArrayList<>())
@@ -64,7 +62,7 @@ public class RoleServiceImpl implements RoleService {
 
         role = roleRepository.save(role);
         auditService.logAction("CREATE_ROLE", "Role created: " + role.getId() + " name=" + role.getName());
-        log.info("Role created: {} for vendor: {}", role.getName(), vendorId);
+        log.info("Global role created: {}", role.getName());
         return toResponse(role);
     }
 
@@ -89,10 +87,9 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public void delete(String id) {
         RbacRole role = getRole(id);
-        String vendorId = SecurityUtils.getCurrentVendorId();
 
-        // Check if any staff members are still assigned this role
-        long staffCount = staffRepository.findByVendorId(vendorId).stream()
+        // Check if any staff members are still assigned this role ID
+        long staffCount = staffRepository.findAll().stream()
                 .filter(s -> s.getRoles() != null && s.getRoles().contains(id))
                 .count();
 
@@ -107,43 +104,13 @@ public class RoleServiceImpl implements RoleService {
     }
 
     private RbacRole getRole(String id) {
-        String vendorId = SecurityUtils.getCurrentVendorId();
-        RbacRole role = roleRepository.findById(id)
+        return roleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
-        if (!role.getVendorId().equals(vendorId)) {
-            throw new ResourceNotFoundException("Role not found in your vendor scope");
-        }
-        return role;
-    }
-
-    private void validatePermissionIds(List<String> permissionIds) {
-        if (permissionIds == null || permissionIds.isEmpty()) return;
-
-        List<RbacPermission> found = permissionRepository.findByIdIn(permissionIds);
-        Set<String> foundIds = found.stream().map(RbacPermission::getId).collect(Collectors.toSet());
-
-        List<String> invalid = permissionIds.stream()
-                .filter(id -> !foundIds.contains(id))
-                .collect(Collectors.toList());
-
-        if (!invalid.isEmpty()) {
-            throw new BadRequestException("Invalid permission IDs (not in platform catalog): " + invalid);
-        }
-
-        List<String> inactive = found.stream()
-                .filter(p -> !p.isActive())
-                .map(RbacPermission::getId)
-                .collect(Collectors.toList());
-
-        if (!inactive.isEmpty()) {
-            throw new BadRequestException("Cannot assign inactive permissions: " + inactive);
-        }
     }
 
     private RoleResponse toResponse(RbacRole role) {
         RoleResponse response = new RoleResponse();
         response.setId(role.getId());
-        response.setVendorId(role.getVendorId());
         response.setName(role.getName());
         response.setDescription(role.getDescription());
         response.setPermissionIds(role.getPermissions() != null ? role.getPermissions() : new ArrayList<>());

@@ -5,19 +5,18 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface RbacRoleRepository extends MongoRepository<RbacRole, String> {
 
-    List<RbacRole> findByVendorIdAndActiveTrue(String vendorId);
+    List<RbacRole> findByActiveTrue();
 
-    List<RbacRole> findByIdInAndVendorId(List<String> ids, String vendorId);
+    Optional<RbacRole> findByName(String name);
+
+    boolean existsByName(String name);
+
+    List<RbacRole> findByNameIn(List<String> names);
 
     List<RbacRole> findByIdIn(List<String> ids);
-
-    boolean existsByVendorIdAndName(String vendorId, String name);
-
-    List<RbacRole> findByVendorId(String vendorId);
-
-    List<RbacRole> findByVendorIdAndNameIn(String vendorId, List<String> names);
 }
