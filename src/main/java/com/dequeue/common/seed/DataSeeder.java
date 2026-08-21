@@ -117,11 +117,6 @@ public class DataSeeder implements CommandLineRunner {
         mongoTemplate.save(menuItem(vendorId, coldBev.getId(), "Cold Coffee",      new BigDecimal("2.50"), 5, 1, new ArrayList<>()));
         mongoTemplate.save(menuItem(vendorId, coldBev.getId(), "Fresh Lime Soda",  new BigDecimal("1.50"), 3, 2, List.of(typeGroup.getId())));
 
-        // ── 9. Vendor Settings ────────────────────────────────────────────
-        mongoTemplate.getCollection("vendor_settings").insertOne(
-                new Document("vendorId", vendorId)
-                        .append("isAcceptingOrders", true)
-                        .append("autoAcceptOrders", false));
 
         // ── 10. Vendor Profile ────────────────────────────────────────────
         mongoTemplate.getCollection("vendor_profiles").insertOne(

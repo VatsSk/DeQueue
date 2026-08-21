@@ -14,22 +14,4 @@ public interface VendorMapper {
     void updateVendorFromRequest(UpdateVendorRequest request, @MappingTarget Vendor vendor);
     void updateSettingsFromDto(VendorSettingsDto dto, @MappingTarget VendorSettings settings);
     
-    default PublicVendorResponse.PublicSettingsDto mapSettings(VendorSettings settings) {
-        if (settings == null) return null;
-        PublicVendorResponse.PublicSettingsDto dto = new PublicVendorResponse.PublicSettingsDto();
-        dto.setAllowCustomOrder(settings.isAllowCustomOrder());
-        dto.setShowPreparationTime(settings.isShowPreparationTime());
-        dto.setCurrency(settings.getCurrency());
-        dto.setEnableGeofence(settings.isEnableGeofence());
-        dto.setCustomFields(settings.getCustomFields());
-        dto.setGstNumber(settings.getGstNumber());
-        dto.setTaxPercentage(settings.getTaxPercentage());
-        dto.setTaxName(settings.getTaxName());
-        dto.setAdditionalCharges(settings.getAdditionalCharges());
-        dto.setAdditionalChargeName(settings.getAdditionalChargeName());
-        dto.setCoupons(settings.getCoupons());
-        dto.setEnableOnlinePayment(settings.isEnableOnlinePayment());
-        dto.setUpiId(settings.getUpiId());
-        return dto;
-    }
 }

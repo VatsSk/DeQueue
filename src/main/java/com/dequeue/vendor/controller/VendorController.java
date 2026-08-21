@@ -41,6 +41,11 @@ public class VendorController {
         return ApiResponse.success(vendorService.getShopStatus(SecurityUtils.getCurrentVendorId()));
     }
 
+    @GetMapping("/me/settings")
+    public ApiResponse<VendorSettings> getSettings() {
+        return ApiResponse.success(vendorService.getCurrentVendor(SecurityUtils.getCurrentVendorId()).getSettings());
+    }
+
     @PreAuthorize("hasAnyAuthority('ROLE_VENDOR_ADMIN', 'ROLE_VENDOR_MANAGER') or hasAuthority('ROLE_PLATFORM_ADMIN')")
     @PatchMapping("/me/settings")
     public ApiResponse<VendorSettings> updateSettings(@RequestBody VendorSettingsDto request) {

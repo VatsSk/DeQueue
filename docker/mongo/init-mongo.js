@@ -10,7 +10,6 @@ db.createCollection('customization_groups');
 db.createCollection('orders');
 db.createCollection('qr_metadata');
 db.createCollection('vendor_profiles');
-db.createCollection('vendor_settings');
 db.createCollection('refresh_tokens');
 db.createCollection('audit_logs');
 
@@ -30,7 +29,6 @@ db.createCollection('audit_logs');
 // db.qr_metadata.createIndex({ vendorId: 1 }, { unique: true });
 // db.qr_metadata.createIndex({ vendorCode: 1 }, { unique: true });
 // db.vendor_profiles.createIndex({ vendorId: 1 }, { unique: true });
-// db.vendor_settings.createIndex({ vendorId: 1 }, { unique: true });
 // db.refresh_tokens.createIndex({ token: 1 }, { unique: true });
 // db.refresh_tokens.createIndex({ staffId: 1 });
 // db.audit_logs.createIndex({ vendorId: 1, timestamp: -1 });
