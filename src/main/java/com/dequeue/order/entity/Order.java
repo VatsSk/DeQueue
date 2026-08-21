@@ -83,6 +83,16 @@ Order {
     /** ID of the PaymentTransaction document for this order. */
     private String paymentTransactionId;
 
+    /** Cashfree payment order ID returned when creating a Cashfree payment order. */
+    @Indexed
+    private String cashfreeOrderId;
+
+    /** Cashfree payment ID from webhook once payment is confirmed. */
+    private String cashfreePaymentId;
+
+    /** Cashfree split ID once Easy Split is created. */
+    private String cashfreeSplitId;
+
     // Fee snapshot — immutable once payment is finalized
 
     /**

@@ -4,73 +4,122 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cashfree Secure Payment</title>
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f7f8f9; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .payment-card { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; padding: 30px; text-align: center; box-sizing: border-box; }
-        .logo { font-size: 24px; font-weight: bold; color: #6366f1; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .logo img { height: 30px; }
-        .amount { font-size: 32px; font-weight: bold; color: #111827; margin: 20px 0; }
-        .vendor-name { color: #6b7280; font-size: 14px; margin-bottom: 30px; }
-        .btn-pay { background: #6366f1; color: white; border: none; padding: 14px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; width: 100%; transition: background 0.3s; }
-        .btn-pay:hover { background: #4f46e5; }
-        .secure-badge { margin-top: 20px; font-size: 12px; color: #9ca3af; display: flex; align-items: center; justify-content: center; gap: 4px; }
-        
-        .loader { display: none; border: 3px solid #f3f3f3; border-top: 3px solid #6366f1; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error-message { color: #dc2626; display: none; margin-top: 20px; font-weight: 500; }
+        .message { color: #4b5563; margin-top: 10px; font-size: 14px; }
+        .cancel-btn { background: #f3f4f6; color: #4b5563; border: none; padding: 10px 20px; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 20px; width: 100%; }
+        .cancel-btn:hover { background: #e5e7eb; }
     </style>
 </head>
 <body>
     <div class="payment-card">
-        <div class="logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-            Cashfree Payments
-        </div>
+        <h2>Initializing Payment...</h2>
+        <div class="loader" id="loader"></div>
+        <div class="message" id="status-message">Please wait while we securely connect to Cashfree.</div>
+        <div class="error-message" id="error-message"></div>
         
-        <div class="amount" id="amount-display">₹0.00</div>
-        <div class="vendor-name" id="vendor-display">Loading...</div>
-        
-        <button class="btn-pay" id="pay-btn" onclick="processPayment()">
-            <span id="btn-text">Pay Now</span>
-            <div class="loader" id="btn-loader"></div>
-        </button>
-        
-        <div class="secure-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            100% Secure Payment
-        </div>
+        <button id="retry-btn" style="display:none; margin-top: 20px; padding: 10px 20px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; width: 100%;" onclick="initializePayment()">Retry Payment</button>
+        <button class="cancel-btn" id="cancel-btn" onclick="cancelPayment()" style="display:none;">Return to Order</button>
     </div>
 
     <script>
         const params = new URLSearchParams(window.location.search);
-        const amount = params.get('amount') || '0.00';
+        const orderId = params.get('orderId');
         const vendorCode = params.get('vendorCode');
-        
-        document.getElementById('amount-display').innerText = '₹' + amount;
-        
-        if (vendorCode) {
-            fetch(`/api/v1/public/vendors/${vendorCode}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.data) {
-                        document.getElementById('vendor-display').innerText = 'Paying to ' + data.data.shopName;
-                    } else {
-                        document.getElementById('vendor-display').innerText = 'Paying to Merchant';
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('vendor-display').innerText = 'Paying to Merchant';
+        let cashfree = null;
+
+        if (!orderId) {
+            showError("Invalid payment request. Missing order ID.");
+        } else {
+            initializePayment();
+        }
+
+        async function initializePayment() {
+            hideError();
+            updateStatus("Creating payment session...");
+            
+            try {
+                // Call backend to create Cashfree payment order
+                const response = await fetch('/api/v1/payments/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        orderId: orderId,
+                        amount: 1, // Note: backend uses actual order total, this is just to pass validation
+                        customerName: params.get('name') || 'Customer',
+                        customerPhone: params.get('phone') || '9999999999',
+                        returnUrl: window.location.origin + `/customer.html?vendor=${vendorCode}&order=${orderId}`
+                    })
                 });
+
+                const data = await response.json();
+                
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || "Failed to initialize payment");
+                }
+
+                updateStatus("Redirecting to Cashfree checkout...");
+                
+                // Initialize Cashfree SDK
+                cashfree = Cashfree({
+                    mode: data.data.environment === 'production' ? 'production' : 'sandbox'
+                });
+
+                // Start checkout
+                let checkoutOptions = {
+                    paymentSessionId: data.data.paymentSessionId,
+                    redirectTarget: "_self" // redirect in same tab
+                };
+                
+                cashfree.checkout(checkoutOptions).then((result) => {
+                    if (result.error) {
+                        // User closed popup or payment failed
+                        console.error(result.error);
+                        showError(result.error.message || "Payment was cancelled or failed.");
+                    } else if (result.redirect) {
+                        console.log("Payment will be redirected");
+                    } else if (result.paymentDetails) {
+                        // Seamless redirect logic
+                        window.location.href = `/customer.html?vendor=${vendorCode}&order=${orderId}`;
+                    }
+                });
+
+            } catch (err) {
+                console.error(err);
+                showError("Payment initialization failed. " + err.message);
+            }
         }
         
-        function processPayment() {
-            document.getElementById('btn-text').style.display = 'none';
-            document.getElementById('btn-loader').style.display = 'block';
-            document.getElementById('pay-btn').disabled = true;
-            
-            // Simulate payment processing delay
-            setTimeout(() => {
-                window.location.href = `/customer.html?vendor=${vendorCode}&payment_success=true`;
-            }, 2000);
+        function cancelPayment() {
+            window.location.href = `/customer.html?vendor=${vendorCode}&order=${orderId}`;
+        }
+
+        function updateStatus(msg) {
+            document.getElementById('status-message').innerText = msg;
+        }
+
+        function showError(msg) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('status-message').style.display = 'none';
+            document.getElementById('error-message').innerText = msg;
+            document.getElementById('error-message').style.display = 'block';
+            document.getElementById('retry-btn').style.display = 'block';
+            document.getElementById('cancel-btn').style.display = 'block';
+        }
+        
+        function hideError() {
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('status-message').style.display = 'block';
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('retry-btn').style.display = 'none';
+            document.getElementById('cancel-btn').style.display = 'none';
         }
     </script>
 </body>

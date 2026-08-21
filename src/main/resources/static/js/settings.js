@@ -1,4 +1,4 @@
-﻿class Settings {
+class Settings {
   constructor() {
     this.settings = {};
     this.init();
@@ -29,8 +29,10 @@
     try {
       const res = await api.get("/vendors/me");
       if (res.success && res.data) {
+        this.vendorId = res.data.id;
         this.settings = res.data.settings || {};
         this.populateForm();
+        this.loadCashfreeStatus();
       }
     } catch (e) {
       console.error(e);
@@ -301,6 +303,32 @@
     if (!this.settings.coupons) return;
     this.settings.coupons.splice(idx, 1);
     this.renderCoupons();
+  }
+
+  /* ──────────── CASHFREE STATUS ──────────── */
+  async loadCashfreeStatus() {
+    const box = document.getElementById('cashfree-status-box');
+    if (!box) return;
+    try {
+        const res = await api.get(`/platform/vendors/${this.vendorId}/cashfree/status`);
+        if (res.success) {
+            const data = res.data;
+            if (data.status === 'NOT_ONBOARDED') {
+                box.innerHTML = 'Not onboarded to Cashfree Easy Split.';
+            } else {
+                box.innerHTML = `
+                    <div style="margin-bottom: 0.25rem"><strong>Vendor ID:</strong> ${data.cashfreeVendorId}</div>
+                    <div style="margin-bottom: 0.25rem"><strong>Status:</strong> ${data.status}</div>
+                    <div style="margin-bottom: 0.25rem"><strong>KYC Status:</strong> ${data.onboardingStatus}</div>
+                    <div style="margin-bottom: 0.25rem"><strong>Easy Split:</strong> ${data.easySplitEnabled ? 'Active' : 'Inactive'}</div>
+                    <div style="margin-bottom: 0.25rem"><strong>Bank Account:</strong> ${data.maskedBankAccount || 'N/A'}</div>
+                    <div><strong>Last Synced:</strong> ${data.lastSyncedAt ? new Date(data.lastSyncedAt).toLocaleString() : 'Never'}</div>
+                `;
+            }
+        }
+    } catch(e) {
+        box.innerHTML = 'Error loading Cashfree status.';
+    }
   }
 
   /* ──────────── SAVE ──────────── */

@@ -70,6 +70,7 @@ public class SettlementServiceImpl implements SettlementService {
     private final OrderRepository orderRepository;
     private final VendorSettlementRepository settlementRepository;
     private final com.dequeue.vendor.repository.VendorRepository vendorRepository;
+    private final com.dequeue.cashfree.service.FinancialCalculationService financialCalculationService;
 
     // ══════════════════════════════════════════════════════════════════════════
     // Public API
@@ -364,8 +365,8 @@ public class SettlementServiceImpl implements SettlementService {
                 ? o.getTotalAmount() : BigDecimal.ZERO);
         BigDecimal grossSales = cashfreeSales.add(offlineSales);
 
-        BigDecimal cashreeFees = sumOrders(pendingOrders, Order::getCashfreeFee);
-        BigDecimal cashreeTax = sumOrders(pendingOrders, Order::getCashfreeTax);
+        BigDecimal cashfreeFees = sumOrders(pendingOrders, Order::getCashfreeFee);
+        BigDecimal cashfreeTax = sumOrders(pendingOrders, Order::getCashfreeTax);
         BigDecimal platformCharges = sumOrders(pendingOrders, Order::getPlatformFeeAmount);
         BigDecimal refunds = sumOrders(pendingOrders, Order::getRefundAmount);
         BigDecimal pendingAmount = sumOrders(pendingOrders, Order::getVendorNetAmount);
@@ -383,8 +384,8 @@ public class SettlementServiceImpl implements SettlementService {
                 .grossSales(grossSales)
                 .cashfreeSales(cashfreeSales)
                 .offlineSales(offlineSales)
-                .cashreeFees(cashreeFees)
-                .cashreeTax(cashreeTax)
+                .cashfreeFees(cashfreeFees)
+                .cashfreeTax(cashfreeTax)
                 .platformCharges(platformCharges)
                 .refunds(refunds)
                 .pendingAmount(pendingAmount)
@@ -431,23 +432,17 @@ public class SettlementServiceImpl implements SettlementService {
         com.dequeue.vendor.entity.Vendor vendor = vendorRepository.findById(vendorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found: " + vendorId));
                 
-        BigDecimal platformFeePercentage = DEFAULT_PLATFORM_FEE_PERCENTAGE;
-        if (vendor.getSettings() != null && vendor.getSettings().getPlatformFeePercentage() != null) {
-            platformFeePercentage = vendor.getSettings().getPlatformFeePercentage();
-        }
-        
         BigDecimal amount = request.getAmount();
-        BigDecimal platformFeeAmount = amount
-                .multiply(platformFeePercentage)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        var breakdown = financialCalculationService.calculateForOrder(amount, vendor);
+
+        BigDecimal platformFeePercentage = breakdown.platformCommissionRate();
+        BigDecimal platformFeeAmount = breakdown.platformCommissionAmount();
         // Cashfree fees = ₹0 for offline payments (by design)
         BigDecimal cashfreeFee = BigDecimal.ZERO;
         BigDecimal cashfreeTax = BigDecimal.ZERO;
         BigDecimal refundAmount = BigDecimal.ZERO;
 
-        BigDecimal vendorNetAmount = amount
-                .subtract(platformFeeAmount)
-                .subtract(refundAmount);
+        BigDecimal vendorNetAmount = breakdown.vendorGrossShare().subtract(refundAmount);
 
         // 6. Update Order with payment information directly (no separate transaction entity)
         order.setPaymentSource(source);

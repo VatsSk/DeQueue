@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('pendingOrderCount').textContent = d.pendingOrderCount;
                 document.getElementById('pendingGross').textContent = formatCurrency(d.grossSales);
                 
-                const totalFees = (d.cashreeFees || 0) + (d.cashreeTax || 0) + (d.platformCharges || 0) + (d.refunds || 0);
+                const totalFees = (d.cashfreeFees || 0) + (d.cashfreeTax || 0) + (d.platformCharges || 0) + (d.refunds || 0);
                 document.getElementById('pendingFees').textContent = `-${formatCurrency(totalFees)}`;
                 
                 if (!d.pendingTransactions || d.pendingTransactions.length === 0) {

@@ -19,6 +19,7 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     Page<Order> findByVendorIdAndStatus(String vendorId, OrderStatus status, Pageable pageable);
     Page<Order> findByVendorIdAndQueueNumber(String vendorId, String queueNumber, Pageable pageable);
     Optional<Order> findByVendorIdAndQueueNumber(String vendorId, String queueNumber);
+    Optional<Order> findByCashfreeOrderId(String cashfreeOrderId);
     List<Order> findByVendorIdAndStatusIn(String vendorId, List<OrderStatus> statuses);
     Page<Order> findByVendorIdAndStatusIn(String vendorId, List<OrderStatus> statuses, Pageable pageable);
     List<Order> findByVendorIdAndCreatedAtAfter(String vendorId, Instant date);

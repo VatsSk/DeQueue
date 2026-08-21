@@ -17,6 +17,7 @@ class Router {
             { path: 'settlements.html', icon: 'wallet', label: 'Payments & Settlements', permissions: ['report.view', 'order.view'] },
             // { path: 'promotions.html', icon: 'tag', label: 'Promotions', permissions: ['menu.view'] },
 //            { path: 'customer.html', icon: 'smartphone', label: 'Customer View', permissions: ['order.view', 'menu.view'] },
+            { path: 'admin-payments.html', icon: 'banknote', label: 'Admin Financials', permissions: [], platformAdminOnly: true },
             { path: 'vendors.html', icon: 'building', label: 'Platform Vendors', permissions: [], platformAdminOnly: true }
         ];
         this.init();
