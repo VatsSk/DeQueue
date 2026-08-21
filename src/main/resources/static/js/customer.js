@@ -156,6 +156,7 @@ class CustomerApp {
       this.renderCategories();
       this.renderHero();
       this.renderMenuItems('popular');
+      this.updateCartUI();
     } catch (err) {
       this.showError('Unable to load menu. Please try again.');
       console.error(err);
@@ -319,6 +320,7 @@ class CustomerApp {
 
     this.updateCartUI();
     this.renderCartModal();
+    this.renderMenuItems(this.currentCategory);
     if (typeof showToast === 'function') showToast(`Added ${item.name} to cart`, 'success');
   }
 
@@ -336,12 +338,14 @@ class CustomerApp {
     item.totalPrice = item.unitPrice * item.quantity;
     this.updateCartUI();
     this.renderCartModal();
+    this.renderMenuItems(this.currentCategory);
   }
 
   removeFromCart(cartId) {
     this.cart = this.cart.filter(c => c.cartId !== cartId);
     this.updateCartUI();
     this.renderCartModal();
+    this.renderMenuItems(this.currentCategory);
   }
 
   saveCart() {
@@ -389,48 +393,60 @@ class CustomerApp {
     const total=this.cart.reduce((s,i)=>s+i.unitPrice*i.quantity,0), settings=this.vendor?.settings||{}, taxPct=Number(settings.taxPercentage||0), taxName=settings.taxName||'Tax', chargeAmt=Number(settings.additionalCharges||0), chargeName=settings.additionalChargeName||'Service Charge', taxAmount=taxPct>0?total*taxPct/100:0;
     let couponDiscount=0;if(this.appliedCoupon)couponDiscount=this.appliedCoupon.type==='PERCENTAGE'?total*this.appliedCoupon.value/100:this.appliedCoupon.value;couponDiscount=Math.min(couponDiscount,total);const finalTotal=Math.max(0,total-couponDiscount+taxAmount+chargeAmt);
     this._currentCheckout={subtotal:total,taxAmount,taxName:taxPct>0?taxName:null,serviceChargeAmount:chargeAmt>0?chargeAmt:null,serviceChargeName:chargeAmt>0?chargeName:null,couponCode:this.appliedCoupon?this.appliedCoupon.code:null,couponDiscount:couponDiscount>0?couponDiscount:null,finalTotal};
-    let cfHtml='';
-    const enabledFields = (this.vendor?.settings?.customFields||[]).filter(cf => cf.enabled !== false);
-    // Sort fields by displayOrder
+
+    // ── Custom Fields ──────────────────────────────────────────────────────
+    let cfHtml = '';
+    const enabledFields = (this.vendor?.settings?.customFields || []).filter(cf => cf.enabled !== false);
     enabledFields.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-    
+
+    // Icon map by field type
+    const cfIconMap = { text: 'type', number: 'hash', dropdown: 'chevron-down', radio: 'circle-dot', checkbox: 'square-check' };
+
     enabledFields.forEach((cf) => {
-        const idStr = this._escHtml(cf.id);
+        const idStr   = this._escHtml(cf.id);
         const labelStr = this._escHtml(cf.label);
         const isRequired = cf.required;
         const type = cf.type || 'text';
-        const conditionsData = cf.conditions ? JSON.stringify(cf.conditions).replace(/"/g, '&quot;') : '[]';
-        
-        cfHtml += `<div class="checkout-field cf-container" id="cf-container-${idStr}" data-id="${idStr}" data-required="${isRequired}" data-conditions="${conditionsData}">`;
-        cfHtml += `<label>${labelStr} ${isRequired ? '<span>*</span>' : ''}</label>`;
-        
-        const onchangeAttr = `onchange="customerApp.evaluateCustomFields()" oninput="customerApp.evaluateCustomFields()"`;
-        
+        const icon = cfIconMap[type] || 'pencil-line';
+        // Encode conditions safely for data attribute
+        const conditionsJson = cf.conditions && cf.conditions.length > 0
+            ? JSON.stringify(cf.conditions)
+            : '[]';
+        const conditionsData = conditionsJson.replace(/"/g, '&quot;');
+
+        const onEvt = `onchange="customerApp.evaluateCustomFields()" oninput="customerApp.evaluateCustomFields()"`;
+
+        let inputHtml = '';
         if (type === 'text') {
-            cfHtml += `<input type="text" id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" placeholder="Enter ${labelStr}" ${onchangeAttr}>`;
+            inputHtml = `<input type="text" id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" placeholder="Enter ${labelStr}" autocomplete="off" ${onEvt}>`;
         } else if (type === 'number') {
-            cfHtml += `<input type="number" id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" placeholder="Enter ${labelStr}" ${onchangeAttr}>`;
+            inputHtml = `<input type="number" id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" placeholder="Enter ${labelStr}" ${onEvt}>`;
         } else if (type === 'dropdown') {
-            cfHtml += `<select id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" ${onchangeAttr}><option value="">Select ${labelStr}</option>`;
+            inputHtml = `<select id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" ${onEvt}><option value="">Select ${labelStr}…</option>`;
             (cf.options || []).forEach(o => {
-                cfHtml += `<option value="${this._escHtml(o.value)}">${this._escHtml(o.label)}</option>`;
+                inputHtml += `<option value="${this._escHtml(o.value)}">${this._escHtml(o.label)}</option>`;
             });
-            cfHtml += `</select>`;
+            inputHtml += `</select>`;
         } else if (type === 'radio') {
-            cfHtml += `<div class="checkout-choice-grid cf-input" data-type="radio" id="cf-${idStr}">`;
+            inputHtml = `<div class="checkout-choice-grid cf-input" data-type="radio" id="cf-${idStr}" role="radiogroup">`;
             (cf.options || []).forEach(o => {
-                cfHtml += `<label class="choice-check"><input type="radio" name="cf-${idStr}" value="${this._escHtml(o.value)}" ${onchangeAttr}><span>${this._escHtml(o.label)}</span></label>`;
+                inputHtml += `<label class="choice-check"><input type="radio" name="cf-${idStr}" value="${this._escHtml(o.value)}" ${onEvt}><span>${this._escHtml(o.label)}</span></label>`;
             });
-            cfHtml += `</div>`;
+            inputHtml += `</div>`;
         } else if (type === 'checkbox') {
-            cfHtml += `<div class="checkout-choice-grid cf-input" data-type="checkbox" id="cf-${idStr}">`;
+            inputHtml = `<div class="checkout-choice-grid cf-input" data-type="checkbox" id="cf-${idStr}">`;
             (cf.options || []).forEach(o => {
-                cfHtml += `<label class="choice-check"><input type="checkbox" name="cf-${idStr}" value="${this._escHtml(o.value)}" ${onchangeAttr}><span>${this._escHtml(o.label)}</span></label>`;
+                inputHtml += `<label class="choice-check"><input type="checkbox" name="cf-${idStr}" value="${this._escHtml(o.value)}" ${onEvt}><span>${this._escHtml(o.label)}</span></label>`;
             });
-            cfHtml += `</div>`;
+            inputHtml += `</div>`;
         }
-        cfHtml += `</div>`;
+
+        cfHtml += `<div class="checkout-field cf-container" id="cf-container-${idStr}" data-id="${idStr}" data-required="${isRequired}" data-conditions="${conditionsData}">` +
+            `<label><i data-lucide="${icon}" style="width:11px;height:11px;display:inline;vertical-align:middle;margin-right:3px;opacity:.7;"></i>${labelStr}${isRequired ? ' <span aria-hidden="true">*</span>' : ''}</label>` +
+            inputHtml +
+            `</div>`;
     });
+
     const paymentOnline=!!settings.enableOnlinePayment,paymentValue=document.getElementById('pay-method-select')?.value||'OFFLINE',onlineSelected=paymentValue==='ONLINE';
     const couponSection=settings.coupons?.length?`<div class="checkout-section coupon-section"><div class="checkout-section-heading"><div><span class="section-kicker">SAVE MORE</span><h4>Have a coupon?</h4></div><i data-lucide="ticket-percent"></i></div><div class="coupon-row"><input type="text" id="cart-coupon-input" class="checkout-input" placeholder="Enter coupon code" value="${this.appliedCoupon?this._escHtml(this.appliedCoupon.code):''}" ${this.appliedCoupon?'disabled':''}>${this.appliedCoupon?`<button class="coupon-action remove" onclick="customerApp.removeCoupon()">Remove</button>`:`<button class="coupon-action" onclick="customerApp.applyCoupon()">Apply</button>`}</div>${this.appliedCoupon?`<div class="coupon-success"><i data-lucide="check-circle-2"></i> ${this._escHtml(this.appliedCoupon.code)} applied — you saved ${this.formatPrice(couponDiscount)}</div>`:''}</div>`:'';
     body.innerHTML=`<div class="checkout-wrap"><section class="checkout-section cart-items-section"><div class="checkout-section-heading"><div><span class="section-kicker">YOUR ORDER</span><h4>${this.cart.reduce((s,i)=>s+i.quantity,0)} items</h4></div><span class="mini-total">${this.formatPrice(total)}</span></div><div class="checkout-items">${this.cart.map(item=>{const thumb=item.image?`<img src="${this._escHtml(item.image)}" alt="${this._escHtml(item.menuItemName)}">`:`<div class="cart-thumb-placeholder"><i data-lucide="utensils"></i></div>`;const cust=item.customizations?.length?`<div class="cart-custom-tags">${item.customizations.map(c=>`<span>${this._escHtml(c.optionName||c.groupName)}</span>`).join('')}</div>`:'';return `<div class="checkout-item"><div class="checkout-item-thumb">${thumb}</div><div class="checkout-item-main"><h5>${this._escHtml(item.menuItemName)}</h5><div class="checkout-item-unit">${this.formatPrice(item.unitPrice)} each</div>${cust}</div><div class="checkout-item-side"><strong>${this.formatPrice(item.unitPrice*item.quantity)}</strong><div class="checkout-qty"><button onclick="customerApp.updateQuantity(${item.cartId},-1)"><i data-lucide="${item.quantity===1?'trash-2':'minus'}"></i></button><span>${item.quantity}</span><button onclick="customerApp.updateQuantity(${item.cartId},1)"><i data-lucide="plus"></i></button></div></div></div>`}).join('')}</div></section>${couponSection}${cfHtml?`<section class="checkout-section"><div class="checkout-section-heading"><div><span class="section-kicker">ORDER DETAILS</span><h4>Almost there</h4></div><i data-lucide="clipboard-list"></i></div>${cfHtml}</section>`:''}<section class="checkout-section"><div class="checkout-section-heading"><div><span class="section-kicker">NOTE</span><h4>Anything we should know?</h4></div><i data-lucide="message-square-text"></i></div><textarea id="customer-note" class="checkout-textarea" placeholder="Less spicy, extra sauce, no onions..." rows="3"></textarea></section><section class="checkout-section bill-section"><div class="checkout-section-heading"><div><span class="section-kicker">BILL DETAILS</span><h4>Summary</h4></div><i data-lucide="receipt"></i></div><div class="bill-lines"><div><span>Item total</span><strong>${this.formatPrice(total)}</strong></div>${couponDiscount>0?`<div class="discount-line"><span>Coupon (${this._escHtml(this.appliedCoupon.code)})</span><strong>−${this.formatPrice(couponDiscount)}</strong></div>`:''}${taxAmount>0?`<div><span>${this._escHtml(taxName)} <small>${taxPct}%</small></span><strong>${this.formatPrice(taxAmount)}</strong></div>`:''}${chargeAmt>0?`<div><span>${this._escHtml(chargeName)}</span><strong>${this.formatPrice(chargeAmt)}</strong></div>`:''}</div><div class="bill-total"><span>Total to pay</span><strong>${this.formatPrice(finalTotal)}</strong></div><div class="bill-note"><i data-lucide="shield-check"></i> Final amount includes applicable taxes and charges.</div></section><section class="checkout-section payment-section"><div class="checkout-section-heading"><div><span class="section-kicker">PAYMENT</span><h4>How would you like to pay?</h4></div><i data-lucide="wallet-cards"></i></div><div class="payment-options"><label class="payment-card ${!onlineSelected?'selected':''}"><input type="radio" name="payment-ui" value="OFFLINE" ${!onlineSelected?'checked':''} onchange="customerApp._onPayMethodChange('OFFLINE')"><span class="payment-icon counter"><i data-lucide="store"></i></span><span class="payment-copy"><strong>Pay at Counter</strong><small>Pay when collecting your order</small></span><span class="payment-check"><i data-lucide="check"></i></span></label>${paymentOnline?`<label class="payment-card ${onlineSelected?'selected':''}"><input type="radio" name="payment-ui" value="ONLINE" ${onlineSelected?'checked':''} onchange="customerApp._onPayMethodChange('ONLINE')"><span class="payment-icon online"><i data-lucide="smartphone"></i></span><span class="payment-copy"><strong>Pay Online</strong><small>UPI, cards & net banking via Cashfree</small></span><span class="payment-check"><i data-lucide="check"></i></span></label>`:''}</div><select id="pay-method-select" class="sr-only-payment-select" aria-hidden="true"><option value="OFFLINE" ${!onlineSelected?'selected':''}>OFFLINE</option>${paymentOnline?`<option value="ONLINE" ${onlineSelected?'selected':''}>ONLINE</option>`:''}</select><div id="cash-payment-info" class="payment-info ${onlineSelected?'hidden':''}"><i data-lucide="wallet"></i><div><strong>Pay ${this.formatPrice(finalTotal)} at the counter</strong><span>Show your order number when collecting.</span></div></div><div id="upi-qr-panel" class="payment-info online-info ${onlineSelected?'':'hidden'}"><i data-lucide="lock-keyhole"></i><div><strong>Secure online payment</strong><span>You’ll be redirected to Cashfree to complete payment.</span></div></div></section></div><div class="checkout-bottom-spacer"></div>`;
@@ -443,65 +459,64 @@ class CustomerApp {
   syncPaymentCards() { const selected=document.getElementById('pay-method-select')?.value||'OFFLINE';document.querySelectorAll('.payment-card').forEach(card=>{const radio=card.querySelector('input[type="radio"]');card.classList.toggle('selected',radio?.value===selected);}); }
 
   evaluateCustomFields() {
-      // Gather current values
+      // Pass 1: Gather current values from ALL cf-containers (including hidden ones)
       const currentValues = {};
       document.querySelectorAll('.cf-container').forEach(container => {
           const id = container.getAttribute('data-id');
-          const inputs = container.querySelectorAll('.cf-input');
-          if (!inputs.length) return;
-          const inputEl = inputs[0];
-          
-          if (inputEl.tagName === 'SELECT' || inputEl.tagName === 'INPUT') {
-              currentValues[id] = inputEl.value;
-          } else if (inputEl.classList.contains('checkout-choice-grid')) {
-              const type = inputEl.getAttribute('data-type');
-              if (type === 'radio') {
-                  const checked = container.querySelector(`input[name="cf-${id}"]:checked`);
-                  currentValues[id] = checked ? checked.value : '';
-              } else if (type === 'checkbox') {
-                  const checked = Array.from(container.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(el => el.value);
-                  currentValues[id] = checked.join(', ');
-              }
+          if (!id) return;
+          const selectOrInput = container.querySelector(`select.cf-input, input.cf-input[type="text"], input.cf-input[type="number"]`);
+          if (selectOrInput) { currentValues[id] = selectOrInput.value; return; }
+          const radioGrid = container.querySelector('.checkout-choice-grid[data-type="radio"]');
+          if (radioGrid) {
+              const checked = container.querySelector(`input[name="cf-${id}"]:checked`);
+              currentValues[id] = checked ? checked.value : '';
+              return;
+          }
+          const checkGrid = container.querySelector('.checkout-choice-grid[data-type="checkbox"]');
+          if (checkGrid) {
+              const checked = Array.from(container.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(el => el.value);
+              currentValues[id] = checked.join(', ');
           }
       });
 
-      // Evaluate visibility
+      // Pass 2: Evaluate visibility and show/hide via CSS class
       document.querySelectorAll('.cf-container').forEach(container => {
           const conditionsStr = container.getAttribute('data-conditions');
-          if (!conditionsStr || conditionsStr === '[]') return; // no conditions
-          
-          try {
-              const conditions = JSON.parse(conditionsStr);
-              let isVisible = true;
-              
-              for (const cond of conditions) {
-                  const actualVal = currentValues[cond.fieldId] || '';
-                  const expectedVal = cond.value || '';
-                  
-                  if (cond.operator === 'equals') {
-                      if (actualVal !== expectedVal) isVisible = false;
-                  } else if (cond.operator === 'not_equals') {
-                      if (actualVal === expectedVal) isVisible = false;
-                  }
+          if (!conditionsStr || conditionsStr === '[]' || conditionsStr === 'null') {
+              container.classList.remove('cf-hidden');
+              return;
+          }
+          let conditions;
+          try { conditions = JSON.parse(conditionsStr); } catch (e) { return; }
+          if (!conditions || conditions.length === 0) { container.classList.remove('cf-hidden'); return; }
+
+          const currentId = container.getAttribute('data-id');
+          let isVisible = true;
+          for (const cond of conditions) {
+              if (cond.fieldId === currentId) continue; // Ignore self-referencing conditions
+              const actualVal = currentValues[cond.fieldId] || '';
+              const expectedVal = cond.value || '';
+              if (cond.operator === 'equals') {
+                  if (actualVal !== expectedVal) { isVisible = false; break; }
+              } else if (cond.operator === 'not_equals') {
+                  if (actualVal === expectedVal) { isVisible = false; break; }
               }
-              
-              if (isVisible) {
-                  container.style.display = 'block';
-              } else {
-                  container.style.display = 'none';
-                  // Clear values if hidden
-                  const inputs = container.querySelectorAll('.cf-input');
-                  if (inputs.length) {
-                      const inputEl = inputs[0];
-                      if (inputEl.tagName === 'SELECT' || (inputEl.tagName === 'INPUT' && (inputEl.type === 'text' || inputEl.type === 'number'))) {
-                          inputEl.value = '';
-                      } else if (inputEl.classList.contains('checkout-choice-grid')) {
-                          container.querySelectorAll(`input[name="cf-${container.getAttribute('data-id')}"]`).forEach(el => el.checked = false);
-                      }
+          }
+
+          const wasHidden = container.classList.contains('cf-hidden');
+          if (isVisible) {
+              container.classList.remove('cf-hidden');
+          } else {
+              container.classList.add('cf-hidden');
+              if (!wasHidden) {
+                  // Clear values when hiding
+                  const id = container.getAttribute('data-id');
+                  const selectOrInput = container.querySelector(`select.cf-input, input.cf-input[type="text"], input.cf-input[type="number"]`);
+                  if (selectOrInput) {
+                      selectOrInput.value = selectOrInput.tagName === 'SELECT' ? (selectOrInput.options[0]?.value || '') : '';
                   }
+                  container.querySelectorAll(`input[name="cf-${id}"]`).forEach(el => el.checked = false);
               }
-          } catch (e) {
-              console.error('Failed to parse conditions', e);
           }
       });
   }
@@ -509,6 +524,7 @@ class CustomerApp {
   async placeOrder(isFromPayment = false, pendingData = null) {
     if (this.cart.length === 0) return;
 
+    const placeBtn = document.getElementById('place-order-btn');
     let paymentSource = 'CASH'; // Default payment source
     let note = '';
     let metadata = {};
@@ -530,35 +546,38 @@ class CustomerApp {
         this.evaluateCustomFields();
         
         document.querySelectorAll('.cf-container').forEach(container => {
-            if (container.style.display === 'none') return;
-            
+            // Skip hidden conditional fields — not required, not included in payload
+            if (container.classList.contains('cf-hidden')) return;
+
             const id = container.getAttribute('data-id');
             const isRequired = container.getAttribute('data-required') === 'true';
-            const inputs = container.querySelectorAll('.cf-input');
-            if (!inputs.length) return;
-            const inputEl = inputs[0];
             let val = '';
-            
-            if (inputEl.tagName === 'SELECT' || (inputEl.tagName === 'INPUT' && (inputEl.type === 'text' || inputEl.type === 'number'))) {
-                val = inputEl.value;
-            } else if (inputEl.classList.contains('checkout-choice-grid')) {
-                const type = inputEl.getAttribute('data-type');
-                if (type === 'radio') {
+
+            const selectOrInput = container.querySelector(`select.cf-input, input.cf-input[type="text"], input.cf-input[type="number"]`);
+            if (selectOrInput) {
+                val = selectOrInput.value || '';
+            } else {
+                const radioGrid = container.querySelector('.checkout-choice-grid[data-type="radio"]');
+                if (radioGrid) {
                     const checked = container.querySelector(`input[name="cf-${id}"]:checked`);
                     val = checked ? checked.value : '';
-                } else if (type === 'checkbox') {
-                    const checked = Array.from(container.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(el => el.value);
-                    val = checked.join(', ');
+                } else {
+                    const checkGrid = container.querySelector('.checkout-choice-grid[data-type="checkbox"]');
+                    if (checkGrid) {
+                        const checked = Array.from(container.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(el => el.value);
+                        val = checked.join(', ');
+                    }
                 }
             }
-            
+
             if (isRequired && (!val || val.trim() === '')) {
-                const label = container.querySelector('label').innerText.replace('*', '').trim();
-                if (typeof showToast === 'function') showToast(`Please provide ${label}`, 'error');
+                const labelEl = container.querySelector('label');
+                const labelText = labelEl ? labelEl.innerText.replace('*', '').trim() : id;
+                if (typeof showToast === 'function') showToast(`Please provide "${labelText}"`, 'error');
                 hasError = true;
                 return;
             }
-            
+
             if (val && val.trim() !== '') {
                 customFields[id] = val;
             }
@@ -571,7 +590,6 @@ class CustomerApp {
             paymentSource = 'CASH'; // For counter payment
         }
 
-        const placeBtn = document.getElementById('place-order-btn');
         if (placeBtn) {
             if (placeBtn.disabled) return;
             placeBtn.disabled = true;
@@ -1349,21 +1367,23 @@ class CustomerApp {
     return `<!DOCTYPE html><html><head><meta charset="UTF-8">
       <title>Invoice — ${this._escHtml(shopName)}</title>
       <style>
-        body{font-family:'Courier New', Courier, monospace;max-width:350px;margin:0 auto;padding:20px;color:#000;font-size:14px;line-height:1.4}
-        h2{text-align:center;margin:0 0 5px 0;font-size:22px;text-transform:uppercase}
-        .info{text-align:center;margin-bottom:15px;font-size:12px}
-        .divider{border-top:1px dashed #000;margin:10px 0}
-        .order-meta{margin-bottom:15px;font-size:13px}
-        table{width:100%;border-collapse:collapse;margin-bottom:15px;font-size:13px}
-        th{text-align:left;border-bottom:1px solid #000;padding-bottom:5px}
-        .totals-table{width:100%;font-size:13px}
-        .totals-table td{padding:3px 0}
-        .totals-table .bold{font-weight:bold}
-        .totals-table .grand-total{font-size:18px;font-weight:bold;border-top:1px dashed #000;padding-top:8px;margin-top:5px}
-        .footer{text-align:center;font-size:11px;margin-top:20px}
-        .instruction{font-size:12px;margin-top:10px;font-style:italic;}
-        @media print{body{max-width:100%;padding:0;} .no-print{display:none}}
+        .invoice-receipt {font-family:'Courier New', Courier, monospace;max-width:350px;margin:0 auto;padding:20px;color:#000;font-size:14px;line-height:1.4;background:#fff;}
+        .invoice-receipt h2 {text-align:center;margin:0 0 5px 0;font-size:22px;text-transform:uppercase}
+        .invoice-receipt .info {text-align:center;margin-bottom:15px;font-size:12px}
+        .invoice-receipt .divider {border-top:1px dashed #000;margin:10px 0}
+        .invoice-receipt .order-meta {margin-bottom:15px;font-size:13px}
+        .invoice-receipt table {width:100%;border-collapse:collapse;margin-bottom:15px;font-size:13px;color:#000;}
+        .invoice-receipt th {text-align:left;border-bottom:1px solid #000;padding-bottom:5px;color:#000;}
+        .invoice-receipt td {color:#000;}
+        .invoice-receipt .totals-table {width:100%;font-size:13px}
+        .invoice-receipt .totals-table td {padding:3px 0}
+        .invoice-receipt .totals-table .bold {font-weight:bold}
+        .invoice-receipt .totals-table .grand-total {font-size:18px;font-weight:bold;border-top:1px dashed #000;padding-top:8px;margin-top:5px}
+        .invoice-receipt .footer {text-align:center;font-size:11px;margin-top:20px}
+        .invoice-receipt .instruction {font-size:12px;margin-top:10px;font-style:italic;}
+        @media print{ .invoice-receipt {max-width:100%;padding:0;} .no-print{display:none} }
       </style></head><body>
+      <div class="invoice-receipt">
       <h2>${this._escHtml(shopName)}</h2>
       <div class="info">
         ${address ? address + '<br>' : ''}
@@ -1377,7 +1397,6 @@ class CustomerApp {
       <div class="order-meta">
         <div><strong>Order #:</strong> ${order.queueNumber}</div>
         <div><strong>Date:</strong> ${date}</div>
-        <div><strong>Payment:</strong> UNPAID (Pay at Counter)</div>
       </div>
       
       ${metadataHtml}
@@ -1423,6 +1442,7 @@ class CustomerApp {
         Thank you for visiting!<br>
         Powered by DeQueue
       </div>
+      </div>
       <script>window.onload=()=>window.print()<\/script>
     </body></html>`;
   }
@@ -1430,9 +1450,41 @@ class CustomerApp {
   viewInvoice() {
     const order = this._completedOrder;
     if (!order) { if (window.showToast) showToast('No invoice available', 'error'); return; }
-    const html = this.generateInvoiceHTML(order);
-    const win = window.open('', '_blank');
-    if (win) { win.document.write(html); win.document.close(); }
+    
+    let overlay = document.getElementById('invoice-modal-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'invoice-modal-overlay';
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width: 450px; margin: auto; display: flex; flex-direction: column; height: 85vh; max-height: 800px; padding: 0; overflow: hidden; background: #fff; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #eee;">
+            <h3 style="margin:0; font-size: 18px; font-weight: bold; color: var(--dq-text-main);">Order Receipt</h3>
+            <button class="btn-icon" style="color: var(--dq-text-main);" onclick="this.closest('.modal-overlay').classList.remove('active')"><i data-lucide="x"></i></button>
+          </div>
+          <div style="flex: 1; padding: 0; background: #f4f2f0; display: flex; justify-content: center; align-items: flex-start; padding-top: 20px; overflow-y: auto;">
+            <iframe id="invoice-iframe" style="width: 350px; height: 100%; min-height: 500px; border: 1px solid #ddd; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 4px;"></iframe>
+          </div>
+          <div style="padding: 16px; border-top: 1px solid #eee; display: flex; gap: 12px; justify-content: flex-end; background: #fff;">
+            <button class="btn btn-secondary" onclick="document.getElementById('invoice-iframe').contentWindow.print()" style="flex: 1;"><i data-lucide="printer" style="width:16px;height:16px;margin-right:6px;display:inline;vertical-align:text-bottom;"></i> Print</button>
+            <button class="btn btn-primary" id="invoice-download-btn" style="flex: 1;"><i data-lucide="download" style="width:16px;height:16px;margin-right:6px;display:inline;vertical-align:text-bottom;"></i> Download</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    
+    document.getElementById('invoice-download-btn').onclick = () => this.downloadInvoice();
+    
+    // Generate HTML without the auto-print script
+    let html = this.generateInvoiceHTML(order);
+    html = html.replace(/<script>[\s\S]*?<\/script>/gi, '');
+    
+    const iframe = document.getElementById('invoice-iframe');
+    iframe.srcdoc = html;
+    
+    setTimeout(() => overlay.classList.add('active'), 50);
   }
 
   downloadInvoice() {

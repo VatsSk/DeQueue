@@ -667,15 +667,56 @@ class Orders {
         <tr><td class="grand-total">Total</td><td class="grand-total" style="text-align:right">₹${computedTotal.toFixed(2)}</td></tr>
       </table><div class="divider"></div><div class="footer">Thank you for visiting!<br>Powered by DeQueue</div>`;
 
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice</title><style>
+      .invoice-receipt {font-family:'Courier New',Courier,monospace;max-width:350px;margin:0 auto;padding:20px;color:#000;font-size:14px;line-height:1.4}
+      .invoice-receipt h2{text-align:center;margin:0 0 5px;font-size:22px;text-transform:uppercase}.invoice-receipt .info{text-align:center;margin-bottom:15px;font-size:12px}
+      .invoice-receipt .divider{border-top:1px dashed #000;margin:10px 0}.invoice-receipt .order-meta{margin-bottom:15px;font-size:13px}
+      .invoice-receipt table{width:100%;border-collapse:collapse;margin-bottom:15px;font-size:13px}.invoice-receipt th{text-align:left;border-bottom:1px solid #000;padding-bottom:5px}
+      .invoice-receipt td{color:#000;}
+      .invoice-receipt .totals-table td{padding:3px 0}.invoice-receipt .grand-total{font-size:18px;font-weight:bold;border-top:1px dashed #000;padding-top:8px}.invoice-receipt .footer{text-align:center;font-size:11px;margin-top:20px}
+      @media print{ .invoice-receipt {max-width:100%;padding:0;} }
+    </style></head><body style="background:#fff;margin:0;padding:0;"><div class="invoice-receipt" style="padding:20px;max-width:350px;margin:0 auto;background:#fff;">${html}</div></body></html>`;
+
+    if (action === 'view') {
+      let overlay = document.getElementById('invoice-modal-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'invoice-modal-overlay';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal" style="max-width: 450px; margin: auto; display: flex; flex-direction: column; height: 85vh; max-height: 800px; padding: 0; overflow: hidden; background: #fff; border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #eee;">
+              <h3 style="margin:0; font-size: 18px; font-weight: bold; color: var(--dq-text-main);">Order Receipt</h3>
+              <button class="btn-icon" style="color: var(--dq-text-main);" onclick="this.closest('.modal-overlay').classList.remove('active')"><i data-lucide="x"></i></button>
+            </div>
+            <div style="flex: 1; padding: 0; background: #f4f2f0; display: flex; justify-content: center; align-items: flex-start; padding-top: 20px; overflow-y: auto;">
+              <iframe id="invoice-iframe" style="width: 350px; height: 100%; min-height: 500px; border: 1px solid #ddd; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 4px;"></iframe>
+            </div>
+            <div style="padding: 16px; border-top: 1px solid #eee; display: flex; gap: 12px; justify-content: flex-end; background: #fff;">
+              <button class="btn btn-secondary" onclick="document.getElementById('invoice-iframe').contentWindow.print()" style="flex: 1;"><i data-lucide="printer" style="width:16px;height:16px;margin-right:6px;display:inline;vertical-align:text-bottom;"></i> Print</button>
+              <button class="btn btn-primary" id="invoice-download-btn" style="flex: 1;"><i data-lucide="download" style="width:16px;height:16px;margin-right:6px;display:inline;vertical-align:text-bottom;"></i> Download</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        if (window.lucide) lucide.createIcons();
+      }
+      
+      const iframe = document.getElementById('invoice-iframe');
+      iframe.srcdoc = fullHtml;
+      
+      document.getElementById('invoice-download-btn').onclick = () => {
+         this.printBill(orderId, 'download');
+      };
+      
+      setTimeout(() => overlay.classList.add('active'), 50);
+      return;
+    }
+    
+    // Download PDF Action
     if (window.showToast) showToast('Generating PDF...', 'info');
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = `<style>
-      body{font-family:'Courier New',Courier,monospace;max-width:350px;margin:0 auto;padding:20px;color:#000;font-size:14px;line-height:1.4}
-      h2{text-align:center;margin:0 0 5px;font-size:22px;text-transform:uppercase}.info{text-align:center;margin-bottom:15px;font-size:12px}
-      .divider{border-top:1px dashed #000;margin:10px 0}.order-meta{margin-bottom:15px;font-size:13px}
-      table{width:100%;border-collapse:collapse;margin-bottom:15px;font-size:13px}th{text-align:left;border-bottom:1px solid #000;padding-bottom:5px}
-      .totals-table td{padding:3px 0}.grand-total{font-size:18px;font-weight:bold;border-top:1px dashed #000;padding-top:8px}.footer{text-align:center;font-size:11px;margin-top:20px}
-    </style><div style="padding:20px;max-width:350px;margin:0 auto;background:#fff;">${html}</div>`;
+    tempDiv.innerHTML = fullHtml;
 
     const worker = html2pdf().set({
       margin:10,
@@ -685,19 +726,12 @@ class Orders {
       jsPDF:{unit:'mm',format:'a5',orientation:'portrait'}
     }).from(tempDiv);
 
-    if (action === 'view') {
-      worker.output('bloburl').then(url => window.open(url,'_blank')).catch(err => {
-        console.error('PDF view failed',err);
-        if (window.showToast) showToast('Failed to view PDF','error');
-      });
-    } else {
-      worker.save().then(() => {
-        if (window.showToast) showToast('PDF downloaded','success');
-      }).catch(err => {
-        console.error('PDF generation failed',err);
-        if (window.showToast) showToast('Failed to generate PDF','error');
-      });
-    }
+    worker.save().then(() => {
+      if (window.showToast) showToast('PDF downloaded','success');
+    }).catch(err => {
+      console.error('PDF generation failed',err);
+      if (window.showToast) showToast('Failed to generate PDF','error');
+    });
   }
 
   renderEmpty(title, text, icon='inbox') {

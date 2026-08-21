@@ -69,6 +69,10 @@ public class CustomFieldValidator {
         
         // Currently supporting AND condition logic
         for (CustomFieldDef.CustomFieldCondition condition : field.getConditions()) {
+            if (condition.getFieldId() != null && condition.getFieldId().equals(field.getId())) {
+                continue; // Ignore self-referencing conditions to prevent infinite hide loops
+            }
+            
             String targetValue = submittedValues.get(condition.getFieldId());
             boolean conditionMet = evaluateCondition(targetValue, condition.getOperator(), condition.getValue());
             if (!conditionMet) {

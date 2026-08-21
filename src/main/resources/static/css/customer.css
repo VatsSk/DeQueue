@@ -278,13 +278,63 @@ button { -webkit-tap-highlight-color: transparent; }
 .coupon-success { margin-top: 8px; display: flex; align-items: center; gap: 6px; color: var(--dq-green-dark); font-size: 11px; font-weight: 700; }
 .coupon-success svg { width: 14px; height: 14px; }
 
-.checkout-field { margin-bottom: 12px; }
-.checkout-field:last-child { margin-bottom: 0; }
-.checkout-field label { display: block; margin-bottom: 6px; font-size: 11px; font-weight: 800; color: #4d4944; }
-.checkout-field label span { color: #df5959; }
-.checkout-choice-grid { display: grid; gap: 7px; }
-.choice-check { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid #ebe7e1; border-radius: 11px; background: #fcfbf9; font-size: 12px; }
-.choice-check input { accent-color: var(--dq-primary); width: 17px; height: 17px; }
+/* ── Custom Fields (Order Details section) ── */
+.checkout-field { }
+.checkout-field:last-child { }
+.checkout-field > label { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; font-size: 11px; font-weight: 800; color: #4d4944; letter-spacing: .03em; text-transform: uppercase; }
+.checkout-field > label span { color: #df5959; }
+
+/* Pill-style choice grid (radio / checkbox) */
+.checkout-choice-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.choice-check { position: relative; cursor: pointer; }
+.choice-check input[type="radio"],
+.choice-check input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.choice-check span {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 9px 16px; border: 1.5px solid #e4e0da;
+  border-radius: 50px; background: #fcfbf9; font-size: 13px;
+  font-weight: 600; color: #4d4944;
+  transition: border-color .16s, background .16s, color .16s, box-shadow .16s;
+  white-space: nowrap;
+}
+.choice-check input:checked + span {
+  border-color: var(--dq-primary, #f0a500);
+  background: linear-gradient(135deg, rgba(240,165,0,.12), rgba(240,165,0,.07));
+  color: var(--dq-primary-dark, #b97d00);
+  box-shadow: 0 0 0 2px rgba(240,165,0,.18);
+}
+.choice-check:hover span { border-color: #c8c4be; }
+.choice-check input:checked + span::before {
+  content: '✓';
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--dq-primary-dark, #b97d00);
+}
+
+/* Select dropdown */
+.checkout-field select.checkout-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* Conditional field show/hide animation */
+.cf-container {
+  overflow: hidden;
+  transition: opacity .22s ease, max-height .28s cubic-bezier(.4,0,.2,1), margin-bottom .22s ease, padding .22s ease;
+  max-height: 200px;
+  opacity: 1;
+  margin-bottom: 14px;
+}
+.cf-container.cf-hidden {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  margin-bottom: 0 !important;
+  pointer-events: none;
+}
 
 .bill-lines { display: grid; gap: 8px; }
 .bill-lines > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #6e6962; font-size: 12px; }
