@@ -20,6 +20,11 @@ class Orders {
     await this.fetchOrders();
     this.connectWebSocket();
     this.applyView();
+
+    const createBtn = document.getElementById('create-order-btn');
+    if (createBtn) {
+        createBtn.style.display = this.canCreateOrder() ? '' : 'none';
+    }
   }
 
   getUser() {
@@ -50,6 +55,17 @@ class Orders {
   isKitchen() {
     const user = this.getUser();
     return user ? this.roleMatches(user, ['KITCHEN']) : false;
+  }
+
+  canCreateOrder() {
+    const user = this.getUser();
+    if (!user) return false;
+    if (user.platformAdmin === true) return true;
+    return this.roleMatches(user, [
+      'ROLE_VENDOR_ADMIN', 'VENDOR_ADMIN',
+      'ROLE_VENDOR_COUNTER', 'VENDOR_COUNTER', 'ROLE_VENDORCOUNTER_STAFF', 'VENDORCOUNTER_STAFF',
+      'ROLE_VENDOR_MANAGER', 'VENDOR_MANAGER'
+    ]);
   }
 
   roleMatches(user, names) {
@@ -754,6 +770,584 @@ class Orders {
   }
 
   escAttr(value) { return this.esc(value); }
+
+  
+  async openCreateOrder(reset = false) {
+    try {
+        const user = this.getUser();
+        if (!user || !user.vendorCode) {
+            if (window.showToast) showToast('Vendor code not found', 'error');
+            return;
+        }
+        
+        if (reset || !this.coCart) {
+            this.coCart = [];
+            this.coCartIdCounter = 1;
+        }
+        
+        document.getElementById('co-step-menu').classList.remove('hidden');
+        document.getElementById('co-footer-menu').classList.remove('hidden');
+        document.getElementById('co-step-review').classList.add('hidden');
+        document.getElementById('co-footer-review').classList.add('hidden');
+        document.getElementById('co-step-success').classList.add('hidden');
+        document.getElementById('co-footer-success').classList.add('hidden');
+        
+        document.getElementById('create-order-error').classList.add('hidden');
+        
+        const overlay = document.getElementById('create-order-modal-overlay');
+        if (overlay) overlay.classList.add('active');
+
+        if (!this.coMenu) {
+            await this.loadVendorMenu(user.vendorCode);
+        }
+        if (!this.coVendor) {
+            try {
+                const vRes = await api.get('/public/vendors/' + user.vendorCode);
+                if (vRes.success) this.coVendor = vRes.data;
+            } catch (e) {
+                console.error("Vendor details error", e);
+            }
+        }
+        this.renderCoMenu();
+        this.updateCoTotal();
+    } catch (e) {
+        console.error("Error opening create order modal", e);
+        alert("Error opening modal: " + e.message);
+    }
+  }
+
+  closeCreateOrder() {
+    const overlay = document.getElementById('create-order-modal-overlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+
+  async loadVendorMenu(vendorCode) {
+    try {
+        const res = await api.get('/public/menu/' + vendorCode + '/categories');
+        if (res.success && res.data) {
+            this.coMenu = [];
+            (res.data.categories || []).forEach(cat => {
+                (cat.items || []).forEach(item => {
+                    if (item.available !== false && item.visible !== false) {
+                        item.categoryName = cat.name;
+                        this.coMenu.push(item);
+                    }
+                });
+            });
+        }
+    } catch (e) {
+        console.error("Failed to load menu", e);
+        document.getElementById('co-menu-list').innerHTML = '<div class="text-danger">Failed to load menu.</div>';
+    }
+  }
+
+  renderCoMenu() {
+      const container = document.getElementById('co-menu-list');
+      if (!this.coMenu || !this.coMenu.length) {
+          container.innerHTML = '<div>No menu items available.</div>';
+          return;
+      }
+      
+      const searchInput = document.getElementById('co-menu-search');
+      const search = (searchInput ? searchInput.value : '').toLowerCase().trim();
+      
+      const grouped = {};
+      this.coMenu.forEach(item => {
+          if (search && !item.name.toLowerCase().includes(search)) return;
+          const cName = item.categoryName || 'Other';
+          if (!grouped[cName]) grouped[cName] = [];
+          grouped[cName].push(item);
+      });
+      
+      let html = '';
+      Object.keys(grouped).forEach(cName => {
+          if (grouped[cName].length === 0) return;
+          html += `<div style="font-size: 1.1em; font-weight: bold; margin-top: 15px; margin-bottom: 10px; color: var(--dq-text); padding-bottom: 5px; border-bottom: 1px solid var(--dq-border);">${this.esc(cName)}</div>`;
+          grouped[cName].forEach(item => {
+              const qty = this.coCart.filter(c => c.menuItemId === item.id).reduce((sum, c) => sum + c.quantity, 0);
+              html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--dq-border); padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                    <div>
+                        <div style="font-weight: bold;">${this.esc(item.name)}</div>
+                        <div style="color: var(--dq-text-muted); font-size: 0.9em;">₹${Number(item.price).toFixed(2)}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        ${qty > 0 ? `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button type="button" class="btn btn-secondary" style="padding: 2px 8px;" onclick="ordersApp.updateCoQuantityQuick('${this.escAttr(item.id)}', -1)">-</button>
+                            <span style="font-weight: bold;">${qty}</span>
+                            <button type="button" class="btn btn-secondary" style="padding: 2px 8px;" onclick="ordersApp.openCoCustomization('${this.escAttr(item.id)}')">+</button>
+                        </div>
+                    ` : `
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 12px;" onclick="ordersApp.openCoCustomization('${this.escAttr(item.id)}')">Add</button>
+                    `}
+                    </div>
+                </div>
+              `;
+          });
+      });
+      
+      if (html === '') {
+          html = '<div class="text-muted">No items match your search.</div>';
+      }
+      
+      container.innerHTML = html;
+  }
+
+  openCoCustomization(itemId) {
+      const item = this.coMenu.find(i => i.id === itemId);
+      if (!item) return;
+      
+      this.coCurrentCustItem = item;
+      
+      if (!item.customizationGroups || item.customizationGroups.length === 0) {
+          this.coCart.push({
+              cartId: this.coCartIdCounter++,
+              menuItemId: item.id,
+              menuItemName: item.name,
+              unitPrice: item.price,
+              quantity: 1,
+              customizations: []
+          });
+          this.renderCoMenu();
+          this.updateCoTotal();
+          return;
+      }
+      
+      // Render customization modal
+      document.getElementById('co-cust-title').textContent = `Customize ${item.name}`;
+      const body = document.getElementById('co-cust-body');
+      
+      let html = '';
+      item.customizationGroups.forEach(group => {
+          html += `<div class="mb-4">
+              <label class="form-label" style="font-weight: bold;">${this.esc(group.name)} ${group.minSelections > 0 ? '<span class="text-danger">*</span>' : ''}</label>
+              <div class="text-muted text-sm mb-2">Select ${group.minSelections === group.maxSelections ? group.minSelections : (group.minSelections + ' to ' + group.maxSelections)}</div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+          `;
+          
+          const type = group.maxSelections === 1 ? 'radio' : 'checkbox';
+          
+          (group.options || []).forEach(opt => {
+              html += `
+                  <label style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                          <input type="${type}" name="cg-${group.id}" value="${this.escAttr(opt.name)}" data-price="${opt.extraPrice}" data-group="${group.id}" data-group-name="${this.escAttr(group.name)}" onchange="ordersApp.updateCoCustPrice()">
+                          <span>${this.esc(opt.name)}</span>
+                      </div>
+                      ${opt.extraPrice > 0 ? `<span class="text-muted">+₹${opt.extraPrice.toFixed(2)}</span>` : ''}
+                  </label>
+              `;
+          });
+          
+          html += `</div></div>`;
+      });
+      
+      body.innerHTML = html;
+      
+      document.getElementById('co-customization-modal').classList.add('active');
+      this.updateCoCustPrice();
+  }
+  
+  closeCoCustomization() {
+      document.getElementById('co-customization-modal').classList.remove('active');
+      this.coCurrentCustItem = null;
+  }
+  
+  updateCoCustPrice() {
+      if (!this.coCurrentCustItem) return;
+      let total = this.coCurrentCustItem.price;
+      
+      const inputs = document.querySelectorAll('#co-cust-body input:checked');
+      inputs.forEach(input => {
+          total += parseFloat(input.dataset.price || 0);
+      });
+      
+      document.getElementById('co-cust-btn-price').textContent = total.toFixed(2);
+  }
+  
+  addCoCustomizedItem() {
+      if (!this.coCurrentCustItem) return;
+      
+      const item = this.coCurrentCustItem;
+      const custs = [];
+      let extraPrice = 0;
+      let hasError = false;
+      
+      item.customizationGroups.forEach(group => {
+          const checked = document.querySelectorAll(`input[name="cg-${group.id}"]:checked`);
+          if (checked.length < group.minSelections) {
+              if (window.showToast) showToast(`Please select at least ${group.minSelections} for ${group.name}`, 'error');
+              hasError = true;
+          }
+          if (group.maxSelections > 0 && checked.length > group.maxSelections) {
+              if (window.showToast) showToast(`You can select at most ${group.maxSelections} for ${group.name}`, 'error');
+              hasError = true;
+          }
+          
+          checked.forEach(input => {
+              custs.push({
+                  groupId: input.dataset.group,
+                  groupName: input.dataset.groupName,
+                  optionName: input.value,
+                  extraPrice: parseFloat(input.dataset.price || 0)
+              });
+              extraPrice += parseFloat(input.dataset.price || 0);
+          });
+      });
+      
+      if (hasError) return;
+      
+      this.coCart.push({
+          cartId: this.coCartIdCounter++,
+          menuItemId: item.id,
+          menuItemName: item.name,
+          unitPrice: item.price + extraPrice,
+          quantity: 1,
+          customizations: custs
+      });
+      
+      this.closeCoCustomization();
+      this.renderCoMenu();
+      this.updateCoTotal();
+  }
+
+  updateCoQuantityQuick(menuItemId, delta) {
+      if (delta < 0) {
+          const entries = this.coCart.filter(c => c.menuItemId === menuItemId);
+          if (entries.length > 0) {
+              const lastEntry = entries[entries.length - 1];
+              this.updateCoQuantity(lastEntry.cartId, -1);
+          }
+      }
+  }
+
+  updateCoQuantity(cartId, delta) {
+      const idx = this.coCart.findIndex(c => c.cartId === cartId);
+      if (idx === -1) return;
+      
+      this.coCart[idx].quantity += delta;
+      if (this.coCart[idx].quantity <= 0) {
+          this.coCart.splice(idx, 1);
+      }
+      
+      this.renderCoMenu();
+      this.updateCoTotal();
+      this.renderCoReviewItems();
+      this.updateCoReviewTotals();
+  }
+
+  updateCoTotal() {
+      const total = this.coCart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+      document.getElementById('co-total-price').textContent = total.toFixed(2);
+  }
+
+  coGoToReview() {
+      if (this.coCart.length === 0) {
+          if (window.showToast) showToast('Cart is empty', 'error');
+          return;
+      }
+      
+      document.getElementById('co-step-menu').classList.add('hidden');
+      document.getElementById('co-footer-menu').classList.add('hidden');
+      document.getElementById('co-step-review').classList.remove('hidden');
+      document.getElementById('co-footer-review').classList.remove('hidden');
+      
+      this.renderCoReviewItems();
+      this.renderCoCustomFields();
+      this.updateCoReviewTotals();
+  }
+  
+  coGoToMenu() {
+      document.getElementById('co-step-menu').classList.remove('hidden');
+      document.getElementById('co-footer-menu').classList.remove('hidden');
+      document.getElementById('co-step-review').classList.add('hidden');
+      document.getElementById('co-footer-review').classList.add('hidden');
+  }
+
+  renderCoReviewItems() {
+      const container = document.getElementById('co-review-items');
+      container.innerHTML = this.coCart.map(item => {
+          const custs = item.customizations.map(c => `<span class="text-muted text-sm" style="display:block;">- ${this.esc(c.optionName)}</span>`).join('');
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--dq-border); padding: 10px 0;">
+                <div style="flex: 1;">
+                    <div style="font-weight: bold;">${this.esc(item.menuItemName)}</div>
+                    ${custs}
+                    <div style="color: var(--dq-text-muted); font-size: 0.9em;">₹${item.unitPrice.toFixed(2)} x ${item.quantity}</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="font-weight: bold;">₹${(item.unitPrice * item.quantity).toFixed(2)}</div>
+                    <button class="btn btn-secondary" style="padding: 2px 6px;" onclick="ordersApp.updateCoQuantity(${item.cartId}, -1)">-</button>
+                    <span>${item.quantity}</span>
+                    <button class="btn btn-secondary" style="padding: 2px 6px;" onclick="ordersApp.updateCoQuantity(${item.cartId}, 1)">+</button>
+                </div>
+            </div>
+          `;
+      }).join('');
+      
+      if (this.coCart.length === 0) {
+          this.coGoToMenu();
+      }
+  }
+
+  renderCoCustomFields() {
+      const container = document.getElementById('co-dynamic-fields');
+      if (!this.coVendor || !this.coVendor.settings || !this.coVendor.settings.customFields) {
+          container.innerHTML = '';
+          return;
+      }
+      
+      const enabledFields = this.coVendor.settings.customFields.filter(cf => cf.enabled !== false);
+      enabledFields.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      
+      let html = '';
+      enabledFields.forEach(field => {
+          const idStr = this.escAttr(field.id);
+          const conditionsJson = field.conditions && field.conditions.length > 0 ? JSON.stringify(field.conditions) : '[]';
+          const conditionsData = conditionsJson.replace(/"/g, '&quot;');
+          
+          html += `<div class="mb-4 co-cf-container" id="co-cf-container-${idStr}" data-id="${idStr}" data-required="${field.required}" data-conditions="${conditionsData}">
+              <label class="form-label">${this.esc(field.label)} ${field.required ? '<span class="text-danger">*</span>' : ''}</label>
+          `;
+          
+          const onEvt = `onchange="ordersApp.evaluateCoCustomFields()" oninput="ordersApp.evaluateCoCustomFields()"`;
+          
+          if (field.type === 'dropdown') {
+              html += `<select class="form-control co-cf-input" name="cocf-${idStr}" ${onEvt}>`;
+              if (!field.required) html += `<option value="">Select...</option>`;
+              (field.options || []).forEach(opt => {
+                  html += `<option value="${this.escAttr(opt.value)}">${this.esc(opt.label)}</option>`;
+              });
+              html += `</select>`;
+          } else if (field.type === 'radio') {
+              html += `<div style="display: flex; gap: 10px; flex-wrap: wrap;">`;
+              (field.options || []).forEach(opt => {
+                  html += `<label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                      <input type="radio" name="cocf-${idStr}" value="${this.escAttr(opt.value)}" class="co-cf-radio" ${onEvt}> 
+                      ${this.esc(opt.label)}
+                  </label>`;
+              });
+              html += `</div>`;
+          } else if (field.type === 'checkbox') {
+              html += `<div style="display: flex; gap: 10px; flex-wrap: wrap;">`;
+              (field.options || []).forEach(opt => {
+                  html += `<label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                      <input type="checkbox" name="cocf-${idStr}" value="${this.escAttr(opt.value)}" class="co-cf-checkbox" ${onEvt}> 
+                      ${this.esc(opt.label)}
+                  </label>`;
+              });
+              html += `</div>`;
+          } else {
+              html += `<input type="${field.type === 'number' ? 'number' : 'text'}" name="cocf-${idStr}" class="form-control co-cf-input" placeholder="${field.required ? 'Required' : 'Optional'}" ${onEvt}>`;
+          }
+          
+          html += `</div>`;
+      });
+      container.innerHTML = html;
+      this.evaluateCoCustomFields();
+  }
+
+  evaluateCoCustomFields() {
+      const currentValues = {};
+      document.querySelectorAll('.co-cf-container').forEach(container => {
+          const id = container.dataset.id;
+          if (!id) return;
+          
+          const input = container.querySelector('.co-cf-input');
+          if (input) {
+              currentValues[id] = input.value;
+              return;
+          }
+          
+          const checkedRadios = container.querySelectorAll('.co-cf-radio:checked');
+          if (checkedRadios.length > 0) {
+              currentValues[id] = checkedRadios[0].value;
+              return;
+          }
+          
+          const checkedBoxes = container.querySelectorAll('.co-cf-checkbox:checked');
+          if (checkedBoxes.length > 0) {
+              currentValues[id] = Array.from(checkedBoxes).map(cb => cb.value).join(',');
+              return;
+          }
+          currentValues[id] = '';
+      });
+
+      document.querySelectorAll('.co-cf-container').forEach(container => {
+          const conditionsStr = container.dataset.conditions;
+          if (!conditionsStr || conditionsStr === '[]') return;
+          
+          try {
+              const conditions = JSON.parse(conditionsStr);
+              let shouldShow = true;
+              for (const cond of conditions) {
+                  if (cond.fieldId === container.dataset.id) continue;
+                  const actualVal = currentValues[cond.fieldId] || '';
+                  const expectedVal = cond.value || '';
+                  if (cond.operator === 'equals') {
+                      if (actualVal !== expectedVal) { shouldShow = false; break; }
+                  } else if (cond.operator === 'not_equals') {
+                      if (actualVal === expectedVal) { shouldShow = false; break; }
+                  }
+              }
+              if (shouldShow) {
+                  container.classList.remove('hidden');
+              } else {
+                  container.classList.add('hidden');
+                  // Clear values if hidden
+                  const inputs = container.querySelectorAll('input, select');
+                  inputs.forEach(inp => {
+                      if (inp.type === 'checkbox' || inp.type === 'radio') inp.checked = false;
+                      else inp.value = '';
+                  });
+              }
+          } catch (e) {
+              console.error(e);
+          }
+      });
+  }
+
+  updateCoReviewTotals() {
+      const subtotal = this.coCart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+      document.getElementById('co-review-subtotal').textContent = '₹' + subtotal.toFixed(2);
+      
+      let taxAmount = 0;
+      let scAmount = 0;
+      
+      if (this.coVendor && this.coVendor.settings) {
+          const settings = this.coVendor.settings;
+          
+          if (settings.taxPercentage && settings.taxPercentage > 0) {
+              taxAmount = subtotal * (settings.taxPercentage / 100);
+              document.getElementById('co-review-tax-label').textContent = (settings.taxName || 'Tax') + ' ' + settings.taxPercentage + '%';
+              document.getElementById('co-review-tax').textContent = '₹' + taxAmount.toFixed(2);
+              document.getElementById('co-review-tax-row').classList.remove('hidden');
+          } else {
+              document.getElementById('co-review-tax-row').classList.add('hidden');
+          }
+          
+          if (settings.serviceChargePercentage && settings.serviceChargePercentage > 0) {
+              scAmount = subtotal * (settings.serviceChargePercentage / 100);
+              document.getElementById('co-review-sc').textContent = '₹' + scAmount.toFixed(2);
+              document.getElementById('co-review-sc-row').classList.remove('hidden');
+          } else {
+              document.getElementById('co-review-sc-row').classList.add('hidden');
+          }
+      }
+      
+      this.coFinalTotal = subtotal + taxAmount + scAmount;
+      this.coSubtotal = subtotal;
+      this.coTaxAmount = taxAmount;
+      this.coScAmount = scAmount;
+      
+      document.getElementById('co-review-total').textContent = '₹' + this.coFinalTotal.toFixed(2);
+  }
+
+  async submitOrder() {
+      const user = this.getUser();
+      const btn = document.getElementById('co-submit-btn');
+      const errEl = document.getElementById('co-review-error');
+      errEl.classList.add('hidden');
+
+      if (this.coCart.length === 0) return;
+
+      // Evaluate one last time to be safe
+      this.evaluateCoCustomFields();
+
+      // Extract Custom Fields
+      const customFields = {};
+      let hasError = false;
+      document.querySelectorAll('.co-cf-container').forEach(container => {
+          if (container.classList.contains('hidden')) return; // Skip hidden fields
+          
+          const id = container.dataset.id;
+          const required = container.dataset.required === 'true';
+          let val = '';
+          
+          const input = container.querySelector('.co-cf-input');
+          if (input) {
+              val = input.value;
+          } else {
+              const checkedRadios = container.querySelectorAll('.co-cf-radio:checked');
+              if (checkedRadios.length > 0) val = checkedRadios[0].value;
+              else {
+                  const checkedBoxes = container.querySelectorAll('.co-cf-checkbox:checked');
+                  if (checkedBoxes.length > 0) val = Array.from(checkedBoxes).map(cb => cb.value).join(',');
+              }
+          }
+          
+          if (required && (!val || val.trim() === '')) {
+              hasError = true;
+          }
+          if (val) customFields[id] = val;
+      });
+      
+      if (hasError) {
+          errEl.textContent = 'Please fill all required custom fields.';
+          errEl.classList.remove('hidden');
+          return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Placing...';
+
+      const customerNote = document.getElementById('co-customer-note').value.trim();
+
+      const items = this.coCart.map(item => {
+          const groupedCusts = {};
+          item.customizations.forEach(c => {
+              if (!groupedCusts[c.groupId]) {
+                  groupedCusts[c.groupId] = { groupId: c.groupId, selectedOptionNames: [] };
+              }
+              groupedCusts[c.groupId].selectedOptionNames.push(c.optionName);
+          });
+          return {
+              menuItemId: item.menuItemId,
+              quantity: item.quantity,
+              customizations: Object.values(groupedCusts)
+          };
+      });
+
+      const orderData = {
+          paymentSource: 'CASH',
+          items: items,
+          customerNote: customerNote,
+          customFields: customFields,
+          subtotal: this.coSubtotal,
+          taxAmount: this.coTaxAmount,
+          serviceChargeAmount: this.coScAmount,
+          taxName: this.coVendor?.settings?.taxName || 'Tax',
+          serviceChargeName: 'Service Charge'
+      };
+      
+      if (this.coVendor && this.coVendor.settings && this.coVendor.settings.gstNumber) {
+          orderData.metadata = { gstNumber: this.coVendor.settings.gstNumber };
+      }
+
+      try {
+          const res = await api.post('/public/orders/' + user.vendorCode, orderData);
+          if (res.success) {
+              document.getElementById('co-step-review').classList.add('hidden');
+              document.getElementById('co-footer-review').classList.add('hidden');
+              
+              document.getElementById('co-step-success').classList.remove('hidden');
+              document.getElementById('co-footer-success').classList.remove('hidden');
+              document.getElementById('co-success-order-number').textContent = res.data.queueNumber;
+              
+              this.fetchOrders();
+          } else {
+              errEl.textContent = res.message || 'Failed to place order';
+              errEl.classList.remove('hidden');
+          }
+      } catch (e) {
+          errEl.textContent = e.message || 'Error occurred';
+          errEl.classList.remove('hidden');
+      } finally {
+          btn.disabled = false;
+          btn.textContent = 'Place Order';
+      }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

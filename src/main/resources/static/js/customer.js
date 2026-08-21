@@ -173,8 +173,7 @@ class CustomerApp {
     
     this.heroSlides = [
       { title: 'Good food, good mood! 😊', sub: `Freshly made at ${this.vendor.shopName}`, image: allItems[0]?.image || defaultImage },
-      { title: 'Taste the best! 🌟', sub: 'Handpicked ingredients for you', image: allItems[1]?.image || allItems[0]?.image || defaultImage },
-      { title: 'Craving something delicious? 😋', sub: 'We have got you covered!', image: allItems[2]?.image || allItems[0]?.image || defaultImage }
+      { title: 'Taste the best! 🌟', sub: 'Handpicked ingredients for you', image: allItems[1]?.image || allItems[0]?.image || defaultImage }, { title: 'Great taste awaits! 😋', sub: 'We have got you covered!', image: allItems[2]?.image || allItems[0]?.image || defaultImage }
     ];
     
     this.currentHeroIndex = 0;
