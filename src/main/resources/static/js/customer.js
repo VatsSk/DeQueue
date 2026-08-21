@@ -652,7 +652,6 @@ class CustomerApp {
         };
       }),
       customerNote: note,
-      metadata: metadata,
       ...(this._currentCheckout || {})
     };
 
@@ -1194,7 +1193,7 @@ class CustomerApp {
       notice.style.borderColor = 'rgba(34,197,94,.25)';
       notice.innerHTML = `
         <i data-lucide="check-circle-2" style="width:18px;height:18px;color:#22c55e;flex-shrink:0;"></i>
-        <span style="color:var(--text-color,#111)"><strong style="color:#16a34a">Location shared.</strong> You&rsquo;ll be verified when you place your order.</span>
+        <span style="color:#111"><strong style="color:#16a34a">Location shared.</strong> You&rsquo;ll be verified when you place your order.</span>
       `;
     } else {
       if (shareBtn) shareBtn.textContent = 'Try again';
