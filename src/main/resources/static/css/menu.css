@@ -222,7 +222,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .modal-lg {
   max-width: 680px !important;
   position: relative;
-  overflow: visible !important;
+  overflow-y: auto !important;
 }
 
 /* AI modal header icon */

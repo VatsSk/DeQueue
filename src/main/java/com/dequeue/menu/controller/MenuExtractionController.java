@@ -97,8 +97,7 @@ public class MenuExtractionController {
             @Valid @RequestBody MenuExtractionConfirmRequest request) {
 
         log.info("Confirming menu extraction for sessionId={}", request.getExtractionSessionId());
-
-        MenuExtractionConfirmResponse result = menuImportService.confirmAndSave(request.getExtractionSessionId());
+        MenuExtractionConfirmResponse result = menuImportService.confirmAndSave(request);
 
         log.info("Menu extraction confirmed: {} items created, {} categories created, {} reused",
                 result.getItemsCreated(), result.getCategoriesCreated(), result.getCategoriesReused());

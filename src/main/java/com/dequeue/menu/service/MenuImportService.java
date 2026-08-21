@@ -50,11 +50,14 @@ public class MenuImportService {
      * @param sessionId the extraction session ID from the preview response
      * @return confirmation summary with counts and created items
      */
-    public MenuExtractionConfirmResponse confirmAndSave(String sessionId) {
+    public MenuExtractionConfirmResponse confirmAndSave(MenuExtractionConfirmRequest request) {
         String vendorId = SecurityUtils.getCurrentVendorId();
+        String sessionId = request.getExtractionSessionId();
 
-        // 1. Fetch items from the session
-        List<ExtractedMenuItemDto> extractedItems = geminiService.getSessionItems(sessionId);
+        // 1. Fetch items from the session or request
+        List<ExtractedMenuItemDto> extractedItems = request.getItems() != null && !request.getItems().isEmpty() 
+                ? request.getItems() 
+                : geminiService.getSessionItems(sessionId);
 
         // 2. Load all existing categories for this vendor once (avoid N+1)
         List<Category> existingCategories = categoryRepository.findByVendorId(vendorId);
@@ -183,6 +186,7 @@ public class MenuImportService {
                     .price(dto.getPrice() != null ? dto.getPrice() : java.math.BigDecimal.ZERO)
                     .preparationTime(dto.getPreparationTime())
                     .tags(tags.isEmpty() ? null : tags)
+                    .image(dto.getImageUrl())
                     .customizationGroupIds(groupIds.isEmpty() ? null : groupIds)
                     .available(true)
                     .visible(true)
