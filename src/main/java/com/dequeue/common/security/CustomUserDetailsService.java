@@ -57,6 +57,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     private UserPrincipal buildPrincipal(Staff staff) {
         List<String> effectivePermissions = new ArrayList<>();
         List<OrderStatus> orderVisibilityStatuses = new ArrayList<>();
+        List<String> resolvedRoleNames = new ArrayList<>();
 
         if (staff.getRoles() != null && !staff.getRoles().isEmpty()) {
             List<String> roleNames = new ArrayList<>();
@@ -82,6 +83,9 @@ public class CustomUserDetailsService implements UserDetailsService {
             java.util.Set<OrderStatus> visibilityStatuses = new java.util.LinkedHashSet<>();
 
             for (RbacRole role : roles) {
+                if (role.getName() != null) {
+                    resolvedRoleNames.add(role.getName());
+                }
                 if (role.getPermissions() != null) {
                     permissionKeys.addAll(role.getPermissions());
                 }
@@ -99,6 +103,6 @@ public class CustomUserDetailsService implements UserDetailsService {
             orderVisibilityStatuses = List.of(OrderStatus.values());
         }
 
-        return UserPrincipal.create(staff, effectivePermissions, orderVisibilityStatuses);
+        return UserPrincipal.create(staff, resolvedRoleNames, effectivePermissions, orderVisibilityStatuses);
     }
 }

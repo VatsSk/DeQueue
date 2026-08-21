@@ -2,14 +2,12 @@ package com.dequeue.cashfree.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 /**
  * Cashfree API configuration properties.
  * All secrets must be provided via environment variables — never hardcoded.
  */
 @Data
-@Component
 @ConfigurationProperties(prefix = "cashfree")
 public class CashfreeProperties {
 

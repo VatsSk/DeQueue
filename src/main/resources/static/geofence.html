@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -203,7 +203,7 @@ class GeofenceApp {
     }
     async _load(){
         try{
-            const data=await api.get('/geofence/');
+            const data=await api.get('/geofence');
             if(data&&data.data){
                 const g=data.data;
                 this.enabled=!!g.enabled;this.radius=g.radius||500;
@@ -220,7 +220,7 @@ class GeofenceApp {
         const btn=document.getElementById('save-btn');
         btn.disabled=true;btn.innerHTML='<i data-lucide="loader-2" style="animation:spin 1s linear infinite;display:inline-block"></i> Saving...';lucide.createIcons();
         try{
-            await api.put('/geofence/',{latitude:this.lat,longitude:this.lng,radius:this.radius,enabled:this.enabled});
+            await api.put('/geofence',{latitude:this.lat,longitude:this.lng,radius:this.radius,enabled:this.enabled});
             if(typeof showToast==='function')showToast('Geofence settings saved!','success');
         }catch(e){if(typeof showToast==='function')showToast('Failed to save geofence settings.','error');}
         finally{btn.disabled=false;btn.innerHTML='<i data-lucide="save"></i> Save Settings';lucide.createIcons();}

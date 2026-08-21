@@ -58,13 +58,14 @@ public class UserPrincipal implements UserDetails {
      * order visibility. Called by CustomUserDetailsService after fetching roles.
      */
     public static UserPrincipal create(Staff staff,
+                                       List<String> roleNames,
                                        List<String> effectivePermissions,
                                        List<OrderStatus> orderVisibilityStatuses) {
         List<GrantedAuthority> authorities = new ArrayList<>();
 
-        // Grant ROLE_ authority for each static role name
-        if (staff.getRoles() != null) {
-            staff.getRoles().stream()
+        // Grant ROLE_ authority for each resolved role name
+        if (roleNames != null) {
+            roleNames.stream()
                     .map(r -> new SimpleGrantedAuthority(r.toUpperCase().trim()))
                     .forEach(authorities::add);
         }
@@ -87,7 +88,7 @@ public class UserPrincipal implements UserDetails {
                 .name(staff.getName())
                 .email(staff.getEmail())
                 .password(staff.getPassword())
-                .roles(staff.getRoles() != null ? staff.getRoles() : new ArrayList<>())
+                .roles(roleNames != null ? roleNames : new ArrayList<>())
                 .departmentIds(staff.getDepartmentIds() != null ? staff.getDepartmentIds() : new ArrayList<>())
                 .effectivePermissions(effectivePermissions != null ? effectivePermissions : new ArrayList<>())
                 .orderVisibilityStatuses(orderVisibilityStatuses != null ? orderVisibilityStatuses : new ArrayList<>())
