@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cashfree Vendor Onboarding</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f3f4f6; }
+        .wizard-container { max-width: 600px; margin: 50px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .step { display: none; }
+        .step.active { display: block; }
+        .progress-bar { transition: width 0.3s ease; }
+    </style>
+</head>
+<body>
+    <div class="wizard-container">
+        <h3 class="mb-4 text-center">Cashfree Easy Split Onboarding</h3>
+        
+        <div class="progress mb-4" style="height: 10px;">
+            <div id="progress-bar" class="progress-bar bg-primary" role="progressbar" style="width: 33%"></div>
+        </div>
+
+        <form id="onboarding-form">
+            <!-- Step 1: Basic Info -->
+            <div class="step active" id="step-1">
+                <h5>Step 1: Business Details</h5>
+                <p class="text-muted small">We need basic information to create your Cashfree vendor account.</p>
+                <div class="mb-3">
+                    <label>Vendor Name</label>
+                    <input type="text" id="ob-name" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label>Email Address</label>
+                    <input type="email" id="ob-email" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label>Phone Number</label>
+                    <input type="tel" id="ob-phone" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label>Business Type</label>
+                    <select id="ob-business-type" class="form-select">
+                        <option value="individual">Individual</option>
+                        <option value="partnership">Partnership</option>
+                        <option value="company">Company</option>
+                    </select>
+                </div>
+                <div class="text-end">
+                    <button type="button" class="btn btn-primary" onclick="nextStep(2)">Next</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Verification -->
+            <div class="step" id="step-2">
+                <h5>Step 2: Bank Verification</h5>
+                <p class="text-muted small">Your payout bank details are required for split settlements.</p>
+                <div class="mb-3">
+                    <label>Account Holder Name</label>
+                    <input type="text" id="ob-bank-name" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label>Account Number</label>
+                    <input type="password" id="ob-bank-acc" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label>IFSC Code</label>
+                    <input type="text" id="ob-bank-ifsc" class="form-control" required>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" onclick="prevStep(1)">Back</button>
+                    <button type="button" class="btn btn-primary" onclick="nextStep(3)">Review & Submit</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Submit -->
+            <div class="step" id="step-3">
+                <h5>Step 3: Review</h5>
+                <p>Please review your details. Once submitted, Cashfree will process the KYC. Ensure your bank details are correct.</p>
+                
+                <div class="alert alert-info" id="review-details">
+                    <!-- populated by js -->
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" onclick="prevStep(2)">Back</button>
+                    <button type="button" class="btn btn-success" id="btn-submit" onclick="submitOnboarding()">Confirm & Onboard</button>
+                </div>
+            </div>
+            
+            <!-- Result Step -->
+            <div class="step text-center" id="step-success">
+                <h2 class="text-success mb-3">✓</h2>
+                <h5>Onboarding Initiated!</h5>
+                <p class="text-muted">Your Cashfree vendor account is being created. You can track your KYC status from the settings dashboard.</p>
+                <button type="button" class="btn btn-primary mt-3" onclick="closeWizard()">Return to Dashboard</button>
+            </div>
+            
+            <!-- Error Step -->
+            <div class="step text-center" id="step-error">
+                <h2 class="text-danger mb-3">⚠</h2>
+                <h5>Onboarding Failed</h5>
+                <p class="text-muted" id="error-message">Something went wrong.</p>
+                <button type="button" class="btn btn-secondary mt-3" onclick="prevStep(1)">Try Again</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const vendorId = params.get('vendorId');
+        
+        if (!vendorId) {
+            alert("Missing vendor ID");
+            window.location.href = 'dashboard.html';
+        }
+
+        // Pre-fill if we are an admin triggering it for a vendor, or vendor triggering it for themselves
+        window.onload = async () => {
+            try {
+                // Determine if admin or vendor
+                const user = JSON.parse(localStorage.getItem('user'));
+                let endpoint = user.platformAdmin ? `/platform/vendors/${vendorId}` : `/vendors/me`;
+                
+                // For admin we only have list, let's just fetch the vendors list and find this one
+                if (user.platformAdmin) {
+                    const res = await api.get('/platform/vendors');
+                    if (res.success) {
+                        const v = res.data.find(v => v.id === vendorId);
+                        if (v) {
+                            document.getElementById('ob-name').value = v.shopName;
+                            document.getElementById('ob-email').value = v.email;
+                            document.getElementById('ob-phone').value = v.phone;
+                            
+                            if (v.settings) {
+                                document.getElementById('ob-bank-name').value = v.settings.bankAccountName || '';
+                                document.getElementById('ob-bank-acc').value = v.settings.bankAccountNumber || '';
+                                document.getElementById('ob-bank-ifsc').value = v.settings.bankIfscCode || '';
+                            }
+                        }
+                    }
+                } else {
+                    const res = await api.get(endpoint);
+                    if (res.success && res.data) {
+                        const v = res.data;
+                        document.getElementById('ob-name').value = v.shopName;
+                        document.getElementById('ob-email').value = v.email;
+                        document.getElementById('ob-phone').value = v.phone;
+                        
+                        if (v.settings) {
+                            document.getElementById('ob-bank-name').value = v.settings.bankAccountName || '';
+                            document.getElementById('ob-bank-acc').value = v.settings.bankAccountNumber || '';
+                            document.getElementById('ob-bank-ifsc').value = v.settings.bankIfscCode || '';
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        };
+
+        function showStep(step) {
+            document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+            document.getElementById(`step-${step}`).classList.add('active');
+            
+            if (step <= 3) {
+                document.getElementById('progress-bar').style.width = (step * 33.33) + '%';
+            } else {
+                document.getElementById('progress-bar').style.width = '100%';
+            }
+        }
+
+        function nextStep(step) {
+            if (step === 2) {
+                if (!document.getElementById('ob-name').value || !document.getElementById('ob-email').value || !document.getElementById('ob-phone').value) {
+                    alert("Please fill in all details");
+                    return;
+                }
+            }
+            if (step === 3) {
+                if (!document.getElementById('ob-bank-name').value || !document.getElementById('ob-bank-acc').value || !document.getElementById('ob-bank-ifsc').value) {
+                    alert("Please fill in bank details");
+                    return;
+                }
+                
+                // Populate review
+                document.getElementById('review-details').innerHTML = `
+                    <strong>Business:</strong> ${document.getElementById('ob-name').value}<br>
+                    <strong>Email:</strong> ${document.getElementById('ob-email').value}<br>
+                    <strong>Phone:</strong> ${document.getElementById('ob-phone').value}<br>
+                    <strong>Bank Name:</strong> ${document.getElementById('ob-bank-name').value}<br>
+                    <strong>IFSC:</strong> ${document.getElementById('ob-bank-ifsc').value}
+                `;
+            }
+            showStep(step);
+        }
+
+        function prevStep(step) {
+            showStep(step);
+        }
+
+        async function submitOnboarding() {
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+            
+            const payload = {
+                name: document.getElementById('ob-name').value,
+                email: document.getElementById('ob-email').value,
+                phone: document.getElementById('ob-phone').value,
+                businessType: document.getElementById('ob-business-type').value,
+                bankAccountName: document.getElementById('ob-bank-name').value,
+                bankAccountNumber: document.getElementById('ob-bank-acc').value,
+                bankIfsc: document.getElementById('ob-bank-ifsc').value
+            };
+            
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                // Use the platform admin endpoint because we just allowed vendors to call it for their own vendorId
+                const endpoint = `/api/v1/platform/vendors/${vendorId}/cashfree/onboard`;
+
+                const res = await api.post(endpoint, payload);
+                if (res.success) {
+                    showStep('success');
+                } else {
+                    document.getElementById('error-message').innerText = res.message;
+                    showStep('error');
+                }
+            } catch(e) {
+                document.getElementById('error-message').innerText = e.message;
+                showStep('error');
+            }
+        }
+        
+        function closeWizard() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user.platformAdmin) {
+                window.location.href = 'vendors.html';
+            } else {
+                window.location.href = 'settings.html';
+            }
+        }
+    </script>
+</body>
+</html>

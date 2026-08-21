@@ -63,7 +63,7 @@ public class UserPrincipal implements UserDetails {
                                        List<OrderStatus> orderVisibilityStatuses) {
         List<GrantedAuthority> authorities = new ArrayList<>();
 
-        // Grant ROLE_ authority for each actual role name
+        // Grant ROLE_ authority for each resolved role name
         if (roleNames != null) {
             roleNames.stream()
                     .map(r -> new SimpleGrantedAuthority(r.toUpperCase().trim()))

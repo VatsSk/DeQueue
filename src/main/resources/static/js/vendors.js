@@ -129,6 +129,9 @@ function renderVendors(vendors) {
                         <button class="btn btn-sm btn-error" onclick="deleteVendor('${vendor.id}')" title="Delete vendor" aria-label="Delete vendor">
                             <i data-lucide="trash-2"></i>
                         </button>
+                        <button class="btn btn-sm" style="background: #10b981; color: white;" onclick="manageCashfree('${vendor.id}')" title="Manage Cashfree" aria-label="Manage Cashfree">
+                            CF
+                        </button>
                     </div>
                 </td>
             </tr>
@@ -316,6 +319,30 @@ async function deleteVendor(vendorId) {
     } catch (error) {
         console.error('Failed to delete vendor', error);
         showToast(error.message || 'Failed to delete vendor', 'error');
+    }
+}
+
+async function manageCashfree(vendorId) {
+    const vendor = allVendors.find(v => v.id === vendorId);
+    if (!vendor) return;
+    try {
+        const res = await api.get(`/platform/vendors/${vendorId}/cashfree/status`);
+        if (res.success) {
+            const data = res.data;
+            if (data.status === 'NOT_ONBOARDED') {
+                if (confirm('Vendor is not onboarded to Cashfree Easy Split. Open onboarding wizard?')) {
+                    window.location.href = `vendor-onboarding.html?vendorId=${vendorId}`;
+                }
+            } else {
+                alert(`Cashfree Status:\\nVendor ID: ${data.cashfreeVendorId}\\nStatus: ${data.status}\\nOnboarding: ${data.onboardingStatus}\\nEasy Split Enabled: ${data.easySplitEnabled}`);
+                if (confirm('Do you want to sync status from Cashfree?')) {
+                    const syncRes = await api.post(`/platform/vendors/${vendorId}/cashfree/sync`);
+                    if (syncRes.success) alert('Synced successfully. Status: ' + syncRes.data.status);
+                }
+            }
+        }
+    } catch(e) {
+        alert('Error managing Cashfree: ' + e.message);
     }
 }
 

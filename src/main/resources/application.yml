@@ -86,3 +86,20 @@ logging:
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+
+cashfree:
+  environment: ${CASHFREE_ENVIRONMENT:sandbox}
+  client-id: ${CASHFREE_CLIENT_ID:}
+  client-secret: ${CASHFREE_CLIENT_SECRET:}
+  api-version: ${CASHFREE_API_VERSION:2023-08-01}
+  webhook-secret: ${CASHFREE_WEBHOOK_SECRET:}
+  easy-split-enabled: ${CASHFREE_EASY_SPLIT_ENABLED:false}
+  base-url: ${CASHFREE_BASE_URL:}
+  reconciliation:
+    enabled: ${PAYMENT_RECONCILIATION_ENABLED:false}
+    cron: ${PAYMENT_RECONCILIATION_CRON:0 0 2 * * ?}
+
+platform:
+  commission:
+    type: ${PLATFORM_COMMISSION_TYPE:PERCENTAGE}
+    rate: ${PLATFORM_COMMISSION_RATE:5.0}
