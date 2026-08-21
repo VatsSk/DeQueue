@@ -35,6 +35,7 @@ public class Vendor {
     private Double geoRadius;
     private VendorSettings settings;
     private Subscription subscription;
+    private CashfreeVendorInfo cashfreeInfo;
     
     @Builder.Default
     private boolean active = true;

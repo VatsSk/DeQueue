@@ -174,6 +174,7 @@ public class AuthServiceImpl implements AuthService {
     private ResolvedPermissions resolvePermissions(Staff staff) {
         List<String> permissionKeys = new ArrayList<>();
         List<OrderStatus> visibilityStatuses = new ArrayList<>();
+        List<String> resolvedRoleNames = new ArrayList<>();
 
         if (staff.getRoles() != null && !staff.getRoles().isEmpty()) {
             List<String> roleNames = new ArrayList<>();
@@ -195,13 +196,12 @@ public class AuthServiceImpl implements AuthService {
                 rbacRoleRepository.findByNameIn(roleNames).forEach(roles::add);
             }
 
-            java.util.Set<String> actualRoleNames = new java.util.LinkedHashSet<>();
             java.util.Set<String> keys = new java.util.LinkedHashSet<>();
             java.util.Set<OrderStatus> statuses = new java.util.LinkedHashSet<>();
 
             for (RbacRole role : roles) {
                 if (role.getName() != null) {
-                    actualRoleNames.add(role.getName());
+                    resolvedRoleNames.add(role.getName());
                 }
                 if (role.getPermissions() != null) {
                     keys.addAll(role.getPermissions());
@@ -213,18 +213,13 @@ public class AuthServiceImpl implements AuthService {
 
             permissionKeys = new ArrayList<>(keys);
             visibilityStatuses = new ArrayList<>(statuses);
-            List<String> finalRoleNames = new ArrayList<>(actualRoleNames);
-            if (staff.isPlatformAdmin()) {
-                visibilityStatuses = Arrays.asList(OrderStatus.values());
-            }
-            return new ResolvedPermissions(permissionKeys, visibilityStatuses, finalRoleNames);
         }
 
         if (staff.isPlatformAdmin()) {
             visibilityStatuses = Arrays.asList(OrderStatus.values());
         }
 
-        return new ResolvedPermissions(permissionKeys, visibilityStatuses, new ArrayList<>());
+        return new ResolvedPermissions(resolvedRoleNames, permissionKeys, visibilityStatuses);
     }
 
     private StaffSummary mapToSummary(Staff staff, Vendor vendor, ResolvedPermissions resolved) {
@@ -256,5 +251,5 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /** Simple value holder for resolved permission data */
-    private record ResolvedPermissions(List<String> permissionKeys, List<OrderStatus> visibilityStatuses, List<String> roleNames) {}
+    private record ResolvedPermissions(List<String> roleNames, List<String> permissionKeys, List<OrderStatus> visibilityStatuses) {}
 }

@@ -25,8 +25,8 @@ public class PendingSettlementResponse {
     private BigDecimal offlineSales;
 
     // Deductions
-    private BigDecimal cashreeFees;
-    private BigDecimal cashreeTax;
+    private BigDecimal cashfreeFees;
+    private BigDecimal cashfreeTax;
     private BigDecimal platformCharges;
     private BigDecimal refunds;
 

@@ -7,5 +7,8 @@ public enum SettlementStatus {
     PENDING,
     PROCESSING,
     SETTLED,
-    FAILED
+    FAILED,
+    PARTIALLY_SETTLED,
+    REFUNDED,
+    ADJUSTED
 }
