@@ -2,7 +2,7 @@ package com.dequeue.common.seed;
 
 import com.dequeue.menu.entity.*;
 import com.dequeue.order.entity.OrderStatus;
-import com.dequeue.profile.entity.VendorProfile;
+
 import com.dequeue.rbac.entity.OrderVisibility;
 import com.dequeue.rbac.entity.RbacPermission;
 import com.dequeue.rbac.entity.RbacRole;

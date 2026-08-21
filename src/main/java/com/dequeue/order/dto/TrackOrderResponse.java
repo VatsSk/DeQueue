@@ -7,6 +7,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class TrackOrderResponse {
@@ -20,5 +21,6 @@ public class TrackOrderResponse {
     // Payment information for customer display
     private PaymentSource paymentSource;
     private BigDecimal totalAmount;
+    
+    private Map<String, String> customFields;
 }
-

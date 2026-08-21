@@ -229,6 +229,19 @@
                     <textarea id="addItemDesc" class="form-control" rows="3"></textarea>
                 </div>
                 <div class="form-group border-t border-border pt-4 mt-4">
+                    <label class="form-label font-bold mb-2">Tags</label>
+                    <div class="flex gap-4 mb-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="addItemPopular" class="form-checkbox">
+                            <span class="text-sm font-medium">Popular</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="addItemBestSeller" class="form-checkbox">
+                            <span class="text-sm font-medium">Best Seller</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group border-t border-border pt-4 mt-4">
                     <label class="form-label font-bold mb-2">Saved Customizations</label>
                     <p class="text-sm text-muted mb-2">Select saved customization groups for this item.</p>
                     <div id="savedCustomizationsList" class="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto">

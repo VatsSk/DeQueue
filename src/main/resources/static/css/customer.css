@@ -92,8 +92,17 @@ button { -webkit-tap-highlight-color: transparent; }
   border: 1px solid rgba(239, 211, 169, .55);
 }
 .hero-content { width: 56%; position: relative; z-index: 1; }
-.hero-eyebrow { display: inline-flex; align-items: center; gap: 6px; color: #bf7311; font-size: 12px; font-weight: 800; margin-bottom: 10px; }
+.hero-eyebrow-container { height: 20px; overflow: hidden; margin-bottom: 10px; position: relative; }
+.hero-eyebrow-scroller { display: flex; flex-direction: column; animation: scrollEyebrowY 12s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 6px; color: #bf7311; font-size: 12px; font-weight: 800; height: 20px; }
 .hero-eyebrow svg { width: 15px; height: 15px; }
+@keyframes scrollEyebrowY {
+    0%, 20% { transform: translateY(0); }
+    25%, 45% { transform: translateY(-20px); }
+    50%, 70% { transform: translateY(-40px); }
+    75%, 95% { transform: translateY(-60px); }
+    100% { transform: translateY(-80px); }
+}
 .menu-hero h2 { margin: 0; font-size: clamp(28px, 7vw, 40px); line-height: 1.02; letter-spacing: -.055em; max-width: 320px; }
 .menu-hero p { margin: 12px 0 0; color: #69645d; font-size: 14px; font-weight: 600; }
 .hero-dots { display: flex; gap: 6px; margin-top: 20px; }

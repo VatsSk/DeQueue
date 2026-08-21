@@ -17,6 +17,7 @@ public class PlaceOrderRequest {
     private Double customerLongitude;
     private String sessionId;
     private java.util.Map<String, String> metadata;
+    private java.util.Map<String, String> customFields;
     
     // Payment source - CASH, CASHFREE, OFFLINE, OTHER
     private PaymentSource paymentSource;

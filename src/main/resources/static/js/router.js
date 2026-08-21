@@ -12,7 +12,6 @@ class Router {
             { path: 'staff.html', icon: 'users', label: 'Staff', permissions: ['staff.view'] },
             { path: 'reports.html', icon: 'bar-chart-3', label: 'Reports', permissions: ['report.view'] },
             { path: 'qr.html', icon: 'qr-code', label: 'QR Code', permissions: ['qr.view'] },
-            { path: 'profile.html', icon: 'store', label: 'Shop Profile', permissions: ['staff.view'] },
             { path: 'settings.html', icon: 'settings', label: 'Settings', permissions: ['staff.view'] },
             { path: 'geofence.html', icon: 'map-pin', label: 'Geofencing', permissions: ['staff.view'] },
             { path: 'settlements.html', icon: 'wallet', label: 'Payments & Settlements', permissions: ['report.view', 'order.view'] },

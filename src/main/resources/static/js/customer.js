@@ -167,10 +167,39 @@ class CustomerApp {
     if (!hero || !this.vendor) return;
     const allItems = [];
     (this.menu?.categories || []).forEach(cat => (cat.items || []).forEach(item => { if (item.available !== false && item.visible !== false && item.image) allItems.push(item); }));
-    const image = allItems[0]?.image || this.vendor.logo || '';
-    hero.style.backgroundImage = image ? `linear-gradient(90deg, rgba(255,248,238,.98) 0%, rgba(255,248,238,.84) 42%, rgba(255,248,238,.10) 100%), url("${image}")` : '';
-    const title = hero.querySelector('[data-hero-title]'); const sub = hero.querySelector('[data-hero-subtitle]');
-    if (title) title.textContent = 'Good food, good mood! 😊'; if (sub) sub.textContent = `Freshly made at ${this.vendor.shopName}`;
+    
+    const defaultImage = this.vendor.logo || '';
+    
+    this.heroSlides = [
+      { title: 'Good food, good mood! 😊', sub: `Freshly made at ${this.vendor.shopName}`, image: allItems[0]?.image || defaultImage },
+      { title: 'Taste the best! 🌟', sub: 'Handpicked ingredients for you', image: allItems[1]?.image || allItems[0]?.image || defaultImage },
+      { title: 'Craving something delicious? 😋', sub: 'We have got you covered!', image: allItems[2]?.image || allItems[0]?.image || defaultImage }
+    ];
+    
+    this.currentHeroIndex = 0;
+    
+    const updateHero = () => {
+        const slide = this.heroSlides[this.currentHeroIndex];
+        const image = slide.image;
+        hero.style.backgroundImage = image ? `linear-gradient(90deg, rgba(255,248,238,.98) 0%, rgba(255,248,238,.84) 42%, rgba(255,248,238,.10) 100%), url("${image}")` : '';
+        const title = hero.querySelector('[data-hero-title]'); const sub = hero.querySelector('[data-hero-subtitle]');
+        if (title) title.textContent = slide.title;
+        if (sub) sub.textContent = slide.sub;
+        
+        const dots = hero.querySelectorAll('.hero-dots span');
+        dots.forEach((dot, index) => {
+            if (index === this.currentHeroIndex) dot.classList.add('active');
+            else dot.classList.remove('active');
+        });
+    };
+    
+    updateHero();
+    
+    if (this.heroInterval) clearInterval(this.heroInterval);
+    this.heroInterval = setInterval(() => {
+        this.currentHeroIndex = (this.currentHeroIndex + 1) % this.heroSlides.length;
+        updateHero();
+    }, 4000);
   }
 
   renderCategories() {
@@ -187,7 +216,7 @@ class CustomerApp {
     const grid = document.querySelector('.menu-grid'); if (!grid || !this.menu) return;
     this.currentCategory = categoryId || 'popular'; let items = [];
     (this.menu.categories || []).forEach(cat => (cat.items || []).forEach(item => { if (item.available !== false && item.visible !== false) items.push({ ...item, categoryId: cat.id, categoryName: cat.name }); }));
-    if (this.currentCategory === 'popular') { const marked = items.filter(i => i.popular === true || i.isPopular === true || i.featured === true || i.recommended === true || i.bestSeller === true); if (marked.length) items = marked; }
+    if (this.currentCategory === 'popular') { items = items.filter(i => i.tags && i.tags.includes('Popular')); }
     else if (this.currentCategory !== 'all') items = items.filter(i => i.categoryId === this.currentCategory);
     const query = (this.searchQuery || '').trim().toLowerCase(); if (query) items = items.filter(i => String(i.name || '').toLowerCase().includes(query) || String(i.description || '').toLowerCase().includes(query) || String(i.categoryName || '').toLowerCase().includes(query));
     const title = document.getElementById('menu-section-title'); const subtitle = document.getElementById('menu-section-subtitle'); const selectedCategory = this.getCurrentCategoryName();
@@ -195,10 +224,10 @@ class CustomerApp {
     if (subtitle) subtitle.textContent = query ? `${items.length} result${items.length === 1 ? '' : 's'} for “${this._escHtml(query)}”` : (this.currentCategory === 'popular' ? 'Our most loved picks for you' : `Explore ${selectedCategory.toLowerCase()}`);
     if (!items.length) { grid.innerHTML = `<div class="empty-menu-state"><div class="empty-menu-icon"><i data-lucide="search-x"></i></div><h3>No items found</h3><p>Try another search or choose a different category.</p><button class="btn-soft" type="button" onclick="customerApp.clearMenuSearch()">Clear search</button></div>`; if (typeof lucide !== 'undefined') lucide.createIcons(); return; }
     grid.innerHTML = items.map((item, index) => {
-      const qty = this.getMenuItemQuantity(item.id); const marked = item.popular === true || item.isPopular === true || item.featured === true || item.recommended === true || item.bestSeller === true; const simple = !item.customizationGroups || item.customizationGroups.length === 0;
+      const qty = this.getMenuItemQuantity(item.id); const isBestSeller = item.tags && item.tags.includes('Best Seller'); const simple = !item.customizationGroups || item.customizationGroups.length === 0;
       const media = item.image ? `<img src="${this._escHtml(item.image)}" alt="${this._escHtml(item.name)}" class="item-image" loading="lazy">` : `<div class="item-image-placeholder"><i data-lucide="utensils"></i></div>`;
       const controls = simple && qty > 0 ? `<div class="menu-quantity-control" onclick="event.stopPropagation()"><button type="button" onclick="customerApp.changeMenuItemQuantity('${this._escHtml(item.id)}', -1)"><i data-lucide="${qty === 1 ? 'trash-2' : 'minus'}"></i></button><strong>${qty}</strong><button type="button" onclick="customerApp.changeMenuItemQuantity('${this._escHtml(item.id)}', 1)"><i data-lucide="plus"></i></button></div>` : `<button class="menu-add-btn" type="button" onclick="event.stopPropagation(); customerApp.handleAddToCart('${this._escHtml(item.id)}')"><i data-lucide="plus"></i><span>${simple ? 'Add' : 'Customize'}</span></button>`;
-      return `<article class="menu-item-card ${index === 0 && this.currentCategory === 'popular' ? 'featured-card' : ''}" data-item-id="${this._escHtml(item.id)}"><div class="item-media-wrap">${media}${marked || (index === 0 && this.currentCategory === 'popular') ? `<span class="bestseller-badge"><i data-lucide="star"></i> Bestseller</span>` : ''}<button class="favorite-btn" type="button" onclick="event.stopPropagation(); customerApp.toggleFavorite('${this._escHtml(item.id)}', this)"><i data-lucide="heart"></i></button></div><div class="item-info"><div class="item-category-label">${this._escHtml(item.categoryName || '')}</div><h3 class="item-title">${this._escHtml(item.name)}</h3><p class="item-desc">${this._escHtml(item.description || 'Freshly prepared for you.')}</p><div class="item-meta-row"><div><div class="item-price">${this.formatPrice(item.price)}</div>${item.preparationTime ? `<div class="prep-time"><i data-lucide="clock"></i> ${this._escHtml(item.preparationTime)} min</div>` : ''}</div>${controls}</div></div></article>`;
+      return `<article class="menu-item-card ${index === 0 && this.currentCategory === 'popular' ? 'featured-card' : ''}" data-item-id="${this._escHtml(item.id)}"><div class="item-media-wrap">${media}${isBestSeller ? `<span class="bestseller-badge"><i data-lucide="star"></i> Bestseller</span>` : ''}<button class="favorite-btn" type="button" onclick="event.stopPropagation(); customerApp.toggleFavorite('${this._escHtml(item.id)}', this)"><i data-lucide="heart"></i></button></div><div class="item-info"><div class="item-category-label">${this._escHtml(item.categoryName || '')}</div><h3 class="item-title">${this._escHtml(item.name)}</h3><p class="item-desc">${this._escHtml(item.description || 'Freshly prepared for you.')}</p><div class="item-meta-row"><div><div class="item-price">${this.formatPrice(item.price)}</div>${item.preparationTime ? `<div class="prep-time"><i data-lucide="clock"></i> ${this._escHtml(item.preparationTime)} min</div>` : ''}</div>${controls}</div></div></article>`;
     }).join('');
     this.syncFavoriteButtons(); if (typeof lucide !== 'undefined') lucide.createIcons();
   }
@@ -360,34 +389,182 @@ class CustomerApp {
     const total=this.cart.reduce((s,i)=>s+i.unitPrice*i.quantity,0), settings=this.vendor?.settings||{}, taxPct=Number(settings.taxPercentage||0), taxName=settings.taxName||'Tax', chargeAmt=Number(settings.additionalCharges||0), chargeName=settings.additionalChargeName||'Service Charge', taxAmount=taxPct>0?total*taxPct/100:0;
     let couponDiscount=0;if(this.appliedCoupon)couponDiscount=this.appliedCoupon.type==='PERCENTAGE'?total*this.appliedCoupon.value/100:this.appliedCoupon.value;couponDiscount=Math.min(couponDiscount,total);const finalTotal=Math.max(0,total-couponDiscount+taxAmount+chargeAmt);
     this._currentCheckout={subtotal:total,taxAmount,taxName:taxPct>0?taxName:null,serviceChargeAmount:chargeAmt>0?chargeAmt:null,serviceChargeName:chargeAmt>0?chargeName:null,couponCode:this.appliedCoupon?this.appliedCoupon.code:null,couponDiscount:couponDiscount>0?couponDiscount:null,finalTotal};
-    let cfHtml='';(this.vendor?.settings?.customFields||[]).forEach((cf,idx)=>{const name=this._escHtml(cf.name);cfHtml+=`<div class="checkout-field"><label>${name} ${cf.required?'<span>*</span>':''}</label>`;if(cf.type==='TEXT')cfHtml+=`<input type="text" id="cf-${idx}" class="checkout-input" placeholder="Enter ${name}">`;else if(cf.type==='DROPDOWN')cfHtml+=`<select id="cf-${idx}" class="checkout-input"><option value="">Select ${name}</option>${(cf.options||[]).map(o=>`<option value="${this._escHtml(o)}">${this._escHtml(o)}</option>`).join('')}</select>`;else if(cf.type==='CHECKBOX')cfHtml+=`<div class="checkout-choice-grid">${(cf.options||[]).map(o=>`<label class="choice-check"><input type="checkbox" name="cf-${idx}" value="${this._escHtml(o)}"><span>${this._escHtml(o)}</span></label>`).join('')}</div>`;cfHtml+=`</div>`;});
+    let cfHtml='';
+    const enabledFields = (this.vendor?.settings?.customFields||[]).filter(cf => cf.enabled !== false);
+    // Sort fields by displayOrder
+    enabledFields.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    
+    enabledFields.forEach((cf) => {
+        const idStr = this._escHtml(cf.id);
+        const labelStr = this._escHtml(cf.label);
+        const isRequired = cf.required;
+        const type = cf.type || 'text';
+        const conditionsData = cf.conditions ? JSON.stringify(cf.conditions).replace(/"/g, '&quot;') : '[]';
+        
+        cfHtml += `<div class="checkout-field cf-container" id="cf-container-${idStr}" data-id="${idStr}" data-required="${isRequired}" data-conditions="${conditionsData}">`;
+        cfHtml += `<label>${labelStr} ${isRequired ? '<span>*</span>' : ''}</label>`;
+        
+        const onchangeAttr = `onchange="customerApp.evaluateCustomFields()" oninput="customerApp.evaluateCustomFields()"`;
+        
+        if (type === 'text') {
+            cfHtml += `<input type="text" id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" placeholder="Enter ${labelStr}" ${onchangeAttr}>`;
+        } else if (type === 'number') {
+            cfHtml += `<input type="number" id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" placeholder="Enter ${labelStr}" ${onchangeAttr}>`;
+        } else if (type === 'dropdown') {
+            cfHtml += `<select id="cf-${idStr}" name="cf-${idStr}" class="checkout-input cf-input" ${onchangeAttr}><option value="">Select ${labelStr}</option>`;
+            (cf.options || []).forEach(o => {
+                cfHtml += `<option value="${this._escHtml(o.value)}">${this._escHtml(o.label)}</option>`;
+            });
+            cfHtml += `</select>`;
+        } else if (type === 'radio') {
+            cfHtml += `<div class="checkout-choice-grid cf-input" data-type="radio" id="cf-${idStr}">`;
+            (cf.options || []).forEach(o => {
+                cfHtml += `<label class="choice-check"><input type="radio" name="cf-${idStr}" value="${this._escHtml(o.value)}" ${onchangeAttr}><span>${this._escHtml(o.label)}</span></label>`;
+            });
+            cfHtml += `</div>`;
+        } else if (type === 'checkbox') {
+            cfHtml += `<div class="checkout-choice-grid cf-input" data-type="checkbox" id="cf-${idStr}">`;
+            (cf.options || []).forEach(o => {
+                cfHtml += `<label class="choice-check"><input type="checkbox" name="cf-${idStr}" value="${this._escHtml(o.value)}" ${onchangeAttr}><span>${this._escHtml(o.label)}</span></label>`;
+            });
+            cfHtml += `</div>`;
+        }
+        cfHtml += `</div>`;
+    });
     const paymentOnline=!!settings.enableOnlinePayment,paymentValue=document.getElementById('pay-method-select')?.value||'OFFLINE',onlineSelected=paymentValue==='ONLINE';
     const couponSection=settings.coupons?.length?`<div class="checkout-section coupon-section"><div class="checkout-section-heading"><div><span class="section-kicker">SAVE MORE</span><h4>Have a coupon?</h4></div><i data-lucide="ticket-percent"></i></div><div class="coupon-row"><input type="text" id="cart-coupon-input" class="checkout-input" placeholder="Enter coupon code" value="${this.appliedCoupon?this._escHtml(this.appliedCoupon.code):''}" ${this.appliedCoupon?'disabled':''}>${this.appliedCoupon?`<button class="coupon-action remove" onclick="customerApp.removeCoupon()">Remove</button>`:`<button class="coupon-action" onclick="customerApp.applyCoupon()">Apply</button>`}</div>${this.appliedCoupon?`<div class="coupon-success"><i data-lucide="check-circle-2"></i> ${this._escHtml(this.appliedCoupon.code)} applied — you saved ${this.formatPrice(couponDiscount)}</div>`:''}</div>`:'';
     body.innerHTML=`<div class="checkout-wrap"><section class="checkout-section cart-items-section"><div class="checkout-section-heading"><div><span class="section-kicker">YOUR ORDER</span><h4>${this.cart.reduce((s,i)=>s+i.quantity,0)} items</h4></div><span class="mini-total">${this.formatPrice(total)}</span></div><div class="checkout-items">${this.cart.map(item=>{const thumb=item.image?`<img src="${this._escHtml(item.image)}" alt="${this._escHtml(item.menuItemName)}">`:`<div class="cart-thumb-placeholder"><i data-lucide="utensils"></i></div>`;const cust=item.customizations?.length?`<div class="cart-custom-tags">${item.customizations.map(c=>`<span>${this._escHtml(c.optionName||c.groupName)}</span>`).join('')}</div>`:'';return `<div class="checkout-item"><div class="checkout-item-thumb">${thumb}</div><div class="checkout-item-main"><h5>${this._escHtml(item.menuItemName)}</h5><div class="checkout-item-unit">${this.formatPrice(item.unitPrice)} each</div>${cust}</div><div class="checkout-item-side"><strong>${this.formatPrice(item.unitPrice*item.quantity)}</strong><div class="checkout-qty"><button onclick="customerApp.updateQuantity(${item.cartId},-1)"><i data-lucide="${item.quantity===1?'trash-2':'minus'}"></i></button><span>${item.quantity}</span><button onclick="customerApp.updateQuantity(${item.cartId},1)"><i data-lucide="plus"></i></button></div></div></div>`}).join('')}</div></section>${couponSection}${cfHtml?`<section class="checkout-section"><div class="checkout-section-heading"><div><span class="section-kicker">ORDER DETAILS</span><h4>Almost there</h4></div><i data-lucide="clipboard-list"></i></div>${cfHtml}</section>`:''}<section class="checkout-section"><div class="checkout-section-heading"><div><span class="section-kicker">NOTE</span><h4>Anything we should know?</h4></div><i data-lucide="message-square-text"></i></div><textarea id="customer-note" class="checkout-textarea" placeholder="Less spicy, extra sauce, no onions..." rows="3"></textarea></section><section class="checkout-section bill-section"><div class="checkout-section-heading"><div><span class="section-kicker">BILL DETAILS</span><h4>Summary</h4></div><i data-lucide="receipt"></i></div><div class="bill-lines"><div><span>Item total</span><strong>${this.formatPrice(total)}</strong></div>${couponDiscount>0?`<div class="discount-line"><span>Coupon (${this._escHtml(this.appliedCoupon.code)})</span><strong>−${this.formatPrice(couponDiscount)}</strong></div>`:''}${taxAmount>0?`<div><span>${this._escHtml(taxName)} <small>${taxPct}%</small></span><strong>${this.formatPrice(taxAmount)}</strong></div>`:''}${chargeAmt>0?`<div><span>${this._escHtml(chargeName)}</span><strong>${this.formatPrice(chargeAmt)}</strong></div>`:''}</div><div class="bill-total"><span>Total to pay</span><strong>${this.formatPrice(finalTotal)}</strong></div><div class="bill-note"><i data-lucide="shield-check"></i> Final amount includes applicable taxes and charges.</div></section><section class="checkout-section payment-section"><div class="checkout-section-heading"><div><span class="section-kicker">PAYMENT</span><h4>How would you like to pay?</h4></div><i data-lucide="wallet-cards"></i></div><div class="payment-options"><label class="payment-card ${!onlineSelected?'selected':''}"><input type="radio" name="payment-ui" value="OFFLINE" ${!onlineSelected?'checked':''} onchange="customerApp._onPayMethodChange('OFFLINE')"><span class="payment-icon counter"><i data-lucide="store"></i></span><span class="payment-copy"><strong>Pay at Counter</strong><small>Pay when collecting your order</small></span><span class="payment-check"><i data-lucide="check"></i></span></label>${paymentOnline?`<label class="payment-card ${onlineSelected?'selected':''}"><input type="radio" name="payment-ui" value="ONLINE" ${onlineSelected?'checked':''} onchange="customerApp._onPayMethodChange('ONLINE')"><span class="payment-icon online"><i data-lucide="smartphone"></i></span><span class="payment-copy"><strong>Pay Online</strong><small>UPI, cards & net banking via Cashfree</small></span><span class="payment-check"><i data-lucide="check"></i></span></label>`:''}</div><select id="pay-method-select" class="sr-only-payment-select" aria-hidden="true"><option value="OFFLINE" ${!onlineSelected?'selected':''}>OFFLINE</option>${paymentOnline?`<option value="ONLINE" ${onlineSelected?'selected':''}>ONLINE</option>`:''}</select><div id="cash-payment-info" class="payment-info ${onlineSelected?'hidden':''}"><i data-lucide="wallet"></i><div><strong>Pay ${this.formatPrice(finalTotal)} at the counter</strong><span>Show your order number when collecting.</span></div></div><div id="upi-qr-panel" class="payment-info online-info ${onlineSelected?'':'hidden'}"><i data-lucide="lock-keyhole"></i><div><strong>Secure online payment</strong><span>You’ll be redirected to Cashfree to complete payment.</span></div></div></section></div><div class="checkout-bottom-spacer"></div>`;
-    if(typeof lucide!=='undefined')lucide.createIcons();this.syncPaymentCards();const checkoutTotal=document.getElementById('checkout-button-total');if(checkoutTotal)checkoutTotal.textContent=this.formatPrice(finalTotal);const checkoutLabel=document.querySelector('.checkout-btn-label');if(checkoutLabel)checkoutLabel.textContent=onlineSelected?'Continue to Payment':'Place Order';
+    if(typeof lucide!=='undefined')lucide.createIcons();this.syncPaymentCards();this.evaluateCustomFields();const checkoutTotal=document.getElementById('checkout-button-total');if(checkoutTotal)checkoutTotal.textContent=this.formatPrice(finalTotal);const checkoutLabel=document.querySelector('.checkout-btn-label');if(checkoutLabel)checkoutLabel.textContent=onlineSelected?'Continue to Payment':'Place Order';
   }
   _onPayMethodChange(value) {
     const select=document.getElementById('pay-method-select');if(select)select.value=value;const qrPanel=document.getElementById('upi-qr-panel');const cashInfo=document.getElementById('cash-payment-info');if(qrPanel)qrPanel.classList.toggle('hidden',value!=='ONLINE');if(cashInfo)cashInfo.classList.toggle('hidden',value!=='OFFLINE');this.syncPaymentCards();const label=document.querySelector('.checkout-btn-label');if(label)label.textContent=value==='ONLINE'?'Continue to Payment':'Place Order';const total=document.getElementById('checkout-button-total');if(total&&this._currentCheckout)total.textContent=this.formatPrice(this._currentCheckout.finalTotal||0);
   }
 
   syncPaymentCards() { const selected=document.getElementById('pay-method-select')?.value||'OFFLINE';document.querySelectorAll('.payment-card').forEach(card=>{const radio=card.querySelector('input[type="radio"]');card.classList.toggle('selected',radio?.value===selected);}); }
+
+  evaluateCustomFields() {
+      // Gather current values
+      const currentValues = {};
+      document.querySelectorAll('.cf-container').forEach(container => {
+          const id = container.getAttribute('data-id');
+          const inputs = container.querySelectorAll('.cf-input');
+          if (!inputs.length) return;
+          const inputEl = inputs[0];
+          
+          if (inputEl.tagName === 'SELECT' || inputEl.tagName === 'INPUT') {
+              currentValues[id] = inputEl.value;
+          } else if (inputEl.classList.contains('checkout-choice-grid')) {
+              const type = inputEl.getAttribute('data-type');
+              if (type === 'radio') {
+                  const checked = container.querySelector(`input[name="cf-${id}"]:checked`);
+                  currentValues[id] = checked ? checked.value : '';
+              } else if (type === 'checkbox') {
+                  const checked = Array.from(container.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(el => el.value);
+                  currentValues[id] = checked.join(', ');
+              }
+          }
+      });
+
+      // Evaluate visibility
+      document.querySelectorAll('.cf-container').forEach(container => {
+          const conditionsStr = container.getAttribute('data-conditions');
+          if (!conditionsStr || conditionsStr === '[]') return; // no conditions
+          
+          try {
+              const conditions = JSON.parse(conditionsStr);
+              let isVisible = true;
+              
+              for (const cond of conditions) {
+                  const actualVal = currentValues[cond.fieldId] || '';
+                  const expectedVal = cond.value || '';
+                  
+                  if (cond.operator === 'equals') {
+                      if (actualVal !== expectedVal) isVisible = false;
+                  } else if (cond.operator === 'not_equals') {
+                      if (actualVal === expectedVal) isVisible = false;
+                  }
+              }
+              
+              if (isVisible) {
+                  container.style.display = 'block';
+              } else {
+                  container.style.display = 'none';
+                  // Clear values if hidden
+                  const inputs = container.querySelectorAll('.cf-input');
+                  if (inputs.length) {
+                      const inputEl = inputs[0];
+                      if (inputEl.tagName === 'SELECT' || (inputEl.tagName === 'INPUT' && (inputEl.type === 'text' || inputEl.type === 'number'))) {
+                          inputEl.value = '';
+                      } else if (inputEl.classList.contains('checkout-choice-grid')) {
+                          container.querySelectorAll(`input[name="cf-${container.getAttribute('data-id')}"]`).forEach(el => el.checked = false);
+                      }
+                  }
+              }
+          } catch (e) {
+              console.error('Failed to parse conditions', e);
+          }
+      });
+  }
+
   async placeOrder(isFromPayment = false, pendingData = null) {
     if (this.cart.length === 0) return;
 
     let paymentSource = 'CASH'; // Default payment source
     let note = '';
     let metadata = {};
+    let customFields = {};
 
     if (isFromPayment && pendingData) {
         paymentSource = 'CASHFREE'; // Online payment confirmed
         note = pendingData.note;
         metadata = pendingData.metadata;
+        customFields = pendingData.customFields || {};
         this._currentCheckout = pendingData.checkout;
     } else {
         const paySelect = document.getElementById('pay-method-select');
         const selectedMethod = paySelect ? paySelect.value : 'OFFLINE';
         
-        // Map UI selection to payment source
+        // Custom Fields Extraction
+        let hasError = false;
+        // Evaluate one last time before extracting
+        this.evaluateCustomFields();
+        
+        document.querySelectorAll('.cf-container').forEach(container => {
+            if (container.style.display === 'none') return;
+            
+            const id = container.getAttribute('data-id');
+            const isRequired = container.getAttribute('data-required') === 'true';
+            const inputs = container.querySelectorAll('.cf-input');
+            if (!inputs.length) return;
+            const inputEl = inputs[0];
+            let val = '';
+            
+            if (inputEl.tagName === 'SELECT' || (inputEl.tagName === 'INPUT' && (inputEl.type === 'text' || inputEl.type === 'number'))) {
+                val = inputEl.value;
+            } else if (inputEl.classList.contains('checkout-choice-grid')) {
+                const type = inputEl.getAttribute('data-type');
+                if (type === 'radio') {
+                    const checked = container.querySelector(`input[name="cf-${id}"]:checked`);
+                    val = checked ? checked.value : '';
+                } else if (type === 'checkbox') {
+                    const checked = Array.from(container.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(el => el.value);
+                    val = checked.join(', ');
+                }
+            }
+            
+            if (isRequired && (!val || val.trim() === '')) {
+                const label = container.querySelector('label').innerText.replace('*', '').trim();
+                if (typeof showToast === 'function') showToast(`Please provide ${label}`, 'error');
+                hasError = true;
+                return;
+            }
+            
+            if (val && val.trim() !== '') {
+                customFields[id] = val;
+            }
+        });
+        
+        if (hasError) return;
         if (selectedMethod === 'ONLINE') {
             paymentSource = 'CASHFREE';
         } else {
@@ -412,27 +589,7 @@ class CustomerApp {
 
         note = document.getElementById('customer-note')?.value || '';
 
-        if (this.vendor?.settings?.customFields) {
-            let missingRequired = false;
-            this.vendor.settings.customFields.forEach((cf, idx) => {
-                const el = document.getElementById(`cf-${idx}`);
-                if (cf.type === 'CHECKBOX') {
-                    const checked = Array.from(document.querySelectorAll(`input[name="cf-${idx}"]:checked`)).map(cb => cb.value);
-                    if (cf.required && checked.length === 0) missingRequired = true;
-                    if (checked.length > 0) metadata[cf.name] = checked.join(', ');
-                } else {
-                    const val = el ? el.value.trim() : '';
-                    if (cf.required && !val) missingRequired = true;
-                    if (val) metadata[cf.name] = val;
-                }
-            });
-
-            if (missingRequired) {
-                if (placeBtn) { placeBtn.disabled = false; placeBtn.innerHTML = 'Place Order'; }
-                if (window.showToast) showToast('Please fill all required fields', 'error');
-                return;
-            }
-        }
+        // Old custom field logic removed here
 
         // Store payment source in metadata for order tracking
         metadata['paymentSource'] = paymentSource;
@@ -445,6 +602,7 @@ class CustomerApp {
             const amount = (this._currentCheckout?.finalTotal || this.cart.reduce((s, c) => s + c.totalPrice, 0)).toFixed(2);
             sessionStorage.setItem('dequeue_pending_checkout_' + this.vendorCode, JSON.stringify({
                 metadata,
+                customFields, // <--- Add customFields
                 checkout: this._currentCheckout,
                 note: note
             }));
@@ -456,6 +614,8 @@ class CustomerApp {
     const orderData = {
       sessionId: this.sessionId,
       paymentSource: paymentSource, // Explicitly set payment source
+      metadata: metadata,
+      customFields: customFields, // <--- Add customFields
       items: this.cart.map(item => {
         const groupedCusts = {};
         (item.customizations || []).forEach(c => {

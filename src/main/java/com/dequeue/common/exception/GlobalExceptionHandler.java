@@ -106,8 +106,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException ex, HttpServletRequest request) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getConstraintViolations().forEach(violation -> {
+            String propertyPath = violation.getPropertyPath().toString();
+            String fieldName = propertyPath.contains(".") ? propertyPath.substring(propertyPath.lastIndexOf('.') + 1) : propertyPath;
+            errors.put(fieldName, violation.getMessage());
+        });
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null));
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, "Validation Failed", request, errors));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -140,6 +146,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error occurred: ", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred: " + ex.getMessage() + " - " + ex.toString(), request, null));
+                .body(buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.", request, null));
     }
 }

@@ -97,7 +97,10 @@ class Menu {
           </div>
           <div class="menu-details">
               <div class="menu-title-row">
-                  <div class="menu-title">${item.name}</div>
+                  <div class="menu-title">${item.name}
+                      ${item.tags && item.tags.includes('Popular') ? '<span class="badge" style="background:#fef08a;color:#854d0e;font-size:0.65rem;margin-left:4px;"><i data-lucide="star" style="width:10px;height:10px;display:inline;margin-right:2px"></i>Popular</span>' : ''}
+                      ${item.tags && item.tags.includes('Best Seller') ? '<span class="badge" style="background:#fed7aa;color:#9a3412;font-size:0.65rem;margin-left:4px;"><i data-lucide="award" style="width:10px;height:10px;display:inline;margin-right:2px"></i>Best Seller</span>' : ''}
+                  </div>
                   <div class="menu-price">₹${item.price}</div>
               </div>
               <div class="menu-desc">${item.description || '<span class="text-muted" style="font-style:italic">No description</span>'}</div>
@@ -225,6 +228,10 @@ class Menu {
     document.getElementById('customizationsList').innerHTML = '';
     const checkboxes = document.querySelectorAll('input[name="saved_customizations"]');
     checkboxes.forEach(c => c.checked = false);
+    const pop = document.getElementById('addItemPopular');
+    const bs = document.getElementById('addItemBestSeller');
+    if(pop) pop.checked = false;
+    if(bs) bs.checked = false;
   }
 
   _clearImage() {
@@ -268,6 +275,12 @@ class Menu {
     }
     const hint = document.getElementById('imageUploadHint');
     if (hint) hint.textContent = '';
+    
+    const tags = item.tags || [];
+    const pop = document.getElementById('addItemPopular');
+    const bs = document.getElementById('addItemBestSeller');
+    if(pop) pop.checked = tags.includes('Popular');
+    if(bs) bs.checked = tags.includes('Best Seller');
 
     // Load customizations then tick the right ones
     this.loadCustomizationGroups().then(() => {
@@ -351,8 +364,14 @@ class Menu {
         });
         if (groupRes.success) customizationGroupIds.push(groupRes.data.id);
       }
+      
+      const tags = [];
+      const pop = document.getElementById('addItemPopular');
+      const bs = document.getElementById('addItemBestSeller');
+      if(pop && pop.checked) tags.push('Popular');
+      if(bs && bs.checked) tags.push('Best Seller');
 
-      const payload = { name, price: parseFloat(price), categoryId, description: desc, customizationGroupIds };
+      const payload = { name, price: parseFloat(price), categoryId, description: desc, customizationGroupIds, tags };
       if (imageUrl) payload.image = imageUrl;
 
       let res;
@@ -518,7 +537,7 @@ class Menu {
   async extractMenuFromImage() {
     if (!this._aiFile) return;
 
-    this._showAiLoading('Analyzing your menu with Gemini AI...');
+    this._showAiLoading('Analyzing your menu with AI...');
 
     const formData = new FormData();
     formData.append('image', this._aiFile);

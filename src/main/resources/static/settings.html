@@ -47,7 +47,6 @@
                 <div class="settings-nav">
                     <div class="settings-tab active" data-tab="general">General</div>
                     <div class="settings-tab" data-tab="billing">Billing & Taxes</div>
-                    <div class="settings-tab" data-tab="settlements">Settlements</div>
                     <div class="settings-tab" data-tab="coupons">Coupons</div>
                     <div class="settings-tab" data-tab="custom-fields">Custom Fields</div>
                     <div class="settings-tab" data-tab="payment">Payment Gateway</div>
@@ -113,32 +112,6 @@
                     </div>
                 </div>
 
-                <!-- Settlements Settings -->
-                <div id="tab-settlements" class="tab-pane hidden">
-                    <div class="card p-6">
-                        <h3 class="mb-4 font-bold">Settlement & Gateway Fees</h3>
-                        <p class="text-sm text-muted mb-4">Configure the platform commissions and payment gateway fees. These are locked in at the time each order is finalized.</p>
-                        
-                        <div class="form-group mb-4">
-                            <label class="form-label">Platform Commission (%)</label>
-                            <input type="number" id="set-platform-fee" class="form-control" placeholder="e.g. 5.00" step="0.01">
-                            <p class="text-xs text-muted mt-1">Deducted by the platform for every successful order (cash and online).</p>
-                        </div>
-                        
-                        <div class="form-group mb-4">
-                            <label class="form-label">Cashfree Fee (%)</label>
-                            <input type="number" id="set-cashfree-fee" class="form-control" placeholder="e.g. 2.00" step="0.01">
-                            <p class="text-xs text-muted mt-1">Deducted by Cashfree ONLY on online payments.</p>
-                        </div>
-                        
-                        <div class="form-group mb-4">
-                            <label class="form-label">Cashfree Tax (%)</label>
-                            <input type="number" id="set-cashfree-tax" class="form-control" placeholder="e.g. 18.00" step="0.01">
-                            <p class="text-xs text-muted mt-1">Tax applied to the Cashfree fee (e.g. 18% GST).</p>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Coupons Settings -->
                 <div id="tab-coupons" class="tab-pane hidden">
                     <div class="card p-6 mb-4">
@@ -177,7 +150,7 @@
                 <div id="tab-custom-fields" class="tab-pane hidden">
                     <div class="card p-6 mb-4">
                         <h3 class="font-bold mb-2">Order Custom Fields</h3>
-                        <p class="text-sm text-muted mb-4">Ask customers for extra information during checkout (e.g., Table Number, Vehicle Plate, Dine-in/Takeaway).</p>
+                        <p class="text-sm text-muted mb-4">Ask customers for extra information during checkout (e.g., Order Type, Table Number).</p>
                         
                         <div id="custom-fields-list" class="flex flex-col gap-3 mb-4">
                             <!-- Populated by JS -->
@@ -187,25 +160,62 @@
                             <h4 class="font-bold mb-3 text-sm">Add New Custom Field</h4>
                             <div class="grid grid-cols-2 gap-4 mb-3">
                                 <div>
-                                    <label class="text-xs text-muted">Field Name (e.g. Table Number)</label>
-                                    <input type="text" id="new-cf-name" class="form-control">
+                                    <label class="text-xs text-muted">Field ID (unique, e.g. table_number)</label>
+                                    <input type="text" id="new-cf-id" class="form-control" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'_')">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-muted">Label (e.g. Table Number)</label>
+                                    <input type="text" id="new-cf-label" class="form-control">
                                 </div>
                                 <div>
                                     <label class="text-xs text-muted">Field Type</label>
                                     <select id="new-cf-type" class="form-control" onchange="settingsApp.onCfTypeChange()">
-                                        <option value="TEXT">Text Input</option>
-                                        <option value="DROPDOWN">Dropdown</option>
-                                        <option value="CHECKBOX">Checkbox</option>
+                                        <option value="text">Text Input</option>
+                                        <option value="number">Number</option>
+                                        <option value="dropdown">Dropdown</option>
+                                        <option value="radio">Radio</option>
+                                        <option value="checkbox">Checkbox (Multiple)</option>
                                     </select>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-muted">Display Order</label>
+                                    <input type="number" id="new-cf-order" class="form-control" value="0">
                                 </div>
                             </div>
                             <div id="cf-options-container" class="mb-3 hidden">
-                                <label class="text-xs text-muted">Options (comma separated, e.g. Table 1, Table 2)</label>
+                                <label class="text-xs text-muted">Options (comma separated, e.g. Dine In, Take Away)</label>
                                 <input type="text" id="new-cf-options" class="form-control">
                             </div>
-                            <div class="flex items-center gap-2 mb-4">
-                                <input type="checkbox" id="new-cf-required">
-                                <label for="new-cf-required" class="text-sm">Make this field compulsory?</label>
+                            <div class="border p-3 rounded mb-3 bg-gray-50">
+                                <h5 class="font-bold text-xs mb-2">Condition (Show this field when...)</h5>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-xs text-muted">Depends On Field ID</label>
+                                        <input type="text" id="new-cf-depends-id" class="form-control" placeholder="e.g. order_type">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-muted">Operator</label>
+                                        <select id="new-cf-operator" class="form-control">
+                                            <option value="equals">Equals</option>
+                                            <option value="not_equals">Not Equals</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-muted">Value</label>
+                                        <input type="text" id="new-cf-depends-val" class="form-control" placeholder="e.g. dine_in">
+                                    </div>
+                                </div>
+                                <p class="text-xs text-muted mt-1">Leave empty to always show this field.</p>
+                            </div>
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="new-cf-required" checked>
+                                    <label for="new-cf-required" class="text-sm">Required</label>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="new-cf-enabled" checked>
+                                    <label for="new-cf-enabled" class="text-sm">Enabled</label>
+                                </div>
                             </div>
                             <button class="btn btn-secondary w-full" onclick="settingsApp.addCustomField()">Add Field</button>
                         </div>

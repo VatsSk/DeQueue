@@ -203,6 +203,14 @@ public class OrderServiceImpl implements OrderService {
         if (request.getMetadata() != null) {
             order.setMetadata(request.getMetadata());
         }
+
+        if (request.getCustomFields() != null) {
+            CustomFieldValidator.validate(request.getCustomFields(), vendor.getSettings().getCustomFields());
+            order.setCustomFields(request.getCustomFields());
+        } else {
+            // Even if null, validate to ensure no required fields are missing
+            CustomFieldValidator.validate(null, vendor.getSettings() != null ? vendor.getSettings().getCustomFields() : null);
+        }
         
         // Map new payment breakdown fields
         order.setSubtotal(request.getSubtotal());
@@ -327,6 +335,7 @@ public class OrderServiceImpl implements OrderService {
         response.setCreatedAt(order.getCreatedAt());
         response.setPaymentSource(order.getPaymentSource());
         response.setTotalAmount(order.getTotalAmount());
+        response.setCustomFields(order.getCustomFields());
         return response;
     }
 

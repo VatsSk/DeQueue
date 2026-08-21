@@ -30,6 +30,9 @@ Order {
     @Builder.Default
     private java.util.Map<String, String> metadata = new java.util.HashMap<>();
     
+    @Builder.Default
+    private java.util.Map<String, String> customFields = new java.util.HashMap<>();
+    
     private String queueNumber;
     
     @Builder.Default

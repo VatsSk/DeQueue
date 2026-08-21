@@ -357,12 +357,6 @@ class Orders {
     const action = this.primaryAction(order);
     const canPrint = this.canPrint();
     const items = Array.isArray(order.items) ? order.items : [];
-    const preview = items.slice(0, 3).map(item => `
-      <li>
-        <span class="item-name">${this.esc(item.quantity + '× ' + (item.menuItemName || 'Item'))}</span>
-        ${this.hasPriceAccess() ? `<span class="item-price">₹${Number(item.totalPrice || 0).toFixed(0)}</span>` : ''}
-      </li>`).join('');
-    const more = items.length > 3 ? `<li class="more-items">+ ${items.length - 3} more item${items.length - 3 === 1 ? '' : 's'}</li>` : '';
 
     const note = order.customerNote ? `
       <div class="customer-note">
@@ -412,9 +406,9 @@ class Orders {
         <div class="order-card-body">
           <div class="items-summary">
             <span class="items-count">${this.itemCount(order)} Item${this.itemCount(order) === 1 ? '' : 's'}</span>
-            <button class="view-items-btn" onclick="ordersApp.showOrderDetails('${this.escAttr(order.id)}')"><i data-lucide="eye"></i> View all</button>
+            <button class="view-items-btn" onclick="ordersApp.showOrderDetails('${this.escAttr(order.id)}')"><i data-lucide="eye"></i> Show items</button>
           </div>
-          ${items.length ? `<ul class="item-preview">${preview}${more}</ul>` : `<div class="text-muted text-sm">${this.esc(order.customOrderText || 'No item details available')}</div>`}
+          ${!items.length && order.customOrderText ? `<div class="text-muted text-sm" style="margin-top:.5rem">${this.esc(order.customOrderText)}</div>` : ''}
           ${note}
           ${payment}
         </div>
@@ -451,13 +445,31 @@ class Orders {
   hasPriceAccess() { return this.isAdmin() || this.permissions().some(p => ['order.accept','order.pending','order.complete'].includes(p)); }
 
   getTable(order) {
-    if (!order || !order.metadata) return null;
-    const key = Object.keys(order.metadata).find(k => k.toLowerCase().includes('table'));
-    return key ? order.metadata[key] : null;
+    if (!order) return null;
+    let key;
+    if (order.customFields) {
+        key = Object.keys(order.customFields).find(k => k.toLowerCase().includes('table'));
+        if (key) return order.customFields[key];
+    }
+    if (order.metadata) {
+        key = Object.keys(order.metadata).find(k => k.toLowerCase().includes('table'));
+        if (key) return order.metadata[key];
+    }
+    return null;
   }
 
   getOrderType(order) {
-    const raw = String(order?.metadata?.orderType || order?.orderType || '').toUpperCase().replace(/[-\s]/g,'_');
+    let raw = '';
+    if (order.customFields) {
+        const typeKey = Object.keys(order.customFields).find(k => k.toLowerCase().includes('order') && k.toLowerCase().includes('type'));
+        if (typeKey) raw = order.customFields[typeKey];
+    }
+    if (!raw && order.metadata) {
+        raw = order.metadata.orderType || '';
+    }
+    if (!raw) raw = order.orderType || '';
+    
+    raw = String(raw).toUpperCase().replace(/[-\s]/g,'_');
     if (raw.includes('TAKE')) return 'TAKEAWAY';
     if (raw.includes('DELIVERY')) return 'DELIVERY';
     return 'DINE_IN';
@@ -541,14 +553,33 @@ class Orders {
         <button onclick="ordersApp.printBill('${this.escAttr(order.id)}','download')"><i data-lucide="printer"></i> Print / PDF</button>
       </div>` : '';
 
+    let customFieldsHtml = '';
+    const displayCustomFields = order.customFields || {};
+    if (Object.keys(displayCustomFields).length > 0) {
+        customFieldsHtml = '<div class="details-section" style="margin-top: 1rem;"><div class="details-section-title">Order Information</div>';
+        for (const [k, v] of Object.entries(displayCustomFields)) {
+            let label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            if (this.getUser()?.settings && this.getUser()?.settings.customFields) {
+                const cfDef = this.getUser()?.settings.customFields.find(f => f.id === k);
+                if (cfDef && cfDef.label) label = cfDef.label;
+            }
+            customFieldsHtml += `<div style="display:flex; justify-content:space-between; padding: 4px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem;">
+                <span style="color: #64748b;">${this.esc(label)}</span>
+                <span style="font-weight: 500;">${this.esc(v)}</span>
+            </div>`;
+        }
+        customFieldsHtml += '</div>';
+    }
+
     document.getElementById('order-modal-title').innerHTML = `Order #${this.esc(order.queueNumber)} ${this.statusPill(order.status)}`;
     document.getElementById('order-modal-body').innerHTML = `
       <div class="order-details-body">
         <div class="details-hero">
-          <div><div class="details-table-number">${this.esc(table || '—')}</div><div class="details-meta">${this.esc(this.orderTypeLabel(order))} · Placed ${this.waitingLabel(order)} ago</div></div>
+          <div><div class="details-table-number">${this.esc(table || '-')}</div><div class="details-meta">${this.esc(this.orderTypeLabel(order))} &bull; Placed ${this.waitingLabel(order)} ago</div></div>
           ${this.statusPill(order.status)}
         </div>
         <div class="details-section"><div class="details-section-title">Items (${this.itemCount(order)})</div>${itemHtml}</div>
+        ${customFieldsHtml}
         ${order.customerNote ? `<div class="details-note"><strong>Customer note</strong><br>${this.esc(order.customerNote)}</div>` : ''}
         ${price}${billActions}
       </div>`;
