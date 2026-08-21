@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
         ResolvedPermissions resolved = resolvePermissions(staff);
 
         // Build UserPrincipal so we can generate the token consistently
-        UserPrincipal principal = UserPrincipal.create(staff, resolved.permissionKeys, resolved.visibilityStatuses);
+        UserPrincipal principal = UserPrincipal.create(staff, resolved.roleNames(), resolved.permissionKeys(), resolved.visibilityStatuses());
         String accessToken = jwtTokenProvider.generateToken(principal);
         RefreshToken refreshToken = createRefreshToken(staff);
 
@@ -114,7 +114,7 @@ public class AuthServiceImpl implements AuthService {
         staffRepository.save(staff);
 
         ResolvedPermissions resolved = resolvePermissions(staff);
-        UserPrincipal principal = UserPrincipal.create(staff, resolved.permissionKeys, resolved.visibilityStatuses);
+        UserPrincipal principal = UserPrincipal.create(staff, resolved.roleNames(), resolved.permissionKeys(), resolved.visibilityStatuses());
         String accessToken = jwtTokenProvider.generateToken(principal);
         RefreshToken refreshToken = createRefreshToken(staff);
 
@@ -143,7 +143,7 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
 
         ResolvedPermissions resolved = resolvePermissions(staff);
-        UserPrincipal principal = UserPrincipal.create(staff, resolved.permissionKeys, resolved.visibilityStatuses);
+        UserPrincipal principal = UserPrincipal.create(staff, resolved.roleNames(), resolved.permissionKeys(), resolved.visibilityStatuses());
         String accessToken = jwtTokenProvider.generateToken(principal);
 
         return AuthResponse.builder()
@@ -195,10 +195,14 @@ public class AuthServiceImpl implements AuthService {
                 rbacRoleRepository.findByNameIn(roleNames).forEach(roles::add);
             }
 
+            java.util.Set<String> actualRoleNames = new java.util.LinkedHashSet<>();
             java.util.Set<String> keys = new java.util.LinkedHashSet<>();
             java.util.Set<OrderStatus> statuses = new java.util.LinkedHashSet<>();
 
             for (RbacRole role : roles) {
+                if (role.getName() != null) {
+                    actualRoleNames.add(role.getName());
+                }
                 if (role.getPermissions() != null) {
                     keys.addAll(role.getPermissions());
                 }
@@ -209,13 +213,18 @@ public class AuthServiceImpl implements AuthService {
 
             permissionKeys = new ArrayList<>(keys);
             visibilityStatuses = new ArrayList<>(statuses);
+            List<String> finalRoleNames = new ArrayList<>(actualRoleNames);
+            if (staff.isPlatformAdmin()) {
+                visibilityStatuses = Arrays.asList(OrderStatus.values());
+            }
+            return new ResolvedPermissions(permissionKeys, visibilityStatuses, finalRoleNames);
         }
 
         if (staff.isPlatformAdmin()) {
             visibilityStatuses = Arrays.asList(OrderStatus.values());
         }
 
-        return new ResolvedPermissions(permissionKeys, visibilityStatuses);
+        return new ResolvedPermissions(permissionKeys, visibilityStatuses, new ArrayList<>());
     }
 
     private StaffSummary mapToSummary(Staff staff, Vendor vendor, ResolvedPermissions resolved) {
@@ -224,9 +233,9 @@ public class AuthServiceImpl implements AuthService {
                 .name(staff.getName())
                 .email(staff.getEmail())
                 .roleIds(staff.getRoles())
-                .roleNames(staff.getRoles())
-                .effectivePermissions(resolved.permissionKeys)
-                .orderVisibilityStatuses(resolved.visibilityStatuses)
+                .roleNames(resolved.roleNames())
+                .effectivePermissions(resolved.permissionKeys())
+                .orderVisibilityStatuses(resolved.visibilityStatuses())
                 .departmentIds(staff.getDepartmentIds())
                 .vendorId(staff.getVendorId())
                 .vendorCode(vendor.getVendorCode())
@@ -247,5 +256,5 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /** Simple value holder for resolved permission data */
-    private record ResolvedPermissions(List<String> permissionKeys, List<OrderStatus> visibilityStatuses) {}
+    private record ResolvedPermissions(List<String> permissionKeys, List<OrderStatus> visibilityStatuses, List<String> roleNames) {}
 }

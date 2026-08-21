@@ -18,6 +18,9 @@ public class GeofenceServiceImpl implements GeofenceService {
 
     @Override
     public GeofenceResponse getGeofenceSettings(String vendorId) {
+        if (vendorId == null) {
+            throw new com.dequeue.common.exception.BadRequestException("Vendor ID is missing from current security context");
+        }
         Vendor vendor = vendorRepository.findById(vendorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
                 
@@ -35,6 +38,9 @@ public class GeofenceServiceImpl implements GeofenceService {
 
     @Override
     public GeofenceResponse updateGeofenceSettings(String vendorId, UpdateGeofenceRequest request) {
+        if (vendorId == null) {
+            throw new com.dequeue.common.exception.BadRequestException("Vendor ID is missing from current security context");
+        }
         Vendor vendor = vendorRepository.findById(vendorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
                 
