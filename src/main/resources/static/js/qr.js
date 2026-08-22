@@ -13,7 +13,7 @@ class QrCode {
         // Dynamically set the URL to point to the actual hosted domain
         const dynamicUrl = `${window.location.origin}/customer.html?vendor=${qrData.vendorCode}`;
         qrData.qrUrl = dynamicUrl;
-        qrData.qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(dynamicUrl)}`;
+        qrData.qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=H&data=${encodeURIComponent(dynamicUrl)}`;
         
         this.qrData = qrData;
         const img = document.querySelector('img[alt="QR Code"]');
@@ -143,6 +143,42 @@ class QrCode {
         
         // Draw QR Image
         ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+        
+        // Draw scan2skip branding in the center of QR
+        const logoW = 140;
+        const logoH = 44;
+        const logoX = qrX + (qrSize - logoW) / 2;
+        const logoY = qrY + (qrSize - logoH) / 2;
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+        
+        const lr = 8;
+        ctx.beginPath();
+        ctx.moveTo(logoX + lr, logoY);
+        ctx.lineTo(logoX + logoW - lr, logoY);
+        ctx.quadraticCurveTo(logoX + logoW, logoY, logoX + logoW, logoY + lr);
+        ctx.lineTo(logoX + logoW, logoY + logoH - lr);
+        ctx.quadraticCurveTo(logoX + logoW, logoY + logoH, logoX + logoW - lr, logoY + logoH);
+        ctx.lineTo(logoX + lr, logoY + logoH);
+        ctx.quadraticCurveTo(logoX, logoY + logoH, logoX, logoY + logoH - lr);
+        ctx.lineTo(logoX, logoY + lr);
+        ctx.quadraticCurveTo(logoX, logoY, logoX + lr, logoY);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.shadowColor = 'transparent';
+        
+        ctx.fillStyle = '#FF5A5F';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('scan2skip', qrX + qrSize / 2, qrY + qrSize / 2);
+
+        // Reset textBaseline
+        ctx.textBaseline = 'alphabetic';
         
         // "SCAN ME" text under QR
         ctx.fillStyle = '#1e293b';

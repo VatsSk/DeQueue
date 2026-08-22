@@ -38,13 +38,13 @@ public class StaffController {
     }
 
     @PostMapping
-    @PreAuthorize("hasPermission(null, 'staff.create')")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<StaffResponse> create(@Valid @RequestBody CreateStaffRequest request) {
         return ApiResponse.success(staffService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasPermission(null, 'staff.update')")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<StaffResponse> update(
             @PathVariable String id,
             @Valid @RequestBody UpdateStaffRequest request) {
@@ -52,14 +52,14 @@ public class StaffController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasPermission(null, 'staff.delete')")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<Void> delete(@PathVariable String id) {
         staffService.delete(id);
         return ApiResponse.success(null);
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasPermission(null, 'staff.update')")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<StaffResponse> changeStatus(
             @PathVariable String id,
             @Valid @RequestBody StaffStatusRequest request) {

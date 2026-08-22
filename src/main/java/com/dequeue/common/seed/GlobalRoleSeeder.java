@@ -72,11 +72,14 @@ public class GlobalRoleSeeder implements CommandLineRunner {
     private void seedRole(String name, String description, List<String> permissions,
                           List<OrderStatus> visibilityStatuses) {
         roleRepository.findByName(name).ifPresentOrElse(existing -> {
-            // Remove stale vendorId if present
+            // Update permissions, visibility and unset vendorId
             Query query = new Query(Criteria.where("_id").is(existing.getId()));
-            Update update = new Update().unset("vendorId");
+            Update update = new Update()
+                .unset("vendorId")
+                .set("permissions", permissions)
+                .set("orderVisibility", OrderVisibility.builder().statuses(visibilityStatuses).build());
             mongoTemplate.updateFirst(query, update, RbacRole.class);
-            log.info("GlobalRoleSeeder: role '{}' already exists — removed vendorId if any.", name);
+            log.info("GlobalRoleSeeder: role '{}' already exists — updated permissions and removed vendorId if any.", name);
         }, () -> {
             RbacRole role = RbacRole.builder()
                     .name(name)

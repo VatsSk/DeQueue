@@ -34,13 +34,13 @@ public class DepartmentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasPermission(null, 'staff.create')")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<DepartmentResponse> create(@Valid @RequestBody CreateDepartmentRequest request) {
         return ApiResponse.success(departmentService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasPermission(null, 'staff.update')")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<DepartmentResponse> update(
             @PathVariable String id,
             @Valid @RequestBody UpdateDepartmentRequest request) {
@@ -48,7 +48,7 @@ public class DepartmentController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasPermission(null, 'staff.delete')")
+    @PreAuthorize("hasPermission(null, 'staff.edit')")
     public ApiResponse<Void> delete(@PathVariable String id) {
         departmentService.delete(id);
         return ApiResponse.success(null);
