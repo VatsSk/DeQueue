@@ -14,7 +14,7 @@ class Router {
             { path: 'qr.html', icon: 'qr-code', label: 'QR Code', permissions: ['qr.view'] },
             { path: 'settings.html', icon: 'settings', label: 'Settings', permissions: ['staff.view'] },
             { path: 'geofence.html', icon: 'map-pin', label: 'Geofencing', permissions: ['staff.view'] },
-            { path: 'settlements.html', icon: 'wallet', label: 'Payments & Settlements', permissions: ['report.view', 'order.view'] },
+            { path: 'settlements.html', icon: 'wallet', label: 'Payments & Settlements', permissions: [], vendorAdminOnly: true },
             // { path: 'promotions.html', icon: 'tag', label: 'Promotions', permissions: ['menu.view'] },
 //            { path: 'customer.html', icon: 'smartphone', label: 'Customer View', permissions: ['order.view', 'menu.view'] },
             { path: 'admin-payments.html', icon: 'banknote', label: 'Admin Financials', permissions: [], platformAdminOnly: true },
@@ -59,12 +59,26 @@ class Router {
             
             if (isPlatformAdmin) {
                 hasAccess = true;
-            } else if (!item.platformAdminOnly) {
+            } else if (item.platformAdminOnly) {
+                hasAccess = false;
+            } else if (item.vendorAdminOnly) {
+                if (user && (
+                    (user.roles && Array.isArray(user.roles) && user.roles.includes('ROLE_VENDOR_ADMIN')) ||
+                    (user.roleNames && Array.isArray(user.roleNames) && user.roleNames.includes('ROLE_VENDOR_ADMIN')) ||
+                    (user.role === 'ROLE_VENDOR_ADMIN')
+                )) {
+                    hasAccess = true;
+                } else {
+                    hasAccess = false;
+                }
+            } else {
                 // If the user has any of the permissions required by the item, grant access.
                 // If the item lists no permissions, default to allowing access.
                 if (!item.permissions || item.permissions.length === 0) {
                     hasAccess = true;
                 } else if (user && user.roles && Array.isArray(user.roles) && user.roles.includes('ROLE_VENDOR_ADMIN')) {
+                    hasAccess = true;
+                } else if (user && user.roleNames && Array.isArray(user.roleNames) && user.roleNames.includes('ROLE_VENDOR_ADMIN')) {
                     hasAccess = true;
                 } else if (user && user.role === 'ROLE_VENDOR_ADMIN') {
                     hasAccess = true;
@@ -132,9 +146,21 @@ class Router {
                 allowed = true;
             } else if (currentItem.platformAdminOnly) {
                 allowed = false;
+            } else if (currentItem.vendorAdminOnly) {
+                if (user && (
+                    (user.roles && Array.isArray(user.roles) && user.roles.includes('ROLE_VENDOR_ADMIN')) ||
+                    (user.roleNames && Array.isArray(user.roleNames) && user.roleNames.includes('ROLE_VENDOR_ADMIN')) ||
+                    (user.role === 'ROLE_VENDOR_ADMIN')
+                )) {
+                    allowed = true;
+                } else {
+                    allowed = false;
+                }
             } else if (!currentItem.permissions || currentItem.permissions.length === 0) {
                 allowed = true;
             } else if (user && user.roles && Array.isArray(user.roles) && user.roles.includes('ROLE_VENDOR_ADMIN')) {
+                allowed = true;
+            } else if (user && user.roleNames && Array.isArray(user.roleNames) && user.roleNames.includes('ROLE_VENDOR_ADMIN')) {
                 allowed = true;
             } else if (user && user.role === 'ROLE_VENDOR_ADMIN') {
                 allowed = true;
