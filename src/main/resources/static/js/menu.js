@@ -604,7 +604,7 @@ class Menu {
       rows += `
         <tr data-index="${origIndex}">
           <td style="width:50px; text-align:center;">
-              <div class="ai-item-img-upload" onclick="menuApp._triggerAiItemImageUpload(${origIndex})" style="cursor:pointer; width:40px; height:40px; background:var(--surface-hover); border:1px dashed var(--border); border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden;" title="Upload Image">
+              <div class="ai-item-img-upload" style="width:40px; height:40px; background:var(--surface-hover); border:1px dashed var(--border); border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden;" title="Image">
                   ${imgPreview}
               </div>
           </td>
@@ -616,7 +616,7 @@ class Menu {
              <input type="number" class="form-control" style="padding:0.25rem 0.5rem; min-height:30px; font-size:0.9rem;" value="${item.price || 0}" onchange="menuApp._updateAiItem(${origIndex}, 'price', this.value)">
           </td>
           <td style="width:120px;">
-             <input type="text" class="form-control" style="padding:0.25rem 0.5rem; min-height:30px; font-size:0.85rem;" value="${this._esc(item.categoryName || 'General')}" onchange="menuApp._updateAiItem(${origIndex}, 'categoryName', this.value)">
+             <input type="text" class="form-control" style="padding:0.25rem 0.5rem; min-height:30px; font-size:0.85rem;" value="${this._esc(item.categoryName || 'General')}" disabled>
           </td>
         </tr>`;
     });
