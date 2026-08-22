@@ -920,22 +920,29 @@ class Orders {
       
       let html = '';
       item.customizationGroups.forEach(group => {
+          const minSel = group.minSelection != null ? group.minSelection : (group.required ? 1 : 0);
+          const maxSel = group.maxSelection != null ? group.maxSelection : (group.selectionType === 'SINGLE' ? 1 : (group.options ? group.options.length : 1));
+          
+          let selectText = minSel === maxSel ? minSel : (minSel + ' to ' + maxSel);
+          if (maxSel > 900) selectText = `at least ${minSel}`;
+
           html += `<div class="mb-4">
-              <label class="form-label" style="font-weight: bold;">${this.esc(group.name)} ${group.minSelections > 0 ? '<span class="text-danger">*</span>' : ''}</label>
-              <div class="text-muted text-sm mb-2">Select ${group.minSelections === group.maxSelections ? group.minSelections : (group.minSelections + ' to ' + group.maxSelections)}</div>
+              <label class="form-label" style="font-weight: bold;">${this.esc(group.name)} ${minSel > 0 ? '<span class="text-danger">*</span>' : ''}</label>
+              <div class="text-muted text-sm mb-2">Select ${selectText}</div>
               <div style="display: flex; flex-direction: column; gap: 8px;">
           `;
           
-          const type = group.maxSelections === 1 ? 'radio' : 'checkbox';
+          const type = (group.selectionType === 'SINGLE' || maxSel === 1) ? 'radio' : 'checkbox';
           
           (group.options || []).forEach(opt => {
+              const price = Number(opt.additionalPrice || 0);
               html += `
                   <label style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                       <div style="display: flex; align-items: center; gap: 10px;">
-                          <input type="${type}" name="cg-${group.id}" value="${this.escAttr(opt.name)}" data-price="${opt.extraPrice}" data-group="${group.id}" data-group-name="${this.escAttr(group.name)}" onchange="ordersApp.updateCoCustPrice()">
+                          <input type="${type}" name="cg-${group.id}" value="${this.escAttr(opt.name)}" data-price="${price}" data-group="${group.id}" data-group-name="${this.escAttr(group.name)}" onchange="ordersApp.updateCoCustPrice()">
                           <span>${this.esc(opt.name)}</span>
                       </div>
-                      ${opt.extraPrice > 0 ? `<span class="text-muted">+₹${opt.extraPrice.toFixed(2)}</span>` : ''}
+                      ${price > 0 ? `<span class="text-muted">+₹${price.toFixed(2)}</span>` : ''}
                   </label>
               `;
           });
@@ -956,11 +963,11 @@ class Orders {
   
   updateCoCustPrice() {
       if (!this.coCurrentCustItem) return;
-      let total = this.coCurrentCustItem.price;
+      let total = this.coCurrentCustItem.price || 0;
       
       const inputs = document.querySelectorAll('#co-cust-body input:checked');
       inputs.forEach(input => {
-          total += parseFloat(input.dataset.price || 0);
+          total += (parseFloat(input.dataset.price) || 0);
       });
       
       document.getElementById('co-cust-btn-price').textContent = total.toFixed(2);
@@ -975,24 +982,28 @@ class Orders {
       let hasError = false;
       
       item.customizationGroups.forEach(group => {
+          const minSel = group.minSelection != null ? group.minSelection : (group.required ? 1 : 0);
+          const maxSel = group.maxSelection != null ? group.maxSelection : (group.selectionType === 'SINGLE' ? 1 : (group.options ? group.options.length : 1));
+
           const checked = document.querySelectorAll(`input[name="cg-${group.id}"]:checked`);
-          if (checked.length < group.minSelections) {
-              if (window.showToast) showToast(`Please select at least ${group.minSelections} for ${group.name}`, 'error');
+          if (checked.length < minSel) {
+              if (window.showToast) showToast(`Please select at least ${minSel} for ${group.name}`, 'error');
               hasError = true;
           }
-          if (group.maxSelections > 0 && checked.length > group.maxSelections) {
-              if (window.showToast) showToast(`You can select at most ${group.maxSelections} for ${group.name}`, 'error');
+          if (maxSel > 0 && checked.length > maxSel) {
+              if (window.showToast) showToast(`You can select at most ${maxSel} for ${group.name}`, 'error');
               hasError = true;
           }
           
           checked.forEach(input => {
+              const price = parseFloat(input.dataset.price) || 0;
               custs.push({
                   groupId: input.dataset.group,
                   groupName: input.dataset.groupName,
                   optionName: input.value,
-                  extraPrice: parseFloat(input.dataset.price || 0)
+                  extraPrice: price
               });
-              extraPrice += parseFloat(input.dataset.price || 0);
+              extraPrice += price;
           });
       });
       
