@@ -193,17 +193,17 @@ class QrCode {
         // Footer (DeQueue Branding)
         ctx.fillStyle = '#FF5A5F';
         ctx.font = 'bold 48px sans-serif';
-        ctx.fillText('DeQueue', width / 2, height - 100);
+        ctx.fillText('Scan2Skip', width / 2, height - 100);
         
         ctx.fillStyle = '#94a3b8';
         ctx.font = '24px sans-serif';
-        ctx.fillText('Powered by dequeue.com', width / 2, height - 50);
+        ctx.fillText('Powered by Scan2Skip.com', width / 2, height - 50);
         
         // 4. Download
         const finalUrl = canvas.toDataURL('image/png');
         const a = document.createElement('a');
         a.href = finalUrl;
-        a.download = `${user.shopName.replace(/\\s+/g, '_')}_DeQueue_Poster.png`;
+        a.download = `${user.shopName.replace(/\\s+/g, '_')}_Scan2Skip_Poster.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

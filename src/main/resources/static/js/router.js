@@ -90,7 +90,7 @@ class Router {
         // Add close button to sidebar for mobile
         const brand = document.querySelector('.sidebar-brand');
         if (brand && !brand.querySelector('.close-sidebar')) {
-            brand.innerHTML = `<i data-lucide="qr-code"></i> DeQueue <button class="close-sidebar btn-icon" style="margin-left:auto; display:none;" onclick="document.getElementById('sidebar').classList.remove('open')"><i data-lucide="x"></i></button>`;
+            brand.innerHTML = `<i data-lucide="qr-code"></i> Scan2Skip <button class="close-sidebar btn-icon" style="margin-left:auto; display:none;" onclick="document.getElementById('sidebar').classList.remove('open')"><i data-lucide="x"></i></button>`;
         }
 
         // Add logout button to header if missing
