@@ -205,7 +205,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         if (request.getCustomFields() != null) {
-            CustomFieldValidator.validate(request.getCustomFields(), vendor.getSettings().getCustomFields());
+            CustomFieldValidator.validate(request.getCustomFields(), vendor.getSettings() != null ? vendor.getSettings().getCustomFields() : null);
             order.setCustomFields(request.getCustomFields());
         } else {
             // Even if null, validate to ensure no required fields are missing

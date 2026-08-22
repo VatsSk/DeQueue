@@ -867,7 +867,9 @@ class CustomerApp {
       }
 
       this.updateStatusDisplay(this.activeOrder.status);
-      this.subscribeToOrder(this.activeOrder.queueNumber);
+      if (!this.notificationManager) {
+        this.subscribeToOrder(this.activeOrder.queueNumber);
+      }
     }
   }
 
@@ -887,8 +889,8 @@ class CustomerApp {
         this.subscribeToVendor(this.vendor.id);
       }
 
-      // Subscribe to active order
-      if (this.activeOrder && this.activeOrder.queueNumber) {
+      // Subscribe to active order (fallback if no notification manager)
+      if (this.activeOrder && this.activeOrder.queueNumber && !this.notificationManager) {
         this.subscribeToOrder(this.activeOrder.queueNumber);
       }
 
@@ -941,7 +943,9 @@ class CustomerApp {
       if (event.totalAmount != null) this.activeOrder.totalAmount = event.totalAmount;
       localStorage.setItem(`dequeue_order_${this.vendorCode}`, JSON.stringify(this.activeOrder));
       this.updateStatusDisplay(status);
-      this.showBrowserNotification(status);
+      if (!this.notificationManager) {
+          this.showBrowserNotification(status);
+      }
       
       if (status === 'COMPLETED' || status === 'COLLECTED' || status === 'CANCELLED') {
         localStorage.removeItem(`dequeue_order_${this.vendorCode}`);
