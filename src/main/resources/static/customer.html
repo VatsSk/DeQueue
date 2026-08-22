@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scan2Skip - Order</title>
@@ -40,7 +41,7 @@
                             <span class="hero-eyebrow" aria-hidden="true"><i data-lucide="sparkles"></i> Freshly made for you</span>
                         </div>
                     </div>
-                    <h2 data-hero-title>Good food, good mood! 😊</h2>
+                    <h2 data-hero-title>Good food, good mood! ðŸ˜Š</h2>
                     <p data-hero-subtitle>Freshly made at your favourite place</p>
                     <div class="hero-dots" aria-hidden="true"><span class="active"></span><span></span><span></span></div>
                 </div>
@@ -56,7 +57,7 @@
 
             <section class="menu-section-head">
                 <div>
-                    <h2 id="menu-section-title">Popular <span class="section-sparkle">✦</span></h2>
+                    <h2 id="menu-section-title">Popular <span class="section-sparkle">âœ¦</span></h2>
                     <p id="menu-section-subtitle">Our most loved picks for you</p>
                 </div>
             </section>
@@ -109,7 +110,7 @@
                     <div class="flex justify-between items-center">
                         <div>
                             <div class="text-xs text-muted mb-1" style="font-weight:600;letter-spacing:.04em;text-transform:uppercase;">Amount to Pay</div>
-                            <div id="amount-to-pay-value" class="font-bold" style="font-size:1.6rem;color:var(--primary);">₹0</div>
+                            <div id="amount-to-pay-value" class="font-bold" style="font-size:1.6rem;color:var(--primary);">â‚¹0</div>
                         </div>
                         <div id="pay-method-badge" class="badge" style="background:rgba(99,102,241,.15);color:var(--primary);border:1px solid rgba(99,102,241,.3);font-size:.75rem;">
                             <i data-lucide="wallet" style="width:12px;height:12px;display:inline;margin-right:4px;"></i>Pay at Counter
@@ -208,7 +209,7 @@
                 <div class="card text-left p-4" style="color: #ffffff; text-align: left;">
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="font-bold">Your Invoice</h3>
-                        <span id="invoice-total-display" class="font-bold text-primary text-lg">₹0</span>
+                        <span id="invoice-total-display" class="font-bold text-primary text-lg">â‚¹0</span>
                     </div>
                     <div class="flex gap-2">
                         <button class="btn btn-secondary flex-1" onclick="customerApp.viewInvoice()">
@@ -249,7 +250,7 @@
         <button class="floating-cart" id="floating-cart" type="button" onclick="openModal('cart-modal')">
             <span class="cart-icon-wrap"><i data-lucide="shopping-cart"></i><b id="cart-badge">0</b></span>
             <span class="cart-summary"><strong id="cart-count">0 items</strong><small>View your cart</small></span>
-            <span class="cart-total-wrap"><strong id="cart-total">₹0</strong><small>Tap to checkout</small></span>
+            <span class="cart-total-wrap"><strong id="cart-total">â‚¹0</strong><small>Tap to checkout</small></span>
             <span class="cart-cta">View Cart <i data-lucide="arrow-right"></i></span>
         </button>
 
@@ -267,7 +268,7 @@
                 <div class="checkout-footer">
                     <button id="place-order-btn" class="checkout-primary-btn" type="button" onclick="customerApp.placeOrder()">
                         <span><i data-lucide="check-circle-2"></i><span class="checkout-btn-label">Place Order</span></span>
-                        <strong id="checkout-button-total">₹0</strong>
+                        <strong id="checkout-button-total">â‚¹0</strong>
                     </button>
                 </div>
             </div>

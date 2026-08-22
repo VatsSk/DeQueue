@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <title>Debug - User Data</title>
     <style>
         body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
@@ -11,7 +12,7 @@
     </style>
 </head>
 <body>
-    <h1>🔍 Debug User Data</h1>
+    <h1>ðŸ” Debug User Data</h1>
     
     <h2>LocalStorage 'user' object:</h2>
     <pre id="user-data"></pre>
@@ -30,7 +31,7 @@
             const user = JSON.parse(userStr);
             let html = '';
             
-            html += `<div class="test">✓ user exists: <span class="success">true</span></div>`;
+            html += `<div class="test">âœ“ user exists: <span class="success">true</span></div>`;
             html += `<div class="test">user.platformAdmin: <span class="${user.platformAdmin === true ? 'success' : 'error'}">${user.platformAdmin}</span></div>`;
             html += `<div class="test">user.roleNames: <span>${JSON.stringify(user.roleNames)}</span></div>`;
             html += `<div class="test">typeof user.platformAdmin: <span>${typeof user.platformAdmin}</span></div>`;
@@ -42,7 +43,7 @@
             testsEl.innerHTML = html;
         } else {
             userDataEl.textContent = 'No user data in localStorage';
-            testsEl.innerHTML = '<div class="test error">✗ No user logged in</div>';
+            testsEl.innerHTML = '<div class="test error">âœ— No user logged in</div>';
         }
     </script>
 </body>

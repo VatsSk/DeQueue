@@ -1,4 +1,4 @@
-// Service Worker for DeQueue Push Notifications
+// Service Worker for Scan2Skip Push Notifications
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -10,9 +10,16 @@ self.addEventListener('activate', (event) => {
 
 // Handle push events from Web Push API
 self.addEventListener('push', (event) => {
-  const promiseChain = self.registration.showNotification('Order Update!', {
-    body: event.data ? event.data.text() : 'Your order status was updated.',
-    tag: 'order-update'
+  let notifData = {};
+  if (event.data) {
+    try { notifData = event.data.json(); } catch (e) { notifData = { body: event.data.text() }; }
+  }
+  const promiseChain = self.registration.showNotification(notifData.title || 'Order Update!', {
+    body: notifData.body || 'Your order status was updated.',
+    icon: '/Scan2Skip_favicon.svg',
+    badge: '/Scan2Skip_favicon.svg',
+    tag: notifData.tag || 'order-update',
+    data: notifData.data || {}
   });
   event.waitUntil(promiseChain);
 });

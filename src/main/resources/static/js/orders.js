@@ -644,7 +644,7 @@ class Orders {
     if (!order) return;
 
     const user = this.getUser() || {};
-    const shopName = user.shopName || 'DeQueue Shop';
+    const shopName = user.shopName || 'Scan2Skip Shop';
     const address = user.address?.street || '';
     const phone = user.phone || '';
     const email = user.email || '';
@@ -681,7 +681,7 @@ class Orders {
         ${taxValue > 0 ? `<tr><td>${this.esc(taxName)} ${order.taxAmount == null && taxPct > 0 ? '('+taxPct+'%)' : ''}</td><td style="text-align:right">₹${taxValue.toFixed(2)}</td></tr>` : ''}
         ${chargeAmt > 0 ? `<tr><td>${this.esc(chargeName)}</td><td style="text-align:right">₹${chargeAmt.toFixed(2)}</td></tr>` : ''}
         <tr><td class="grand-total">Total</td><td class="grand-total" style="text-align:right">₹${computedTotal.toFixed(2)}</td></tr>
-      </table><div class="divider"></div><div class="footer">Thank you for visiting!<br>Powered by DeQueue</div>`;
+      </table><div class="divider"></div><div class="footer">Thank you for visiting!<br>Powered by Scan2Skip</div>`;
 
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice</title><style>
       .invoice-receipt {font-family:'Courier New',Courier,monospace;max-width:350px;margin:0 auto;padding:20px;color:#000;font-size:14px;line-height:1.4}

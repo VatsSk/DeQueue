@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Menu - DeQueue</title>
@@ -14,9 +15,7 @@
     <div class="app-layout">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <i data-lucide="qr-code"></i> DeQueue
-            </div>
+            <div class="sidebar-brand"><img src="scan2skip-logo.svg" alt="Scan2Skip" class="sidebar-logo"></div>
             <nav class="sidebar-nav">
                 <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
                 <a href="orders.html" class="nav-item"><i data-lucide="list-ordered"></i> Orders</a>
@@ -70,9 +69,9 @@
         </main>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- AI EXTRACT MODAL — Step 1: Upload Image                     -->
-    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <!-- AI EXTRACT MODAL â€” Step 1: Upload Image                     -->
+    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div class="modal-overlay" id="ai-extract-modal-overlay">
         <div class="modal modal-lg">
             <div class="modal-header">
@@ -110,7 +109,7 @@
                             <i data-lucide="image-up"></i>
                         </div>
                         <h4>Drop your menu photo here</h4>
-                        <p class="text-muted">JPEG, PNG, or WEBP · Max 10 MB</p>
+                        <p class="text-muted">JPEG, PNG, or WEBP Â· Max 10 MB</p>
                         <button type="button" class="btn btn-secondary mt-3" onclick="document.getElementById('aiMenuImageFile').click()">
                             <i data-lucide="folder-open"></i> Browse File
                         </button>
@@ -194,7 +193,7 @@
                     <div id="imagePreviewContainer" style="pointer-events: none;">
                         <i data-lucide="upload-cloud" style="width: 48px; height: 48px; color: var(--primary); margin: 0 auto 1rem; display:block;"></i>
                         <p id="imageUploadText" style="margin:0;">Click or drag an image here</p>
-                        <p class="text-muted text-sm" style="margin:0.25rem 0 0;">JPEG, PNG, WEBP · Max 10 MB</p>
+                        <p class="text-muted text-sm" style="margin:0.25rem 0 0;">JPEG, PNG, WEBP Â· Max 10 MB</p>
                     </div>
                     <div id="imagePreviewWrap" style="display:none; position:relative;">
                         <img id="imagePreview" src="" style="display: block; max-width: 100%; max-height: 200px; margin: 0 auto; border-radius: 8px; position:relative; z-index:0;">
@@ -214,7 +213,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="form-group">
-                        <label class="form-label">Price (₹)</label>
+                        <label class="form-label">Price (â‚¹)</label>
                         <input type="number" id="addItemPrice" class="form-control" placeholder="150">
                     </div>
                     <div class="form-group">
@@ -271,5 +270,6 @@
     <script>
         lucide.createIcons();
     </script>
+<script src="js/logo.js"></script>
 </body>
 </html>

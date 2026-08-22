@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settlements - DeQueue</title>
@@ -47,9 +48,7 @@
     <div class="app-layout">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <i data-lucide="qr-code"></i> DeQueue
-            </div>
+            <div class="sidebar-brand"><img src="scan2skip-logo.svg" alt="Scan2Skip" class="sidebar-logo"></div>
             <nav class="sidebar-nav" id="sidebar-nav">
                 <!-- Dynamically populated by router.js -->
             </nav>
@@ -76,41 +75,41 @@
                     <div class="grid-3">
                         <div class="stat-card center">
                             <div class="stat-label">Total Sales</div>
-                            <div class="stat-value" id="dashTotalSales">₹0.00</div>
+                            <div class="stat-value" id="dashTotalSales">â‚¹0.00</div>
                         </div>
                         <div class="stat-card center">
                             <div class="stat-label">Cashfree Sales</div>
-                            <div class="stat-value" id="dashCashfreeSales">₹0.00</div>
+                            <div class="stat-value" id="dashCashfreeSales">â‚¹0.00</div>
                         </div>
                         <div class="stat-card center">
                             <div class="stat-label">Cash / Offline Sales</div>
-                            <div class="stat-value" id="dashOfflineSales">₹0.00</div>
+                            <div class="stat-value" id="dashOfflineSales">â‚¹0.00</div>
                         </div>
                     </div>
 
                     <div class="grid-3">
                         <div class="stat-card center" style="border-left: 4px solid #f5c6cb;">
                             <div class="stat-label">Total Deductions (Fees & Taxes)</div>
-                            <div class="stat-value text-danger" id="dashTotalDeductions">₹0.00</div>
+                            <div class="stat-value text-danger" id="dashTotalDeductions">â‚¹0.00</div>
                             <div style="font-size: 0.85rem; color: var(--text-muted);">
-                                Platform: <span id="dashPlatformFee">₹0</span> | CF Fee: <span id="dashCFFee">₹0</span> | CF Tax: <span id="dashCFTax">₹0</span>
+                                Platform: <span id="dashPlatformFee">â‚¹0</span> | CF Fee: <span id="dashCFFee">â‚¹0</span> | CF Tax: <span id="dashCFTax">â‚¹0</span>
                             </div>
                         </div>
                         <div class="stat-card center" style="border-left: 4px solid #b8daff;">
                             <div class="stat-label">Already Settled</div>
-                            <div class="stat-value" id="dashSettled">₹0.00</div>
+                            <div class="stat-value" id="dashSettled">â‚¹0.00</div>
                             <div style="font-size: 0.85rem; color: var(--text-muted);" id="dashSettledTill">Settled Till: -</div>
                         </div>
                         <div class="stat-card center" style="border-left: 4px solid #ffeeba;">
                             <div class="stat-label">Pending Settlement</div>
-                            <div class="stat-value" id="dashPending">₹0.00</div>
+                            <div class="stat-value" id="dashPending">â‚¹0.00</div>
                             <div style="font-size: 0.85rem; color: var(--text-muted);" id="dashPendingFrom">Pending From: -</div>
                         </div>
                     </div>
                     
                     <div class="summary-box">
                         <h3 style="margin-bottom: 0.5rem;">Net Earnings Summary</h3>
-                        <p>Total Vendor Earnings: <strong style="font-size: 1.25rem; color: var(--primary);" id="dashNetEarnings">₹0.00</strong> 
+                        <p>Total Vendor Earnings: <strong style="font-size: 1.25rem; color: var(--primary);" id="dashNetEarnings">â‚¹0.00</strong> 
                         <span class="text-muted">(Total Sales - Refunds - All Fees and Taxes)</span></p>
                     </div>
                 </div>
@@ -191,7 +190,7 @@
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 0.85rem; color: var(--text-muted);">Total Pending Amount</div>
-                            <div style="font-size: 2rem; font-weight: bold; color: #856404;" id="pendingTotalAmount">₹0.00</div>
+                            <div style="font-size: 2rem; font-weight: bold; color: #856404;" id="pendingTotalAmount">â‚¹0.00</div>
                         </div>
                     </div>
                     
@@ -202,11 +201,11 @@
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">Gross Sales</div>
-                            <div class="stat-value" id="pendingGross" style="font-size: 1.5rem;">₹0.00</div>
+                            <div class="stat-value" id="pendingGross" style="font-size: 1.5rem;">â‚¹0.00</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">Total Fees to Deduct</div>
-                            <div class="stat-value text-danger" id="pendingFees" style="font-size: 1.5rem;">₹0.00</div>
+                            <div class="stat-value text-danger" id="pendingFees" style="font-size: 1.5rem;">â‚¹0.00</div>
                         </div>
                     </div>
 
@@ -244,17 +243,17 @@
             <div class="grid-3">
                 <div class="summary-box">
                     <div class="stat-label">Total Sales</div>
-                    <div class="stat-value" id="modalTotalSales" style="font-size: 1.5rem;">₹0.00</div>
+                    <div class="stat-value" id="modalTotalSales" style="font-size: 1.5rem;">â‚¹0.00</div>
                     <div style="font-size: 0.85rem;" class="text-muted">CF: <span id="modalCFSales"></span> | Off: <span id="modalOffSales"></span></div>
                 </div>
                 <div class="summary-box">
                     <div class="stat-label">Total Deductions</div>
-                    <div class="stat-value text-danger" id="modalDeductions" style="font-size: 1.5rem;">₹0.00</div>
+                    <div class="stat-value text-danger" id="modalDeductions" style="font-size: 1.5rem;">â‚¹0.00</div>
                     <div style="font-size: 0.85rem;" class="text-muted">Platform: <span id="modalPlatFee"></span> | Gateway: <span id="modalGateFee"></span></div>
                 </div>
                 <div class="summary-box" style="background: #e8f4fd; border-color: #b8daff;">
                     <div class="stat-label" style="color: #004085;">Net Settled Amount</div>
-                    <div class="stat-value" id="modalNet" style="font-size: 1.5rem; color: #004085;">₹0.00</div>
+                    <div class="stat-value" id="modalNet" style="font-size: 1.5rem; color: #004085;">â‚¹0.00</div>
                     <div style="font-size: 0.85rem; color: #004085;">Status: <span id="modalStatus"></span></div>
                 </div>
             </div>
@@ -285,5 +284,6 @@
     <script>
         lucide.createIcons();
     </script>
+<script src="js/logo.js"></script>
 </body>
 </html>

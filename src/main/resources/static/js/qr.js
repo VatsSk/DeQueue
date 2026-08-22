@@ -13,7 +13,7 @@ class QrCode {
         // Dynamically set the URL to point to the actual hosted domain
         const dynamicUrl = `${window.location.origin}/customer.html?vendor=${qrData.vendorCode}`;
         qrData.qrUrl = dynamicUrl;
-        qrData.qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=H&data=${encodeURIComponent(dynamicUrl)}`;
+        qrData.qrImageUrl = `https://quickchart.io/qr?text=${encodeURIComponent(dynamicUrl)}&size=400&margin=0`;
         
         this.qrData = qrData;
         const img = document.querySelector('img[alt="QR Code"]');
@@ -61,17 +61,14 @@ class QrCode {
         const userStr = localStorage.getItem('user');
         const user = userStr ? JSON.parse(userStr) : { shopName: 'Your Shop' };
         
-        // 1. Fetch QR Image as Blob to avoid Canvas CORS taint
+        // 1. Load QR Image directly with CORS configuration
         const qrUrl = this.qrData.qrImageUrl;
-        const response = await fetch(qrUrl);
-        const blob = await response.blob();
-        
-        // 2. Load it into an Image object
         const qrImg = new Image();
-        const objectUrl = window.URL.createObjectURL(blob);
-        await new Promise((resolve) => {
+        qrImg.crossOrigin = 'Anonymous';
+        await new Promise((resolve, reject) => {
             qrImg.onload = resolve;
-            qrImg.src = objectUrl;
+            qrImg.onerror = () => reject(new Error('Failed to load QR image'));
+            qrImg.src = qrUrl;
         });
         
         // 3. Create Canvas
@@ -89,7 +86,7 @@ class QrCode {
         ctx.fillRect(0, 0, width, height);
         
         // Top Accent Shape
-        ctx.fillStyle = '#FF5A5F'; // Primary color
+        ctx.fillStyle = '#14b8a6'; // Teal color
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(width, 0);
@@ -144,9 +141,17 @@ class QrCode {
         // Draw QR Image
         ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
         
-        // Draw scan2skip branding in the center of QR
-        const logoW = 140;
-        const logoH = 44;
+        // Load local PNG logo for the center
+        const qrLogoImg = new Image();
+        await new Promise((resolve, reject) => {
+            qrLogoImg.onload = resolve;
+            qrLogoImg.onerror = reject;
+            qrLogoImg.src = window.qrLogoB64 || 'images/qr_logo.png';
+        });
+        
+        // Draw center logo container
+        const logoW = 110;
+        const logoH = 65;
         const logoX = qrX + (qrSize - logoW) / 2;
         const logoY = qrY + (qrSize - logoH) / 2;
         
@@ -155,7 +160,7 @@ class QrCode {
         ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         
-        const lr = 8;
+        const lr = 12;
         ctx.beginPath();
         ctx.moveTo(logoX + lr, logoY);
         ctx.lineTo(logoX + logoW - lr, logoY);
@@ -171,18 +176,13 @@ class QrCode {
         
         ctx.shadowColor = 'transparent';
         
-        ctx.fillStyle = '#FF5A5F';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('scan2skip', qrX + qrSize / 2, qrY + qrSize / 2);
-
-        // Reset textBaseline
-        ctx.textBaseline = 'alphabetic';
+        // Draw logo image (stretch it as requested)
+        ctx.drawImage(qrLogoImg, logoX + 12, logoY + 12, logoW - 24, logoH - 24);
         
         // "SCAN ME" text under QR
         ctx.fillStyle = '#1e293b';
         ctx.font = 'bold 42px sans-serif';
+        ctx.textBaseline = 'alphabetic';
         ctx.fillText('SCAN TO ORDER', width / 2, qrY + qrSize + 60);
         
         // Step-by-step instructions
@@ -190,14 +190,14 @@ class QrCode {
         ctx.fillStyle = '#64748b';
         ctx.fillText('1. Scan QR  •  2. Select Items  •  3. Collect Order', width / 2, qrY + qrSize + 160);
         
-        // Footer (DeQueue Branding)
-        ctx.fillStyle = '#FF5A5F';
-        ctx.font = 'bold 48px sans-serif';
-        ctx.fillText('Scan2Skip', width / 2, height - 100);
-        
+        // Footer (Scan2Skip Branding)
         ctx.fillStyle = '#94a3b8';
-        ctx.font = '24px sans-serif';
-        ctx.fillText('Powered by Scan2Skip.com', width / 2, height - 50);
+        ctx.font = '500 24px sans-serif';
+        ctx.fillText('Powered by', width / 2, height - 85);
+
+        ctx.fillStyle = '#14b8a6';
+        ctx.font = 'bold 42px sans-serif';
+        ctx.fillText('Scan2Skip', width / 2, height - 40);
         
         // 4. Download
         const finalUrl = canvas.toDataURL('image/png');
@@ -208,12 +208,89 @@ class QrCode {
         a.click();
         document.body.removeChild(a);
         
-        window.URL.revokeObjectURL(objectUrl);
+        
         if (window.showToast) showToast('Poster Downloaded!', 'success');
         
     } catch(err) {
         console.error(err);
         if (window.showToast) showToast('Failed to generate poster', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+  }
+  async downloadCard() {
+    const btn = document.querySelector('button[onclick="window.qrApp.downloadCard()"]');
+    const origText = btn ? btn.innerHTML : '<i data-lucide="credit-card"></i> Download Card';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> Generating Card...';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    try {
+        const cardElement = document.querySelector('.qr-card');
+        const actionsGroup = document.querySelector('.action-group');
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : { shopName: 'Your Shop' };
+        
+        if (!cardElement) throw new Error("Card element not found");
+
+        // Hide action buttons temporarily
+        if (actionsGroup) actionsGroup.style.display = 'none';
+
+        // Add 'Powered by Scan2Skip' temporarily
+        const footer = document.createElement('div');
+        footer.id = 'temp-card-footer';
+        footer.style.textAlign = 'center';
+        footer.style.marginTop = '1.5rem';
+        footer.style.color = 'var(--text-muted, #94a3b8)';
+        footer.style.fontSize = '14px';
+        footer.style.fontWeight = '500';
+        footer.innerHTML = `Powered by <strong style="color: var(--primary, #14b8a6);">Scan2Skip</strong>`;
+        
+        const infoSide = document.querySelector('.qr-info-side');
+        if (infoSide) infoSide.appendChild(footer);
+
+        // Wait a small moment to ensure DOM paints
+        await new Promise(r => setTimeout(r, 100));
+
+        // Use html2canvas to capture exactly what is visible
+        const canvas = await html2canvas(cardElement, {
+            scale: 3, // High resolution
+            useCORS: true,
+            backgroundColor: window.getComputedStyle(cardElement).backgroundColor
+        });
+
+        // Restore the DOM
+        if (actionsGroup) actionsGroup.style.display = 'flex';
+        const addedFooter = document.getElementById('temp-card-footer');
+        if (addedFooter) addedFooter.remove();
+
+        // Download
+        const finalUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = finalUrl;
+        a.download = `${user.shopName.replace(/\\s+/g, '_')}_Scan2Skip_Card.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        if (window.showToast) showToast('Card Downloaded!', 'success');
+        
+    } catch(err) {
+        console.error(err);
+        
+        // Ensure DOM is restored in case of error
+        const actionsGroup = document.querySelector('.action-group');
+        if (actionsGroup) actionsGroup.style.display = 'flex';
+        const addedFooter = document.getElementById('temp-card-footer');
+        if (addedFooter) addedFooter.remove();
+        
+        if (window.showToast) showToast('Failed to generate card', 'error');
     } finally {
         if (btn) {
             btn.disabled = false;

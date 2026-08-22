@@ -101,10 +101,22 @@ class Router {
         navContainer.innerHTML = html;
         console.log('[ROUTER] Sidebar HTML set. Total links:', navContainer.querySelectorAll('.nav-item').length);
 
-        // Add close button to sidebar for mobile
+        // Ensure sidebar brand has the logo and mobile close button
         const brand = document.querySelector('.sidebar-brand');
-        if (brand && !brand.querySelector('.close-sidebar')) {
-            brand.innerHTML = `<i data-lucide="qr-code"></i> Scan2Skip <button class="close-sidebar btn-icon" style="margin-left:auto; display:none;" onclick="document.getElementById('sidebar').classList.remove('open')"><i data-lucide="x"></i></button>`;
+        if (brand) {
+            // Always ensure logo is present
+            if (!brand.querySelector('.sidebar-logo')) {
+                brand.innerHTML = `<img src="Scan2Skip_final_logo.svg" alt="Scan2Skip" class="sidebar-logo">`;
+            }
+            // Add close button for mobile if not present
+            if (!brand.querySelector('.close-sidebar')) {
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'close-sidebar btn-icon';
+                closeBtn.style.cssText = 'margin-left:auto; display:none;';
+                closeBtn.onclick = () => document.getElementById('sidebar').classList.remove('open');
+                closeBtn.innerHTML = '<i data-lucide="x"></i>';
+                brand.appendChild(closeBtn);
+            }
         }
 
         // Add logout button to header if missing

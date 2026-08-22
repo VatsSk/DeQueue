@@ -1324,7 +1324,7 @@ class CustomerApp {
   }
 
   generateInvoiceHTML(order) {
-    const shopName = this.vendor?.shopName || 'DeQueue Shop';
+    const shopName = this.vendor?.shopName || 'Scan2Skip Shop';
     const address = this.vendor?.address && this.vendor.address.street ? this.vendor.address.street : '';
     const phone = this.vendor?.phone || '';
     const email = this.vendor?.email || '';
@@ -1442,7 +1442,7 @@ class CustomerApp {
       
       <div class="footer">
         Thank you for visiting!<br>
-        Powered by DeQueue
+        Powered by Scan2Skip
       </div>
       </div>
       <script>window.onload=()=>window.print()<\/script>

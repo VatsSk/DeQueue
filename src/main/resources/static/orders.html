@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Orders - Scan2Skip</title>
@@ -13,7 +14,7 @@
 <body>
 <div class="app-layout">
     <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand"><i data-lucide="qr-code"></i> Scan2Skip</div>
+        <div class="sidebar-brand"><img src="scan2skip-logo.svg" alt="Scan2Skip" class="sidebar-logo"></div>
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i> Dashboard</a>
             <a href="orders.html" class="nav-item active"><i data-lucide="list-ordered"></i> Orders</a>
@@ -156,10 +157,10 @@
             </div>
 
             <div class="mb-4" style="border-top: 1px dashed var(--dq-border); padding-top: 10px;">
-                <div style="display:flex; justify-content: space-between; margin-bottom: 5px;"><span>Subtotal:</span> <span id="co-review-subtotal">₹0.00</span></div>
-                <div style="display:flex; justify-content: space-between; color: var(--dq-text-muted); margin-bottom: 5px;" id="co-review-tax-row" class="hidden"><span>Tax (<span id="co-review-tax-label"></span>):</span> <span id="co-review-tax">₹0.00</span></div>
-                <div style="display:flex; justify-content: space-between; color: var(--dq-text-muted); margin-bottom: 5px;" id="co-review-sc-row" class="hidden"><span>Service Charge:</span> <span id="co-review-sc">₹0.00</span></div>
-                <div style="display:flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; margin-top: 10px;"><span>Total:</span> <span id="co-review-total">₹0.00</span></div>
+                <div style="display:flex; justify-content: space-between; margin-bottom: 5px;"><span>Subtotal:</span> <span id="co-review-subtotal">â‚¹0.00</span></div>
+                <div style="display:flex; justify-content: space-between; color: var(--dq-text-muted); margin-bottom: 5px;" id="co-review-tax-row" class="hidden"><span>Tax (<span id="co-review-tax-label"></span>):</span> <span id="co-review-tax">â‚¹0.00</span></div>
+                <div style="display:flex; justify-content: space-between; color: var(--dq-text-muted); margin-bottom: 5px;" id="co-review-sc-row" class="hidden"><span>Service Charge:</span> <span id="co-review-sc">â‚¹0.00</span></div>
+                <div style="display:flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; margin-top: 10px;"><span>Total:</span> <span id="co-review-total">â‚¹0.00</span></div>
             </div>
         </div>
 
@@ -171,7 +172,7 @@
         </div>
 
         <div class="modal-footer" id="co-footer-menu" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-top: 1px solid var(--dq-border);">
-            <div style="font-weight: bold; font-size: 1.2rem;">Total: ₹<span id="co-total-price">0.00</span></div>
+            <div style="font-weight: bold; font-size: 1.2rem;">Total: â‚¹<span id="co-total-price">0.00</span></div>
             <div>
                 <button class="btn btn-primary" onclick="ordersApp.coGoToReview()">Review & Update</button>
             </div>
@@ -197,7 +198,7 @@
         <div class="modal-body" id="co-cust-body" style="flex: 1; overflow-y: auto; padding: 20px;">
         </div>
         <div class="modal-footer" style="padding: 20px; border-top: 1px solid var(--dq-border);">
-            <button class="btn btn-primary w-full" id="co-cust-add-btn" onclick="ordersApp.addCoCustomizedItem()">Add to Order - ₹<span id="co-cust-btn-price">0</span></button>
+            <button class="btn btn-primary w-full" id="co-cust-add-btn" onclick="ordersApp.addCoCustomizedItem()">Add to Order - â‚¹<span id="co-cust-btn-price">0</span></button>
         </div>
     </div>
 </div>
@@ -211,5 +212,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="js/orders.js?v=11"></script>
 <script>lucide.createIcons();</script>
+<script src="js/logo.js"></script>
 </body>
 </html>

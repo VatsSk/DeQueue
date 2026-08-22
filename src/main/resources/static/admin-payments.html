@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Payments Dashboard - DeQueue</title>
@@ -124,13 +125,13 @@
                 if (json.success) {
                     const d = json.data;
                     const cards = `
-                        <div class="col-md-3 mb-3"><div class="card text-white bg-primary"><div class="card-body"><h6>Total GMV</h6><h4>₹${d.totalGmv || 0}</h4></div></div></div>
-                        <div class="col-md-3 mb-3"><div class="card text-white bg-success"><div class="card-body"><h6>Online GMV</h6><h4>₹${d.onlineGmv || 0}</h4></div></div></div>
-                        <div class="col-md-3 mb-3"><div class="card text-white bg-info"><div class="card-body"><h6>Platform Net Rev.</h6><h4>₹${d.platformNetRevenue || 0}</h4></div></div></div>
-                        <div class="col-md-3 mb-3"><div class="card text-white bg-warning"><div class="card-body"><h6>Offline Comm. Recv.</h6><h4>₹${d.offlineCommissionReceivable || 0}</h4></div></div></div>
-                        <div class="col-md-3 mb-3"><div class="card bg-light"><div class="card-body"><h6>Platform Comm.</h6><h4>₹${d.platformGrossCommission || 0}</h4></div></div></div>
-                        <div class="col-md-3 mb-3"><div class="card bg-light"><div class="card-body"><h6>CF Fees & Taxes</h6><h4>₹${(d.cashfreeFees || 0) + (d.cashfreeTaxes || 0)}</h4></div></div></div>
-                        <div class="col-md-3 mb-3"><div class="card bg-light"><div class="card-body"><h6>Vendor Net</h6><h4>₹${d.totalVendorAmount || 0}</h4></div></div></div>
+                        <div class="col-md-3 mb-3"><div class="card text-white bg-primary"><div class="card-body"><h6>Total GMV</h6><h4>â‚¹${d.totalGmv || 0}</h4></div></div></div>
+                        <div class="col-md-3 mb-3"><div class="card text-white bg-success"><div class="card-body"><h6>Online GMV</h6><h4>â‚¹${d.onlineGmv || 0}</h4></div></div></div>
+                        <div class="col-md-3 mb-3"><div class="card text-white bg-info"><div class="card-body"><h6>Platform Net Rev.</h6><h4>â‚¹${d.platformNetRevenue || 0}</h4></div></div></div>
+                        <div class="col-md-3 mb-3"><div class="card text-white bg-warning"><div class="card-body"><h6>Offline Comm. Recv.</h6><h4>â‚¹${d.offlineCommissionReceivable || 0}</h4></div></div></div>
+                        <div class="col-md-3 mb-3"><div class="card bg-light"><div class="card-body"><h6>Platform Comm.</h6><h4>â‚¹${d.platformGrossCommission || 0}</h4></div></div></div>
+                        <div class="col-md-3 mb-3"><div class="card bg-light"><div class="card-body"><h6>CF Fees & Taxes</h6><h4>â‚¹${(d.cashfreeFees || 0) + (d.cashfreeTaxes || 0)}</h4></div></div></div>
+                        <div class="col-md-3 mb-3"><div class="card bg-light"><div class="card-body"><h6>Vendor Net</h6><h4>â‚¹${d.totalVendorAmount || 0}</h4></div></div></div>
                         <div class="col-md-3 mb-3"><div class="card bg-light"><div class="card-body"><h6>Total Orders (On/Off)</h6><h4>${d.totalOrders || 0} (${d.onlineOrders || 0}/${d.offlineOrders || 0})</h4></div></div></div>
                     `;
                     document.getElementById('summary-cards').innerHTML = cards;
@@ -150,11 +151,11 @@
                         tr.innerHTML = `
                             <td>${p.orderId}</td>
                             <td>${p.vendorId}</td>
-                            <td>₹${p.orderAmount}</td>
+                            <td>â‚¹${p.orderAmount}</td>
                             <td>${p.paymentSource}</td>
-                            <td>₹${p.platformCommission || 0}</td>
-                            <td>₹${(p.cashfreeFee || 0) + (p.cashfreeTax || 0)}</td>
-                            <td>₹${p.vendorNetAmount || 0}</td>
+                            <td>â‚¹${p.platformCommission || 0}</td>
+                            <td>â‚¹${(p.cashfreeFee || 0) + (p.cashfreeTax || 0)}</td>
+                            <td>â‚¹${p.vendorNetAmount || 0}</td>
                             <td>${new Date(p.createdAt).toLocaleString()}</td>
                         `;
                         tbody.appendChild(tr);
@@ -173,5 +174,6 @@
             loadPayments();
         };
     </script>
+<script src="js/logo.js"></script>
 </body>
 </html>

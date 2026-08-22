@@ -1,5 +1,5 @@
 /**
- * DeQueue Customer Notification Manager
+ * Scan2Skip Customer Notification Manager
  * Handles:
  * - WebSocket status updates with auto-reconnect + exponential backoff
  * - Service Worker registration + Web Push subscription
