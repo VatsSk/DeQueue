@@ -12,7 +12,7 @@ public class UpdateGeofenceRequest {
     private Double longitude;
     
     @NotNull
-    @Min(100)
+    @Min(0)
     private Double radius;
     
     private boolean enabled;

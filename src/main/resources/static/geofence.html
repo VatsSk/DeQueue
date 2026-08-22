@@ -105,8 +105,11 @@
                     <div class="gf-card">
                         <h3><i data-lucide="circle-dashed" style="color:var(--primary,#6366f1);width:18px;height:18px"></i> Radius</h3>
                         <div class="radius-row" style="margin-bottom:.75rem">
-                            <input type="range" id="radius-slider" min="100" max="5000" step="50" value="500" oninput="geofenceApp.onRadiusChange(this.value)">
-                            <span class="radius-val"><span id="radius-display">500</span> m</span>
+                            <input type="range" id="radius-slider" min="1" max="5000" step="1" value="5" oninput="geofenceApp.onRadiusChange(this.value)">
+                            <div class="radius-val" style="display:flex;align-items:center;gap:4px">
+                                <input type="number" id="radius-input" value="5" min="1" max="5000" oninput="geofenceApp.onRadiusChange(this.value)" style="width:60px;text-align:right;border:1px solid var(--border);border-radius:4px;font-weight:700;color:var(--primary,#6366f1);font-family:inherit;padding:2px;background:transparent;">
+                                <span>m</span>
+                            </div>
                         </div>
                         <div class="flex gap-2" style="flex-wrap:wrap">
                             <button class="btn btn-secondary" style="flex:1;padding:.35rem .25rem;font-size:.82rem" onclick="geofenceApp.setRadius(200)">200 m</button>
@@ -139,14 +142,14 @@ lucide.createIcons();
 class GeofenceApp {
     constructor() {
         this.map=null;this.marker=null;this.circle=null;
-        this.lat=null;this.lng=null;this.radius=500;this.enabled=false;
+        this.lat=null;this.lng=null;this.radius=5;this.enabled=false;
         this.init();
     }
     async init(){this._initMap();await this._load();}
     _initMap(){
-        this.map=L.map('geofence-map').setView([20.5937,78.9629],5);
+        this.map=L.map('geofence-map',{maxZoom:28}).setView([20.5937,78.9629],5);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-            attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:19
+            attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:28,maxNativeZoom:19
         }).addTo(this.map);
         this.map.on('click',(e)=>this._placeMarker(e.latlng.lat,e.latlng.lng));
         this.map.once('click',()=>{const h=document.getElementById('map-hint');if(h)h.style.opacity='0';});
@@ -169,9 +172,9 @@ class GeofenceApp {
     }
     _updateCoordsDisplay(){const el=document.getElementById('coords-display');if(el&&this.lat!==null)el.textContent='Lat: '+this.lat.toFixed(6)+', Lng: '+this.lng.toFixed(6);}
     onRadiusChange(val){
-        this.radius=parseInt(val);
-        document.getElementById('radius-display').textContent=this.radius;
-        document.getElementById('radius-slider').value=this.radius;
+        this.radius=parseInt(val)||1;
+        const inp=document.getElementById('radius-input');if(inp&&inp.value!=this.radius)inp.value=this.radius;
+        const sld=document.getElementById('radius-slider');if(sld&&sld.value!=this.radius)sld.value=this.radius;
         if(this.circle)this.circle.setRadius(this.radius);
     }
     setRadius(val){this.onRadiusChange(val);}
@@ -206,10 +209,10 @@ class GeofenceApp {
             const data=await api.get('/geofence');
             if(data&&data.data){
                 const g=data.data;
-                this.enabled=!!g.enabled;this.radius=g.radius||500;
+                this.enabled=!!g.enabled;this.radius=g.radius||5;
                 document.getElementById('enable-toggle').checked=this.enabled;
                 document.getElementById('radius-slider').value=this.radius;
-                document.getElementById('radius-display').textContent=this.radius;
+                const inp=document.getElementById('radius-input');if(inp)inp.value=this.radius;
                 this._updateStatusBadge();
                 if(g.latitude&&g.longitude){this._placeMarker(g.latitude,g.longitude);this.map.setView([g.latitude,g.longitude],15);}
             }
