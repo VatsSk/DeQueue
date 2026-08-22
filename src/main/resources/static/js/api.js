@@ -53,9 +53,6 @@ class ApiClient {
       return data;
     } catch (error) {
       console.error('API Error:', error);
-      if (window.showToast) {
-        window.showToast(error.message, 'error');
-      }
       throw error;
     }
   }
